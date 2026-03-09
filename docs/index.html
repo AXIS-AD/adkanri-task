@@ -7,46 +7,50 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <meta name="apple-mobile-web-app-title" content="TOアド管理">
   <style>
+    /* Google Ads Editor 風 - ライトテーマ */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'Segoe UI', -apple-system, sans-serif; }
+    html, body { height: 100%; font-family: 'Google Sans', Roboto, -apple-system, sans-serif; }
     body {
-      background: #0f172a;
-      color: #f1f5f9;
+      background: #f8f9fa;
+      color: #202124;
     }
     .app-header {
-      background: #1e293b;
-      border-bottom: 1px solid #475569;
+      background: #fff;
+      border-bottom: 1px solid #dadce0;
       padding: 12px 20px;
       display: flex;
       align-items: center;
       gap: 16px;
+      box-shadow: 0 1px 2px rgba(60,64,67,.1);
     }
     .app-header h1 {
       font-size: 18px;
-      font-weight: 700;
+      font-weight: 500;
+      color: #202124;
     }
     .tabs {
       display: flex;
-      gap: 4px;
+      gap: 0;
     }
     .tab {
-      padding: 8px 16px;
-      border-radius: 8px;
+      padding: 10px 18px;
+      border-radius: 0;
       background: transparent;
       border: none;
-      color: #94a3b8;
+      border-bottom: 3px solid transparent;
+      color: #5f6368;
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
       transition: all .2s;
     }
     .tab:hover {
-      color: #f1f5f9;
-      background: rgba(255,255,255,.08);
+      color: #202124;
     }
     .tab.active {
-      background: #3b82f6;
-      color: white;
+      color: #4285f4;
+      border-bottom-color: #4285f4;
+      background: transparent;
     }
     .content {
       height: calc(100vh - 52px);
@@ -68,9 +72,9 @@
       border: none;
     }
     .task-panel-controls {
-      background: #1e293b;
+      background: #fff;
       padding: 10px 20px;
-      border-bottom: 1px solid #475569;
+      border-bottom: 1px solid #dadce0;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -83,43 +87,45 @@
     }
     .task-panel-controls label {
       font-size: 13px;
-      color: #94a3b8;
+      color: #5f6368;
     }
     .task-panel-controls input {
       padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid #475569;
-      background: #334155;
-      color: #f1f5f9;
+      border-radius: 4px;
+      border: 1px solid #dadce0;
+      background: #fff;
+      color: #202124;
       font-size: 13px;
       min-width: 220px;
     }
     .task-panel-controls input::placeholder {
-      color: #64748b;
+      color: #80868b;
     }
     .task-panel-controls button {
       padding: 6px 14px;
-      border-radius: 6px;
+      border-radius: 4px;
       border: none;
-      background: #3b82f6;
+      background: #4285f4;
       color: white;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
     }
     .task-panel-controls button:hover {
-      opacity: .9;
+      background: #3367d6;
     }
     .task-panel-controls .view-toggle {
       display: flex;
       gap: 4px;
     }
     .task-panel-controls .view-toggle button {
-      background: #334155;
+      background: #f1f3f4;
+      color: #5f6368;
       font-weight: 500;
     }
     .task-panel-controls .view-toggle button.active {
-      background: #3b82f6;
+      background: #e8f0fe;
+      color: #4285f4;
     }
     .task-frame-wrap {
       height: calc(100% - 48px);
@@ -133,18 +139,18 @@
     .task-unavailable {
       padding: 40px 24px;
       text-align: center;
-      color: #94a3b8;
-      background: #1e293b;
+      color: #5f6368;
+      background: #fff;
       margin: 20px;
-      border-radius: 12px;
-      border: 1px dashed #475569;
+      border-radius: 4px;
+      border: 1px dashed #dadce0;
     }
     .task-unavailable h3 {
-      color: #f1f5f9;
+      color: #202124;
       margin-bottom: 8px;
     }
     .task-unavailable code {
-      background: #334155;
+      background: #f1f3f4;
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 12px;
