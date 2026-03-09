@@ -272,6 +272,28 @@
 
     ::placeholder { color: var(--text-dim); }
     ::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+    /* タブ */
+    .tabs { display: flex; gap: 0; background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 16px; }
+    .tab-btn {
+      padding: 14px 24px; background: none; border: none; border-bottom: 3px solid transparent;
+      color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* タスク一覧 */
+    .task-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .task-table th, .task-table td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+    .task-table th { color: var(--text-muted); font-weight: 600; }
+    .task-table tr:hover { background: rgba(79,91,147,0.05); }
+    .task-status { padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+    .task-status.未対応 { background: rgba(248,113,113,0.15); color: #f87171; }
+    .task-status.対応中 { background: rgba(234,179,8,0.15); color: #eab308; }
+    .task-status.完了 { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .task-row select { padding: 6px 8px; font-size: 12px; width: auto; min-width: 90px; }
+    .task-row .btn-update { padding: 6px 12px; font-size: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; }
+    .task-row .btn-update:hover { background: var(--primary-hover); }
   </style>
 </head>
 <body>
@@ -279,48 +301,54 @@
 <div class="header">
   <h1>TO アド管理依頼</h1>
   <p>アド管理チームへの依頼フォーム</p>
+  <p id="currentUser" style="font-size:12px;opacity:0.9;margin-top:6px;"></p>
+</div>
+
+<!-- タブ -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="form">依頼する</button>
+  <button class="tab-btn" data-tab="tasks">タスク一覧</button>
 </div>
 
 <!-- ========== フォーム画面 ========== -->
 <div class="container" id="formScreen">
 
-  <!-- STEP 1: 氏名 -->
-  <div class="step">
-    <div class="step-label"><span class="step-num">1</span>氏名を選択</div>
-    <div class="card">
-      <div class="field">
-        <select id="nameSelect">
-          <option value="">選択してください</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-  <!-- STEP 2: 大分類 -->
-  <div class="step hidden" id="step2">
-    <div class="step-label"><span class="step-num">2</span>依頼内容を選択</div>
+  <!-- STEP 1: 大分類 -->
+  <div class="step" id="step1">
+    <div class="step-label"><span class="step-num">1</span>依頼内容を選択</div>
     <div class="card">
       <div class="category-grid" id="categoryGrid"></div>
     </div>
   </div>
 
-  <!-- STEP 3: 小分類 -->
-  <div class="step hidden" id="step3">
-    <div class="step-label"><span class="step-num">3</span>詳細カテゴリを選択</div>
+  <!-- STEP 2: 小分類 -->
+  <div class="step hidden" id="step2">
+    <div class="step-label"><span class="step-num">2</span>詳細カテゴリを選択</div>
     <div class="card">
       <div class="sub-category-list" id="subCategoryList"></div>
     </div>
   </div>
 
-  <!-- STEP 4: 詳細入力 -->
-  <div class="step hidden" id="step4">
-    <div class="step-label"><span class="step-num">4</span>詳細を入力</div>
+  <!-- STEP 3: 詳細入力 -->
+  <div class="step hidden" id="step3">
+    <div class="step-label"><span class="step-num">3</span>詳細を入力</div>
     <div class="card" id="detailFields"></div>
   </div>
 
   <!-- 送信ボタン -->
   <div class="submit-area hidden" id="submitArea">
     <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">送信する</button>
+  </div>
+</div>
+
+<!-- ========== タスク一覧画面 ========== -->
+<div class="container hidden" id="tasksScreen">
+  <div class="step">
+    <div class="step-label">タスク一覧</div>
+    <div class="card">
+      <button class="new-btn" onclick="loadTasks()" style="margin-bottom:16px;">更新</button>
+      <div id="taskList"></div>
+    </div>
   </div>
 </div>
 
@@ -541,7 +569,7 @@ const FIELDS = {
 // ====================================================
 
 let state = {
-  name: '',
+  currentUser: { email: '', name: '' },
   categoryId: '',
   categoryLabel: '',
   subCategoryId: '',
@@ -553,33 +581,43 @@ let state = {
 // ====================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-  loadNames();
+  loadCurrentUser();
   renderCategories();
+  setupTabs();
 });
 
-function loadNames() {
+function loadCurrentUser() {
   google.script.run
-    .withSuccessHandler(function(names) {
-      const sel = document.getElementById('nameSelect');
-      names.forEach(function(n) {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.textContent = n;
-        sel.appendChild(opt);
-      });
+    .withSuccessHandler(function(user) {
+      state.currentUser = user;
+      const el = document.getElementById('currentUser');
+      if (el) {
+        if (user.allowed === false) {
+          el.textContent = '依頼者: AXISアドレスのみ利用可能です';
+          el.style.color = 'var(--danger)';
+        } else {
+          el.textContent = '依頼者: ' + (user.name || user.email || '読み込み中...');
+          el.style.color = '';
+        }
+      }
     })
     .withFailureHandler(function() {
-      // フォールバック：ハードコード
-      const fallback = ['後藤 幹雄','米沢 祐輝','内海 翔太','杉本 楓','工内 優雅','萬木 真人','二関 颯太','横山 龍','大原 龍太郎','松本 陸','吉永 健人','中田 悠太','安部 勇之介','田村 遥奈','庄司 一平','中村 航','木口 史也','鹿島 圭市','菅野 太一','岩﨑 麻衣花','田中 隆之介','古木 海翔','白井 和希','松﨑 陽紀','穂積 正弥','筒井 はな乃','西村 知輝','臼倉 駿太','寒竹 由稀','高木 優希','大野 健太','加藤 萌々','小堂 陽人','山崎 涼太郎'];
-      const sel = document.getElementById('nameSelect');
-      fallback.forEach(function(n) {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.textContent = n;
-        sel.appendChild(opt);
-      });
+      document.getElementById('currentUser').textContent = '依頼者: 取得できません（要ログイン）';
     })
-    .getNames();
+    .getCurrentUser();
+}
+
+function setupTabs() {
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.onclick = function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('formScreen').classList.toggle('hidden', tab !== 'form');
+      document.getElementById('tasksScreen').classList.toggle('hidden', tab !== 'tasks');
+      if (tab === 'tasks') loadTasks();
+    };
+  });
 }
 
 // ====================================================
@@ -599,18 +637,6 @@ function renderCategories() {
   });
 }
 
-// ====================================================
-// 氏名選択
-// ====================================================
-
-document.getElementById('nameSelect').addEventListener('change', function() {
-  state.name = this.value;
-  if (this.value) {
-    show('step2');
-  } else {
-    hide('step2'); hide('step3'); hide('step4'); hide('submitArea');
-  }
-});
 
 // ====================================================
 // 大分類選択
@@ -629,23 +655,23 @@ function selectCategory(cat) {
 
   if (subs && subs.length > 1) {
     renderSubCategories(subs);
-    show('step3');
-    hide('step4');
+    show('step2');
+    hide('step3');
     hide('submitArea');
   } else if (subs && subs.length === 1) {
-    hide('step3');
+    hide('step2');
     selectSubCategory(subs[0]);
   } else {
-    hide('step3');
+    hide('step2');
     const fieldKey = cat.id;
     if (FIELDS[fieldKey]) {
       state.subCategoryId = fieldKey;
       state.subCategoryLabel = '';
       renderFields(FIELDS[fieldKey]);
-      show('step4');
+      show('step3');
       show('submitArea');
     } else {
-      hide('step4');
+      hide('step3');
       hide('submitArea');
     }
   }
@@ -679,7 +705,7 @@ function selectSubCategory(sub) {
   const fields = FIELDS[sub.id];
   if (fields) {
     renderFields(fields);
-    show('step4');
+    show('step3');
     show('submitArea');
   }
 }
@@ -743,7 +769,19 @@ function validate() {
   document.querySelectorAll('.error-msg').forEach(function(e) { e.remove(); });
   document.querySelectorAll('.field-error').forEach(function(e) { e.classList.remove('field-error'); });
 
-  if (!state.name) { valid = false; }
+  if (!state.currentUser || !state.currentUser.allowed || (!state.currentUser.name && !state.currentUser.email)) {
+    valid = false;
+    const container = document.getElementById('formScreen');
+    if (container && !document.querySelector('.error-msg.current-user-error')) {
+      const err = document.createElement('div');
+      err.className = 'error-msg current-user-error';
+      err.style.marginBottom = '16px';
+      err.textContent = state.currentUser && state.currentUser.allowed === false
+        ? 'AXISアドレス（@axis-ads.co.jp 等）でログインしてください。'
+        : '依頼者情報が取得できません。デプロイを「ユーザーとして実行」に設定してください。';
+      container.insertBefore(err, container.firstChild);
+    }
+  }
   if (!state.categoryId) { valid = false; }
 
   const inputs = document.querySelectorAll('#detailFields input, #detailFields select, #detailFields textarea');
@@ -780,7 +818,7 @@ function handleSubmit() {
   });
 
   const formData = {
-    name: state.name,
+    name: state.currentUser.name || state.currentUser.email || '不明',
     category: state.categoryLabel,
     subCategory: state.subCategoryLabel,
     fields: fields
@@ -811,15 +849,64 @@ function handleSubmit() {
 // ====================================================
 
 function resetForm() {
-  state = { name: '', categoryId: '', categoryLabel: '', subCategoryId: '', subCategoryLabel: '' };
-  document.getElementById('nameSelect').value = '';
+  state.categoryId = '';
+  state.categoryLabel = '';
+  state.subCategoryId = '';
+  state.subCategoryLabel = '';
   document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
-  hide('step2'); hide('step3'); hide('step4'); hide('submitArea');
+  hide('step2'); hide('step3'); hide('submitArea');
   document.getElementById('detailFields').innerHTML = '';
   document.getElementById('submitBtn').disabled = false;
   document.getElementById('submitBtn').textContent = '送信する';
   hide('successScreen');
   show('formScreen');
+}
+
+// ====================================================
+// タスク一覧
+// ====================================================
+
+function loadTasks() {
+  google.script.run
+    .withSuccessHandler(renderTasks)
+    .withFailureHandler(function() { document.getElementById('taskList').innerHTML = '<p style="color:var(--text-dim)">読み込みに失敗しました</p>'; })
+    .getTasks();
+}
+
+function renderTasks(tasks) {
+  const el = document.getElementById('taskList');
+  if (!tasks || tasks.length === 0) {
+    el.innerHTML = '<p style="color:var(--text-dim)">タスクがありません</p>';
+    return;
+  }
+  let html = '<table class="task-table"><thead><tr><th>タスクID</th><th>依頼者</th><th>依頼内容</th><th>日時</th><th>進捗</th><th></th></tr></thead><tbody>';
+  tasks.forEach(function(t) {
+    html += '<tr class="task-row" data-task-id="' + t.taskId + '">';
+    html += '<td>' + t.reqId + '</td>';
+    html += '<td>' + t.requester + '</td>';
+    html += '<td>' + t.category + (t.subCategory ? ' / ' + t.subCategory : '') + '</td>';
+    html += '<td>' + t.createdAt + '</td>';
+    html += '<td><select class="status-select" data-task-id="' + t.taskId + '">';
+    html += '<option value="未対応"' + (t.status === '未対応' ? ' selected' : '') + '>未対応</option>';
+    html += '<option value="対応中"' + (t.status === '対応中' ? ' selected' : '') + '>対応中</option>';
+    html += '<option value="完了"' + (t.status === '完了' ? ' selected' : '') + '>完了</option>';
+    html += '</select></td>';
+    html += '<td><button class="btn-update" onclick="doUpdateStatus(' + t.taskId + ')">更新</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function doUpdateStatus(taskId) {
+  const row = document.querySelector('.task-row[data-task-id="' + taskId + '"]');
+  const select = row ? row.querySelector('.status-select') : null;
+  if (!select) return;
+  const status = select.value;
+  google.script.run
+    .withSuccessHandler(function() { loadTasks(); })
+    .withFailureHandler(function() { alert('更新に失敗しました'); })
+    .updateTaskStatus(taskId, status);
 }
 
 // ====================================================

@@ -1,33 +1,34 @@
 // ====================================================
-// TOアド管理依頼ツール - サーバーサイド
+// TOアド管理依頼ツール v2 - サーバーサイド
+// AXISアドレスのみ / メールアドレスを依頼者名に / スプシ不要
 // ====================================================
 
-// ※ デプロイ時に以下を設定してください
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID';
-const SHEET_NAME = '依頼データ';
-const MASTER_SHEET_NAME = '氏名マスタ';
-const CHATWORK_API_TOKEN = 'YOUR_CHATWORK_API_TOKEN';
-const CHATWORK_ROOM_ID = 'YOUR_CHATWORK_ROOM_ID';
+// ※ デプロイは「ユーザーとして実行」にすること
+// ※ 機密情報は「スクリプト プロパティ」で設定（プロジェクトの設定 → スクリプト プロパティ）
 
-// 大分類ごとのChatworkユーザーID
-const ASSIGN_MAP = {
-  'アカウント関連（作成・紐づけ・エラー）': 'USER_ID_1',
-  'リンク発行（ナハト・AXIS・DIO）': 'USER_ID_1',
-  'リンク発行（ナハト・AXIS・DIO以外）': 'USER_ID_1',
-  'スプシ関連（精査用シート・分析シート・運用シート）': 'USER_ID_2',
-  '新規案件': 'USER_ID_2',
-  'その他/エラー関連': 'USER_ID_2',
-  'CSV保管修正': 'USER_ID_2',
-  '単価変更': 'USER_ID_2',
-  'キャップ通知依頼': 'USER_ID_2',
-  '新規オファー追加（アカ開設・単価登録・リンク発行などまとめて依頼）': 'USER_ID_2'
-};
+// スクリプト プロパティで設定するキー:
+//   CHATWORK_API_TOKEN, CHATWORK_ROOM_ID, ALL_USER_IDS, ASSIGN_MAP_JSON
 
-const ALL_USER_IDS = 'YOUR_USER_IDS_COMMA_SEPARATED'; // 営業時間外の通知先
+// 許可するメールドメイン（変更する場合はここを編集）
+const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com'];
 
-// ====================================================
-// Web App エントリポイント
-// ====================================================
+const REQ_PREFIX = 'REQ-ID:';
+const PROPS_KEY = 'AD_REQUEST_TASKS';
+
+function getConfig() {
+  const p = PropertiesService.getScriptProperties();
+  return {
+    apiToken: p.getProperty('CHATWORK_API_TOKEN') || '',
+    roomId: p.getProperty('CHATWORK_ROOM_ID') || '',
+    allUserIds: p.getProperty('ALL_USER_IDS') || '',
+    assignMap: (function() {
+      try {
+        const json = p.getProperty('ASSIGN_MAP_JSON');
+        return json ? JSON.parse(json) : {};
+      } catch (e) { return {}; }
+    })()
+  };
+}
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
@@ -37,109 +38,60 @@ function doGet() {
 }
 
 // ====================================================
-// 氏名マスタ取得
+// 現在のユーザー取得（AXISアドレスのみ・メールアドレスを依頼者名に）
 // ====================================================
+// ※ デプロイは「ユーザーとして実行」にすること
 
-function getNames() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(MASTER_SHEET_NAME);
-  if (!sheet) return [];
-  const data = sheet.getDataRange().getValues();
-  return data.slice(1)
-    .filter(row => row[1] !== '無効')
-    .map(row => row[0]);
+function getCurrentUser() {
+  const email = Session.getActiveUser().getEmail() || '';
+  const domain = email.indexOf('@') >= 0 ? email.split('@')[1].toLowerCase() : '';
+  const allowed = ALLOWED_EMAIL_DOMAINS.some(function(d) { return domain === d.toLowerCase(); });
+
+  if (!allowed || !email) {
+    return { email: '', name: '', allowed: false };
+  }
+
+  // アドレスをそのまま依頼者名に使用
+  return { email: email, name: email, allowed: true };
 }
 
 // ====================================================
-// フォーム送信処理
+// 依頼送信（チャットワークにタスク化）
 // ====================================================
 
 function submitRequest(formData) {
   try {
-    const id = writeToSheet(formData);
-    sendChatworkTask(formData);
-    return { success: true, id: id };
+    const user = getCurrentUser();
+    if (!user.allowed) {
+      return { success: false, error: 'AXISアドレスでのみ依頼できます。' };
+    }
+    formData.name = user.email;
+
+    const reqId = 'REQ-' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmmss');
+    const taskId = sendChatworkTask(formData, reqId);
+    if (taskId) {
+      saveTaskMeta(taskId, reqId, formData, '未対応');
+    }
+    return { success: true, id: reqId };
   } catch (e) {
     Logger.log('submitRequest error: ' + e.message);
     return { success: false, error: e.message };
   }
 }
 
-// ====================================================
-// スプシ書き込み
-// ====================================================
-
-function writeToSheet(formData) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  let sheet = ss.getSheetByName(SHEET_NAME);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow([
-      'ID', 'タイムスタンプ', '氏名', '大分類', '小分類', '詳細', 'ステータス'
-    ]);
-    sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
-  }
-
-  const lastRow = sheet.getLastRow();
-  const id = 'REQ-' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd') + '-' + String(lastRow).padStart(4, '0');
-  const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
-
-  const detailObj = {};
-  if (formData.fields) {
-    formData.fields.forEach(function(f) {
-      if (f.value && f.value.toString().trim() !== '') {
-        detailObj[f.label] = f.value;
-      }
-    });
-  }
-
-  sheet.appendRow([
-    id,
-    timestamp,
-    formData.name,
-    formData.category,
-    formData.subCategory || '',
-    JSON.stringify(detailObj, null, 0),
-    '未対応'
-  ]);
-
-  return id;
-}
-
-// ====================================================
-// チャットワーク通知
-// ====================================================
-
-function sendChatworkTask(formData) {
+function sendChatworkTask(formData, reqId) {
+  const cfg = getConfig();
   const businessHours = isBusinessHours();
-  let toId;
+  let toId = businessHours ? cfg.assignMap[formData.category] : cfg.allUserIds;
+  if (!toId) toId = cfg.allUserIds;
 
-  if (businessHours) {
-    toId = ASSIGN_MAP[formData.category];
-  } else {
-    toId = ALL_USER_IDS;
-  }
-
-  if (!toId) {
-    toId = ALL_USER_IDS;
-  }
-
-  let taskBody = '依頼がきました。対応お願いします！';
-
-  if (!businessHours) {
-    taskBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
-  }
+  let taskBody = REQ_PREFIX + ' ' + reqId + '\n\n';
+  taskBody += '依頼がきました。対応お願いします！';
+  if (!businessHours) taskBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
 
   const subLabel = formData.subCategory || formData.category;
-  taskBody += '\n\n【' + subLabel + '】\n[info]';
-  taskBody += '\n依頼者：' + formData.name;
-  taskBody += '\n大分類：' + formData.category;
-
-  if (formData.subCategory) {
-    taskBody += '\n小分類：' + formData.subCategory;
-  }
-
+  taskBody += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
+  if (formData.subCategory) taskBody += '\n小分類：' + formData.subCategory;
   if (formData.fields) {
     formData.fields.forEach(function(f) {
       if (f.value && f.value.toString().trim() !== '') {
@@ -147,30 +99,123 @@ function sendChatworkTask(formData) {
       }
     });
   }
-
   taskBody += '\n[/info]';
 
   const dueDateUnix = Math.floor(new Date().getTime() / 1000) + 86400;
-  const url = 'https://api.chatwork.com/v2/rooms/' + CHATWORK_ROOM_ID + '/tasks';
-
+  const url = 'https://api.chatwork.com/v2/rooms/' + cfg.roomId + '/tasks';
   const options = {
     method: 'post',
-    headers: { 'X-ChatWorkToken': CHATWORK_API_TOKEN },
-    payload: {
-      body: taskBody,
-      limit: String(dueDateUnix),
-      to_ids: toId
-    },
+    headers: { 'X-ChatWorkToken': cfg.apiToken },
+    payload: { body: taskBody, limit: String(dueDateUnix), to_ids: toId },
     muteHttpExceptions: true
   };
 
-  try {
-    const response = UrlFetchApp.fetch(url, options);
-    Logger.log('Chatwork送信成功: ' + response.getContentText());
-  } catch (e) {
-    Logger.log('Chatwork送信失敗: ' + e.message);
-    throw new Error('チャットワーク通知に失敗しました');
+  const res = UrlFetchApp.fetch(url, options);
+  const json = JSON.parse(res.getContentText());
+  if (json.task_ids && json.task_ids[0]) {
+    return json.task_ids[0];
   }
+  throw new Error('チャットワーク通知に失敗しました');
+}
+
+// ====================================================
+// タスクメタ管理（PropertiesService）
+// ====================================================
+
+function saveTaskMeta(taskId, reqId, formData, status) {
+  const props = PropertiesService.getScriptProperties();
+  const data = props.getProperty(PROPS_KEY);
+  const map = data ? JSON.parse(data) : {};
+  map[String(taskId)] = {
+    reqId: reqId,
+    status: status,
+    requester: formData.name,
+    category: formData.category,
+    subCategory: formData.subCategory || '',
+    createdAt: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm')
+  };
+  props.setProperty(PROPS_KEY, JSON.stringify(map));
+}
+
+function getTaskMeta() {
+  const props = PropertiesService.getScriptProperties();
+  const data = props.getProperty(PROPS_KEY);
+  return data ? JSON.parse(data) : {};
+}
+
+// ====================================================
+// タスク一覧取得
+// ====================================================
+
+function getTasks() {
+  const cfg = getConfig();
+  const url = 'https://api.chatwork.com/v2/rooms/' + cfg.roomId + '/tasks';
+  const options = {
+    method: 'get',
+    headers: { 'X-ChatWorkToken': cfg.apiToken },
+    muteHttpExceptions: true
+  };
+
+  const res = UrlFetchApp.fetch(url, options);
+  if (res.getResponseCode() !== 200) return [];
+
+  const tasks = JSON.parse(res.getContentText());
+  const meta = getTaskMeta();
+  const result = [];
+
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i];
+    const reqIdMatch = t.body && t.body.indexOf(REQ_PREFIX) === 0
+      ? t.body.split('\n')[0].replace(REQ_PREFIX, '').trim()
+      : null;
+
+    if (!reqIdMatch) continue;
+
+    const m = meta[String(t.task_id)] || {};
+    const status = m.status || (t.status === 'done' ? '完了' : '未対応');
+
+    result.push({
+      taskId: t.task_id,
+      reqId: m.reqId || reqIdMatch,
+      status: status,
+      requester: m.requester || '-',
+      category: m.category || '-',
+      subCategory: m.subCategory || '',
+      createdAt: m.createdAt || '-',
+      cwStatus: t.status
+    });
+  }
+
+  result.sort(function(a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+  return result;
+}
+
+// ====================================================
+// 進捗更新
+// ====================================================
+
+function updateTaskStatus(taskId, status) {
+  const props = PropertiesService.getScriptProperties();
+  const data = props.getProperty(PROPS_KEY);
+  const map = data ? JSON.parse(data) : {};
+
+  if (!map[String(taskId)]) return { success: false, error: 'タスクが見つかりません' };
+
+  map[String(taskId)].status = status;
+  props.setProperty(PROPS_KEY, JSON.stringify(map));
+
+  if (status === '完了') {
+    const cfg = getConfig();
+    const putUrl = 'https://api.chatwork.com/v2/rooms/' + cfg.roomId + '/tasks/' + taskId + '/status';
+    UrlFetchApp.fetch(putUrl, {
+      method: 'put',
+      headers: { 'X-ChatWorkToken': cfg.apiToken },
+      payload: { status: 'done' },
+      muteHttpExceptions: true
+    });
+  }
+
+  return { success: true };
 }
 
 // ====================================================
@@ -182,7 +227,6 @@ function isBusinessHours() {
   const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
   const day = jst.getDay();
   const hours = jst.getHours();
-
   if (day === 0 || day === 6) return false;
   if (isJapaneseHoliday(jst)) return false;
   return hours >= 10 && hours < 19;
@@ -192,30 +236,21 @@ function isJapaneseHoliday(date) {
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const year = date.getFullYear();
-
-  const fixed = [
-    [1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],
-    [8,11],[11,3],[11,23]
-  ];
+  const fixed = [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[8,11],[11,3],[11,23]];
   for (const [m, d] of fixed) {
     if (month === m && day === d) return true;
   }
-
   const nthMonday = (n) => {
     const first = new Date(year, month - 1, 1);
     const firstDay = first.getDay();
     const firstMon = firstDay <= 1 ? (1 - firstDay + 1) : (8 - firstDay + 1);
     return firstMon + (n - 1) * 7;
   };
-
   if (month === 1 && day === nthMonday(2)) return true;
   if (month === 7 && day === nthMonday(3)) return true;
   if (month === 9 && day === nthMonday(3)) return true;
   if (month === 10 && day === nthMonday(2)) return true;
-
-  // 春分・秋分（概算）
   if (month === 3 && day === 20) return true;
   if (month === 9 && day === 23) return true;
-
   return false;
 }
