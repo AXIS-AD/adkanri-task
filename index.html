@@ -298,6 +298,14 @@
 </head>
 <body>
 
+<script>
+// 直接GASのURLを開いた場合は Netlify にリダイレクト（アドレスバーを自社URLに）
+if (window.top === window.self) {
+  window.location.replace('https://adkanri-task.netlify.app');
+  document.body.innerHTML = '<div style="font-family:sans-serif;text-align:center;padding:40px;color:#64748b;">リダイレクト中...</div>';
+}
+</script>
+
 <div class="header">
   <h1>TO アド管理依頼</h1>
   <p>アド管理チームへの依頼フォーム</p>

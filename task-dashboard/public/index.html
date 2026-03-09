@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --text2: #94a3b8;
+    --accent: #3b82f6;
+    --red: #ef4444;
+    --orange: #f97316;
+    --yellow: #eab308;
+    --green: #22c55e;
+    --purple: #a855f7;
+    --pink: #ec4899;
+    --cyan: #06b6d4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .reload-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: opacity .2s;
+  }
+  .reload-btn:hover { opacity: .85; }
+  .reload-btn:disabled { opacity: .5; cursor: wait; }
+
+  .stats {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .stat-badge {
+    background: var(--surface2);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .stat-badge strong { color: var(--text); }
+
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .section-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .section-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .section-count {
+    background: var(--surface2);
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    transition: border-color .2s;
+    position: relative;
+  }
+  .card:hover { border-color: var(--accent); }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    flex: 1;
+    margin-right: 8px;
+  }
+
+  .card-priority {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .card-priority.high { background: rgba(239,68,68,.2); color: var(--red); }
+  .card-priority.medium { background: rgba(234,179,8,.2); color: var(--yellow); }
+  .card-priority.low { background: rgba(148,163,184,.2); color: var(--text2); }
+
+  .card-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .card-body {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+    max-height: 60px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .card-actions select, .card-actions input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .card-actions input {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .overdue { border-left: 3px solid var(--red); }
+  .due-today { border-left: 3px solid var(--orange); }
+  .due-soon { border-left: 3px solid var(--yellow); }
+
+  .tool-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+  }
+
+  .tool-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tool-name { font-weight: 600; font-size: 14px; flex: 1; }
+
+  .tool-note {
+    font-size: 12px;
+    color: var(--text2);
+    flex: 1;
+  }
+
+  .tool-row select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .monthly-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  .monthly-row:hover { border-color: var(--accent); }
+
+  .monthly-row.done { opacity: .5; }
+  .monthly-row.done .monthly-title { text-decoration: line-through; }
+
+  .monthly-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .monthly-row.done .monthly-check {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  .monthly-title { font-size: 14px; font-weight: 500; }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .error-msg {
+    text-align: center;
+    padding: 20px;
+    color: var(--red);
+    background: rgba(239,68,68,.1);
+    border-radius: 10px;
+  }
+
+  .last-updated {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .view-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--surface2);
+    color: var(--text2);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Task Dashboard</h1>
+  <span class="view-badge" id="viewBadge"></span>
+  <div class="stats">
+    <span class="last-updated" id="lastUpdated"></span>
+    <span class="stat-badge">全 <strong id="totalCount">-</strong> 件</span>
+    <button class="reload-btn" id="reloadBtn" onclick="loadAll()">再読み込み</button>
+  </div>
+</header>
+
+<main id="app">
+  <div class="loading">読み込み中...</div>
+</main>
+
+<script>
+const PRIORITY_LABELS = { high: "高", medium: "中", low: "低" };
+const CATEGORY_LABELS = {
+  new_project: "新規案件",
+  error: "エラー対応",
+  cap_notify: "キャップ通知",
+  sheet: "スプシ関連",
+  tool: "ツール開発",
+  announce: "周知・アナウンス",
+  other: "その他",
+};
+const TOOL_STATUS = {
+  not_started: { label: "未着手", color: "#94a3b8" },
+  in_progress: { label: "開発中", color: "#3b82f6" },
+  blocked: { label: "ブロック中", color: "#ef4444" },
+  done: { label: "完了", color: "#22c55e" },
+};
+
+let allTasks = [];
+let toolsData = [];
+let monthlyData = [];
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function dueClass(limit) {
+  if (!limit) return "";
+  const d = new Date(limit);
+  const now = new Date(today());
+  const diff = (d - now) / 86400000;
+  if (diff < 0) return "overdue";
+  if (diff === 0) return "due-today";
+  if (diff <= 2) return "due-soon";
+  return "";
+}
+
+function dueLabel(limit) {
+  if (!limit) return "期限なし";
+  const d = new Date(limit);
+  const now = new Date(today());
+  const diff = Math.round((d - now) / 86400000);
+  if (diff < 0) return `${Math.abs(diff)}日超過`;
+  if (diff === 0) return "今日";
+  if (diff === 1) return "明日";
+  return `${diff}日後`;
+}
+
+function cleanBody(body) {
+  return (body || "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/依頼がきました。対応お願いします！/g, "")
+    .replace(/【.*?】/g, "")
+    .replace(/依頼日[：:].+/g, "")
+    .replace(/氏名[：:].+/g, "")
+    .replace(/依頼内容（大分類）[：:].+/g, "")
+    .replace(/依頼内容（小分類）[：:].+/g, "")
+    .trim()
+    .split("\n")
+    .filter((l) => l.trim())
+    .slice(0, 3)
+    .join("\n");
+}
+
+async function updateTask(id, field, value) {
+  const payload = {};
+  payload[field] = value;
+  await fetch(`/api/tasks/${id}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function updateTools(data) {
+  await fetch("/api/tools", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+async function updateMonthly(data) {
+  await fetch("/api/monthly", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+function renderCard(t) {
+  const dc = dueClass(t.limit);
+  const dl = dueLabel(t.limit);
+  const body = cleanBody(t.body);
+
+  return `
+    <div class="card ${dc}">
+      <div class="card-top">
+        <div class="card-title">${esc(t.title)}</div>
+        <div class="card-priority ${t.priority}">${PRIORITY_LABELS[t.priority] || "中"}</div>
+      </div>
+      <div class="card-meta">
+        <span>${t.limit || "期限なし"} (${dl})</span>
+        <span>${CATEGORY_LABELS[t.category] || t.category}</span>
+        ${t.assignedBy ? `<span>by ${esc(t.assignedBy)}</span>` : ""}
+      </div>
+      <div class="card-body">${esc(body)}</div>
+      <div class="card-actions">
+        <select onchange="updateTask('${t.id}','priority',this.value);this.closest('.card').querySelector('.card-priority').className='card-priority '+this.value;this.closest('.card').querySelector('.card-priority').textContent={'high':'高','medium':'中','low':'低'}[this.value]">
+          <option value="high" ${t.priority === "high" ? "selected" : ""}>高</option>
+          <option value="medium" ${t.priority === "medium" ? "selected" : ""}>中</option>
+          <option value="low" ${t.priority === "low" ? "selected" : ""}>低</option>
+        </select>
+        <select onchange="handleStatusChange('${t.id}',this.value)">
+          <option value="open" ${t.localStatus === "open" ? "selected" : ""}>未着手</option>
+          <option value="in_progress" ${t.localStatus === "in_progress" ? "selected" : ""}>作業中</option>
+          <option value="waiting" ${t.localStatus === "waiting" ? "selected" : ""}>相手待ち</option>
+          <option value="done" ${t.localStatus === "done" ? "selected" : ""}>完了</option>
+        </select>
+        <input type="text" placeholder="メモ..." value="${esc(t.note)}" onchange="updateTask('${t.id}','note',this.value)">
+      </div>
+    </div>
+  `;
+}
+
+function handleStatusChange(id, value) {
+  updateTask(id, "localStatus", value);
+  const task = allTasks.find((t) => t.id === id);
+  if (task) {
+    task.localStatus = value;
+    renderAll();
+  }
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s || "";
+  return d.innerHTML;
+}
+
+function renderSection(title, tasks, dotColor) {
+  if (!tasks.length) return "";
+  return `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-dot" style="background:${dotColor}"></div>
+        <h2>${title}</h2>
+        <span class="section-count">${tasks.length}</span>
+      </div>
+      <div class="cards">${tasks.map(renderCard).join("")}</div>
+    </div>
+  `;
+}
+
+function renderToolsSection() {
+  return `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-dot" style="background:var(--purple)"></div>
+        <h2>Q目標 ツール開発</h2>
+        <span class="section-count">${toolsData.length}</span>
+      </div>
+      ${toolsData
+        .map(
+          (t, i) => `
+        <div class="tool-row">
+          <div class="tool-status-dot" style="background:${TOOL_STATUS[t.status]?.color || "#94a3b8"}"></div>
+          <div class="tool-name">${esc(t.name)}</div>
+          <div class="tool-note">${esc(t.note)}</div>
+          <select onchange="toolStatusChange(${i}, this.value)">
+            ${Object.entries(TOOL_STATUS)
+              .map(([k, v]) => `<option value="${k}" ${t.status === k ? "selected" : ""}>${v.label}</option>`)
+              .join("")}
+          </select>
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderMonthlySection() {
+  return `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-dot" style="background:var(--cyan)"></div>
+        <h2>月末定期タスク</h2>
+        <span class="section-count">${monthlyData.length}</span>
+      </div>
+      ${monthlyData
+        .map(
+          (t, i) => `
+        <div class="monthly-row ${t.done ? "done" : ""}" onclick="toggleMonthly(${i})">
+          <div class="monthly-check">${t.done ? "✓" : ""}</div>
+          <div class="monthly-title">${esc(t.title)}</div>
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function toolStatusChange(idx, value) {
+  toolsData[idx].status = value;
+  updateTools(toolsData);
+  renderAll();
+}
+
+function toggleMonthly(idx) {
+  monthlyData[idx].done = !monthlyData[idx].done;
+  updateMonthly(monthlyData);
+  renderAll();
+}
+
+function renderAll() {
+  const active = allTasks.filter((t) => t.localStatus !== "done");
+  const done = allTasks.filter((t) => t.localStatus === "done");
+
+  const inProgress = active.filter((t) => t.localStatus === "in_progress");
+  const waiting = active.filter((t) => t.localStatus === "waiting");
+  const open = active.filter((t) => t.localStatus === "open");
+
+  const openHigh = open.filter((t) => t.priority === "high");
+  const openMid = open.filter((t) => t.priority === "medium");
+  const openLow = open.filter((t) => t.priority === "low");
+
+  document.getElementById("totalCount").textContent = allTasks.length;
+  document.getElementById("app").innerHTML = [
+    renderSection("作業中", inProgress, "var(--green)"),
+    renderSection("優先度 高", openHigh, "var(--red)"),
+    renderSection("優先度 中", openMid, "var(--yellow)"),
+    renderSection("相手待ち", waiting, "var(--text2)"),
+    renderToolsSection(),
+    renderMonthlySection(),
+    renderSection("優先度 低", openLow, "var(--text2)"),
+    done.length ? renderSection("完了", done, "var(--green)") : "",
+  ].join("");
+}
+
+function getApiTasksUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get("view");
+  const email = params.get("email");
+  if (view === "all") return "/api/tasks?view=all";
+  if (view === "requestor" && email) return "/api/tasks?view=requestor&email=" + encodeURIComponent(email);
+  return "/api/tasks";
+}
+
+async function loadAll() {
+  const btn = document.getElementById("reloadBtn");
+  btn.disabled = true;
+  btn.textContent = "読み込み中...";
+
+  try {
+    const tasksUrl = getApiTasksUrl();
+    const [tasksRes, toolsRes, monthlyRes] = await Promise.all([
+      fetch(tasksUrl),
+      fetch("/api/tools"),
+      fetch("/api/monthly"),
+    ]);
+
+    allTasks = await tasksRes.json();
+    toolsData = await toolsRes.json();
+    monthlyData = await monthlyRes.json();
+
+    renderAll();
+    document.getElementById("lastUpdated").textContent =
+      "最終更新: " + new Date().toLocaleTimeString("ja-JP");
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    const el = document.getElementById("viewBadge");
+    if (view === "all") el.textContent = "全体表示（アド管理）";
+    else if (view === "requestor") el.textContent = "自分の依頼のみ";
+    else el.textContent = "";
+  } catch (err) {
+    document.getElementById("app").innerHTML = `<div class="error-msg">読み込みエラー: ${esc(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "再読み込み";
+  }
+}
+
+loadAll();
+</script>
+</body>
+</html>

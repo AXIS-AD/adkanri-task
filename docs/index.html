@@ -3,22 +3,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TOアド管理依頼</title>
+  <title>TOアド管理</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta name="apple-mobile-web-app-title" content="TOアド管理">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; }
-    iframe {
+    html, body { height: 100%; font-family: 'Segoe UI', -apple-system, sans-serif; }
+    body {
+      background: #0f172a;
+      color: #f1f5f9;
+    }
+    .app-header {
+      background: #1e293b;
+      border-bottom: 1px solid #475569;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .app-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all .2s;
+    }
+    .tab:hover {
+      color: #f1f5f9;
+      background: rgba(255,255,255,.08);
+    }
+    .tab.active {
+      background: #3b82f6;
+      color: white;
+    }
+    .content {
+      height: calc(100vh - 52px);
+      position: relative;
+    }
+    .panel {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0; left: 0;
+    }
+    .panel.active {
+      display: block;
+    }
+    .panel iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .task-panel-controls {
+      background: #1e293b;
+      padding: 10px 20px;
+      border-bottom: 1px solid #475569;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .task-panel-controls .requestor-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .task-panel-controls label {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .task-panel-controls input {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #334155;
+      color: #f1f5f9;
+      font-size: 13px;
+      min-width: 220px;
+    }
+    .task-panel-controls input::placeholder {
+      color: #64748b;
+    }
+    .task-panel-controls button {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .task-panel-controls button:hover {
+      opacity: .9;
+    }
+    .task-panel-controls .view-toggle {
+      display: flex;
+      gap: 4px;
+    }
+    .task-panel-controls .view-toggle button {
+      background: #334155;
+      font-weight: 500;
+    }
+    .task-panel-controls .view-toggle button.active {
+      background: #3b82f6;
+    }
+    .task-frame-wrap {
+      height: calc(100% - 48px);
+    }
+    .task-frame-wrap iframe {
       display: block;
       width: 100%;
       height: 100%;
       border: none;
     }
+    .task-unavailable {
+      padding: 40px 24px;
+      text-align: center;
+      color: #94a3b8;
+      background: #1e293b;
+      margin: 20px;
+      border-radius: 12px;
+      border: 1px dashed #475569;
+    }
+    .task-unavailable h3 {
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+    .task-unavailable code {
+      background: #334155;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
-  <iframe
-    src="https://script.google.com/a/macros/shibuya-ad.com/s/AKfycbw_PvMq1rcHDLnCNQhwwgdRq5eazI0IEJM0K9jMl4e79L4N7pov2Ageu1-fznz-dMQ/exec"
-    title="TOアド管理依頼"
-  ></iframe>
+
+<header class="app-header">
+  <h1>TOアド管理ツール</h1>
+  <nav class="tabs">
+    <button class="tab active" data-tab="request">依頼する</button>
+    <button class="tab" data-tab="tasks">タスク一覧</button>
+  </nav>
+</header>
+
+<main class="content">
+  <section class="panel active" id="panel-request">
+    <iframe
+      src="https://script.google.com/a/macros/shibuya-ad.com/s/AKfycbw_PvMq1rcHDLnCNQhwwgdRq5eazI0IEJM0K9jMl4e79L4N7pov2Ageu1-fznz-dMQ/exec"
+      title="TOアド管理依頼"
+    ></iframe>
+  </section>
+
+  <section class="panel" id="panel-tasks">
+    <div class="task-panel-controls">
+      <div class="view-toggle">
+        <button type="button" class="view-btn active" data-view="all">全タスク（アド管理）</button>
+        <button type="button" class="view-btn" data-view="requestor">自分の依頼</button>
+      </div>
+      <div class="requestor-input" style="display:none;">
+        <label for="email">メールアドレス:</label>
+        <input type="email" id="email" placeholder="xxx@axis-ads.co.jp">
+        <button type="button" id="applyEmail">表示</button>
+      </div>
+    </div>
+    <div class="task-frame-wrap">
+      <!-- デプロイ後、DASHBOARD_URL を Render のURLに差し替えてください -->
+      <iframe id="taskFrame" src="" title="タスク一覧"></iframe>
+      <div id="taskUnavailable" class="task-unavailable" style="display:none;">
+        <h3>タスク一覧を読み込めません</h3>
+        <p>task-dashboard を Render にデプロイし、<code>docs/config.js</code> の DASHBOARD_URL を設定してください。</p>
+        <p><a href="デプロイ手順.md" target="_blank" style="color:#3b82f6;">デプロイ手順</a>を参照してください。</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script>
+(function() {
+  const DASHBOARD_URL = typeof window.DASHBOARD_URL !== 'undefined' ? window.DASHBOARD_URL : '';
+
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  const viewBtns = document.querySelectorAll('.view-btn');
+  const requestorInput = document.querySelector('.requestor-input');
+  const emailInput = document.getElementById('email');
+  const applyBtn = document.getElementById('applyEmail');
+  const taskFrame = document.getElementById('taskFrame');
+  const taskUnavailable = document.getElementById('taskUnavailable');
+
+  function showPanel(name) {
+    panels.forEach(p => {
+      p.classList.toggle('active', p.id === 'panel-' + name);
+    });
+    tabs.forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
+    if (name === 'tasks' && DASHBOARD_URL) {
+      updateTaskFrameUrl();
+    }
+  }
+
+  function getTaskFrameUrl() {
+    const view = document.querySelector('.view-btn.active')?.dataset.view || 'all';
+    const email = emailInput?.value?.trim() || '';
+    if (view === 'all') return DASHBOARD_URL + '/';
+    if (view === 'requestor' && email) {
+      return DASHBOARD_URL + '/?view=requestor&email=' + encodeURIComponent(email);
+    }
+    return DASHBOARD_URL + '/?view=requestor';
+  }
+
+  function updateTaskFrameUrl() {
+    if (!DASHBOARD_URL) {
+      taskFrame.style.display = 'none';
+      taskUnavailable.style.display = 'block';
+      return;
+    }
+    taskFrame.src = getTaskFrameUrl();
+    taskFrame.style.display = 'block';
+    taskUnavailable.style.display = 'none';
+  }
+
+  tabs.forEach(t => {
+    t.addEventListener('click', () => showPanel(t.dataset.tab));
+  });
+
+  viewBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      viewBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      requestorInput.style.display = btn.dataset.view === 'requestor' ? 'flex' : 'none';
+      if (DASHBOARD_URL) updateTaskFrameUrl();
+    });
+  });
+
+  applyBtn?.addEventListener('click', () => {
+    if (DASHBOARD_URL) updateTaskFrameUrl();
+  });
+
+  emailInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyBtn?.click();
+  });
+
+  if (DASHBOARD_URL) {
+    taskFrame.src = getTaskFrameUrl();
+  } else {
+    taskFrame.style.display = 'none';
+    taskUnavailable.style.display = 'block';
+  }
+})();
+</script>
 </body>
 </html>
