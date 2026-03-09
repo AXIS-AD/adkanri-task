@@ -28,33 +28,48 @@
       font-weight: 500;
       color: #202124;
     }
+    .app-layout {
+      display: flex;
+      height: calc(100vh - 52px);
+    }
+    .sidebar {
+      width: 160px;
+      background: #fff;
+      border-right: 1px solid #dadce0;
+      padding: 12px 0;
+      flex-shrink: 0;
+    }
     .tabs {
       display: flex;
-      gap: 0;
+      flex-direction: column;
+      gap: 2px;
     }
     .tab {
-      padding: 10px 18px;
+      padding: 12px 20px;
+      border: none;
+      border-left: 3px solid transparent;
       border-radius: 0;
       background: transparent;
-      border: none;
-      border-bottom: 3px solid transparent;
       color: #5f6368;
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
+      text-align: left;
       transition: all .2s;
     }
     .tab:hover {
       color: #202124;
+      background: #f8f9fa;
     }
     .tab.active {
       color: #4285f4;
-      border-bottom-color: #4285f4;
-      background: transparent;
+      border-left-color: #4285f4;
+      background: #e8f0fe;
     }
     .content {
-      height: calc(100vh - 52px);
+      flex: 1;
       position: relative;
+      min-width: 0;
     }
     .panel {
       display: none;
@@ -161,13 +176,16 @@
 
 <header class="app-header">
   <h1>TOアド管理ツール</h1>
-  <nav class="tabs">
-    <button class="tab active" data-tab="request">依頼する</button>
-    <button class="tab" data-tab="tasks">タスク一覧</button>
-  </nav>
 </header>
 
-<main class="content">
+<div class="app-layout">
+  <aside class="sidebar">
+    <nav class="tabs">
+      <button class="tab active" data-tab="request">依頼する</button>
+      <button class="tab" data-tab="tasks">タスク一覧</button>
+    </nav>
+  </aside>
+  <main class="content">
   <section class="panel active" id="panel-request">
     <iframe
       src="https://script.google.com/a/macros/shibuya-ad.com/s/AKfycbw_PvMq1rcHDLnCNQhwwgdRq5eazI0IEJM0K9jMl4e79L4N7pov2Ageu1-fznz-dMQ/exec"
@@ -197,7 +215,8 @@
       </div>
     </div>
   </section>
-</main>
+  </main>
+</div>
 
 <script src="config.js"></script>
 <script>
