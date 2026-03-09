@@ -1,0 +1,5 @@
+# Netlify設定（リダイレクトURL用）
+# デプロイ: https://app.netlify.com でこのリポジトリを接続
+
+[build]
+  publish = "docs"
