@@ -1,6 +1,15 @@
 /**
- * タスクダッシュボードのURL
- * task-dashboard を Render にデプロイしたら、ここにURLを設定してください。
- * 例: 'https://adkanri-task-dashboard.onrender.com'
+ * TOアド管理ツール 設定ファイル
+ *
+ * 以下の2つの値を設定してください:
+ *
+ * 1. API_URL:
+ *    Cloudflare Worker のデプロイ後に表示される URL
+ *    例: 'https://adkanri-api.xxxxx.workers.dev'
+ *
+ * 2. GOOGLE_CLIENT_ID:
+ *    Google Cloud Console で作成した OAuth 2.0 クライアント ID
+ *    例: '123456789-abcdef.apps.googleusercontent.com'
  */
-var DASHBOARD_URL = '';
+var API_URL = '';
+var GOOGLE_CLIENT_ID = '';

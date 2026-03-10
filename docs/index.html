@@ -6,178 +6,216 @@
   <title>TOアド管理</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <meta name="apple-mobile-web-app-title" content="TOアド管理">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    /* ダークテーマ・コンパクト */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'Google Sans', Roboto, -apple-system, sans-serif; }
-    body {
-      background: #0f172a;
-      color: #f1f5f9;
+    :root {
+      --primary: #60a5fa;
+      --primary-hover: #3b82f6;
+      --primary-light: rgba(96,165,250,.2);
+      --success: #34d399;
+      --success-light: rgba(52,211,153,.2);
+      --danger: #f87171;
+      --danger-light: rgba(248,113,113,.2);
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-input: #334155;
+      --border: #475569;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --radius: 4px;
     }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Google Sans', Roboto, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    /* ヘッダー */
     .app-header {
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
       padding: 8px 16px;
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-shrink: 0;
     }
-    .app-header h1 {
-      font-size: 15px;
-      font-weight: 600;
-      color: #f1f5f9;
-    }
-    .app-header .requester {
-      font-size: 12px;
-      color: #94a3b8;
-    }
-    .app-header .requester.error {
-      color: #f87171;
-    }
-    .app-layout {
-      display: flex;
-      height: calc(100vh - 40px);
-    }
+    .app-header h1 { font-size: 15px; font-weight: 600; white-space: nowrap; }
+    .app-header .requester { font-size: 12px; color: var(--text-muted); }
+    .app-header .requester.error { color: var(--danger); }
+    .app-header .spacer { flex: 1; }
+    #googleSignIn { flex-shrink: 0; }
+
+    /* レイアウト */
+    .app-layout { display: flex; height: calc(100vh - 40px); }
     .sidebar {
       width: 120px;
-      background: #1e293b;
-      border-right: 1px solid #334155;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
       padding: 8px 0;
       flex-shrink: 0;
     }
-    .tabs {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
+    .tabs { display: flex; flex-direction: column; gap: 2px; }
     .tab {
       padding: 8px 16px;
       border: none;
       border-left: 3px solid transparent;
-      border-radius: 0;
       background: transparent;
-      color: #94a3b8;
+      color: var(--text-muted);
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
       text-align: left;
       transition: all .2s;
     }
-    .tab:hover {
-      color: #f1f5f9;
-      background: rgba(255,255,255,.05);
-    }
-    .tab.active {
-      color: #60a5fa;
-      border-left-color: #60a5fa;
-      background: rgba(96,165,250,.15);
-    }
-    .content {
-      flex: 1;
-      position: relative;
-      min-width: 0;
-    }
-    .panel {
-      display: none;
-      width: 100%;
-      height: 100%;
+    .tab:hover { color: var(--text); background: rgba(255,255,255,.05); }
+    .tab.active { color: var(--primary); border-left-color: var(--primary); background: var(--primary-light); }
+    .content { flex: 1; overflow-y: auto; position: relative; min-width: 0; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* 認証オーバーレイ */
+    .auth-overlay {
       position: absolute;
-      top: 0; left: 0;
-    }
-    .panel.active {
-      display: block;
-    }
-    .panel iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .task-panel-controls {
-      background: #1e293b;
-      padding: 8px 16px;
-      border-bottom: 1px solid #334155;
+      inset: 0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      justify-content: center;
+      background: rgba(15,23,42,.9);
+      z-index: 50;
     }
-    .task-panel-controls .requestor-input {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .task-panel-controls label {
-      font-size: 12px;
-      color: #94a3b8;
-    }
-    .task-panel-controls input {
-      padding: 5px 10px;
-      border-radius: 4px;
-      border: 1px solid #475569;
-      background: #334155;
-      color: #f1f5f9;
-      font-size: 12px;
-      min-width: 180px;
-    }
-    .task-panel-controls input::placeholder {
-      color: #64748b;
-    }
-    .task-panel-controls button {
-      padding: 5px 12px;
-      border-radius: 4px;
-      border: none;
-      background: #3b82f6;
-      color: white;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-    .task-panel-controls button:hover {
-      background: #2563eb;
-    }
-    .task-panel-controls .view-toggle {
-      display: flex;
-      gap: 4px;
-    }
-    .task-panel-controls .view-toggle button {
-      background: #334155;
-      color: #94a3b8;
-      font-weight: 500;
-      font-size: 12px;
-    }
-    .task-panel-controls .view-toggle button.active {
-      background: rgba(59,130,246,.3);
-      color: #60a5fa;
-    }
-    .task-frame-wrap {
-      height: calc(100% - 48px);
-    }
-    .task-frame-wrap iframe {
-      display: block;
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .task-unavailable {
-      padding: 24px 20px;
+    .auth-overlay .auth-box {
       text-align: center;
-      color: #94a3b8;
-      background: #1e293b;
-      margin: 16px;
-      border-radius: 6px;
-      border: 1px dashed #475569;
+      padding: 40px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
     }
-    .task-unavailable h3 {
-      color: #f1f5f9;
-      margin-bottom: 6px;
-      font-size: 14px;
+    .auth-overlay h2 { font-size: 16px; margin-bottom: 8px; }
+    .auth-overlay p { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+
+    /* フォーム */
+    .container { max-width: 640px; margin: 0 auto; padding: 16px 16px 60px; }
+    .step { margin-bottom: 16px; }
+    .step-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 8px;
     }
-    .task-unavailable code {
-      background: #334155;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 11px;
+    .step-num {
+      background: var(--primary); color: white;
+      width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; flex-shrink: 0;
     }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: #64748b; }
+
+    select, input[type="text"], input[type="number"], input[type="date"], textarea {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      font-size: 13px; font-family: inherit;
+      color: var(--text); background: var(--bg-input);
+      transition: border-color .2s;
+      -webkit-appearance: none; appearance: none;
+    }
+    select {
+      background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+      padding-right: 28px;
+    }
+    select option { background: var(--bg-card); color: var(--text); }
+    select:focus, input:focus, textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-light);
+    }
+    textarea { resize: vertical; min-height: 72px; }
+
+    .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    @media (max-width: 480px) { .category-grid { grid-template-columns: 1fr; } }
+    .cat-btn {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 10px 12px; font-size: 12px; font-weight: 500;
+      color: var(--text-muted); cursor: pointer; transition: all .2s;
+      text-align: left; line-height: 1.35;
+    }
+    .cat-btn:hover { border-color: var(--primary); background: var(--primary-light); color: var(--text); }
+    .cat-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; }
+    .cat-btn .cat-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+
+    .sub-category-list { display: flex; flex-direction: column; gap: 4px; }
+    .sub-btn {
+      background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 8px 12px; font-size: 12px; color: var(--text-muted);
+      cursor: pointer; transition: all .2s; text-align: left;
+    }
+    .sub-btn:hover { border-color: var(--primary); background: var(--primary-light); color: var(--text); }
+    .sub-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; }
+
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 11px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
+    .field label .required { color: var(--danger); margin-left: 2px; }
+
+    .submit-area { margin-top: 16px; }
+    .submit-btn {
+      width: 100%; padding: 10px 14px;
+      background: var(--primary); color: white; border: none; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: background .2s;
+    }
+    .submit-btn:hover { background: var(--primary-hover); }
+    .submit-btn:disabled { background: #64748b; cursor: not-allowed; }
+
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3); border-top-color: white;
+      border-radius: 50%; animation: spin .6s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .success-screen { text-align: center; padding: 48px 20px; }
+    .success-icon {
+      width: 48px; height: 48px; background: var(--success-light); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px; font-size: 24px; color: var(--success);
+    }
+    .success-screen h2 { font-size: 16px; margin-bottom: 6px; }
+    .success-screen p { color: var(--text-muted); font-size: 12px; }
+    .success-id { font-family: 'Roboto Mono', monospace; color: var(--primary); font-weight: 500; font-size: 13px; }
+    .new-btn {
+      display: inline-block; margin-top: 20px; padding: 8px 20px;
+      background: var(--primary); color: white; border: none; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: background .2s;
+    }
+    .new-btn:hover { background: var(--primary-hover); }
+
+    .hidden { display: none !important; }
+    .fade-in { animation: fadeIn .2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .error-msg { color: var(--danger); font-size: 11px; margin-top: 4px; }
+    .field-error input, .field-error select, .field-error textarea { border-color: var(--danger); }
+    ::placeholder { color: var(--text-dim); }
+    ::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+    /* タスク一覧 */
+    .task-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .task-table th, .task-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .task-table th { color: var(--text-muted); font-weight: 500; background: var(--bg-card); position: sticky; top: 0; }
+    .task-table tr:hover { background: rgba(255,255,255,.03); }
+    .task-row select { padding: 5px 6px; font-size: 11px; width: auto; min-width: 80px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); }
+    .task-row .btn-update { padding: 5px 10px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: var(--radius); cursor: pointer; }
+    .task-row .btn-update:hover { background: var(--primary-hover); }
+    .task-loading, .task-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
   </style>
 </head>
 <body>
@@ -185,6 +223,8 @@
 <header class="app-header">
   <h1>TOアド管理ツール</h1>
   <span id="headerRequester" class="requester"></span>
+  <div class="spacer"></div>
+  <div id="googleSignIn"></div>
 </header>
 
 <div class="app-layout">
@@ -194,144 +234,543 @@
       <button class="tab" data-tab="tasks">タスク一覧</button>
     </nav>
   </aside>
-  <main class="content">
-  <section class="panel active" id="panel-request">
-    <iframe
-      src="https://script.google.com/a/macros/shibuya-ad.com/s/AKfycbwuuoXgV1rlzxw9gM4GPdK9bamJmVcktnXv9iDoRcdPUbKwRoJoojMqtIjpvxDqY-o/exec?v=2"
-      title="TOアド管理依頼"
-    ></iframe>
-  </section>
+  <main class="content" id="mainContent">
 
-  <section class="panel" id="panel-tasks">
-    <div class="task-panel-controls">
-      <div class="view-toggle">
-        <button type="button" class="view-btn active" data-view="all">全タスク（アド管理）</button>
-        <button type="button" class="view-btn" data-view="requestor">自分の依頼</button>
-      </div>
-      <div class="requestor-input" style="display:none;">
-        <label for="email">メールアドレス:</label>
-        <input type="email" id="email" placeholder="xxx@axis-ads.co.jp">
-        <button type="button" id="applyEmail">表示</button>
+    <!-- 認証前オーバーレイ -->
+    <div class="auth-overlay" id="authOverlay">
+      <div class="auth-box">
+        <h2>TOアド管理ツール</h2>
+        <p>AXIS / shibuya-ad.com のGoogleアカウントでログインしてください</p>
+        <div id="googleSignInLarge"></div>
       </div>
     </div>
-    <div class="task-frame-wrap">
-      <!-- デプロイ後、DASHBOARD_URL を Render のURLに差し替えてください -->
-      <iframe id="taskFrame" src="" title="タスク一覧"></iframe>
-      <div id="taskUnavailable" class="task-unavailable" style="display:none;">
-        <h3>タスク一覧を読み込めません</h3>
-        <p>task-dashboard を Render にデプロイし、<code>docs/config.js</code> の DASHBOARD_URL を設定してください。</p>
-        <p><a href="デプロイ手順.md" target="_blank" style="color:#60a5fa;">デプロイ手順</a>を参照してください。</p>
+
+    <!-- 依頼パネル -->
+    <section class="panel active" id="panel-request">
+      <div class="container" id="formScreen">
+        <div class="step" id="step1">
+          <div class="step-label"><span class="step-num">1</span>依頼内容を選択</div>
+          <div class="card"><div class="category-grid" id="categoryGrid"></div></div>
+        </div>
+        <div class="step hidden" id="step2">
+          <div class="step-label"><span class="step-num">2</span>詳細カテゴリを選択</div>
+          <div class="card"><div class="sub-category-list" id="subCategoryList"></div></div>
+        </div>
+        <div class="step hidden" id="step3">
+          <div class="step-label"><span class="step-num">3</span>詳細を入力</div>
+          <div class="card" id="detailFields"></div>
+        </div>
+        <div class="submit-area hidden" id="submitArea">
+          <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">送信する</button>
+        </div>
       </div>
-    </div>
-  </section>
+      <div class="container hidden" id="successScreen">
+        <div class="card success-screen">
+          <div class="success-icon">&#10003;</div>
+          <h2>依頼を送信しました</h2>
+          <p>チャットワークにタスク化されます</p>
+          <p class="success-id" id="requestId"></p>
+          <button class="new-btn" onclick="resetForm()">新しい依頼を作成</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- タスク一覧パネル -->
+    <section class="panel" id="panel-tasks">
+      <div class="container">
+        <div id="taskListArea">
+          <div class="task-loading" id="taskLoading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
 <script src="config.js"></script>
 <script>
-(function() {
-  const DASHBOARD_URL = typeof window.DASHBOARD_URL !== 'undefined' ? window.DASHBOARD_URL : '';
-  const GAS_BASE = 'https://script.google.com/a/macros/shibuya-ad.com/s/AKfycbwuuoXgV1rlzxw9gM4GPdK9bamJmVcktnXv9iDoRcdPUbKwRoJoojMqtIjpvxDqY-o/exec';
+// ====================================================
+// 設定
+// ====================================================
+var API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
+var GOOGLE_CLIENT_ID = (typeof window.GOOGLE_CLIENT_ID !== 'undefined') ? window.GOOGLE_CLIENT_ID : '';
 
-  function setHeaderRequester(text, error) {
-    const el = document.getElementById('headerRequester');
-    if (el) {
-      el.textContent = text || '';
-      el.className = 'requester' + (error ? ' error' : '');
-    }
+// ====================================================
+// 認証
+// ====================================================
+var authToken = null;
+var currentUser = null;
+
+function decodeJwt(token) {
+  var payload = token.split('.')[1];
+  return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+}
+
+function isTokenExpired() {
+  if (!authToken) return true;
+  try {
+    var exp = decodeJwt(authToken).exp;
+    return Date.now() / 1000 > exp - 60;
+  } catch (e) { return true; }
+}
+
+function handleCredentialResponse(response) {
+  authToken = response.credential;
+  var payload = decodeJwt(authToken);
+  currentUser = { email: payload.email, name: payload.name || payload.email };
+
+  document.getElementById('headerRequester').textContent = '依頼者: ' + currentUser.email;
+  document.getElementById('headerRequester').className = 'requester';
+  document.getElementById('authOverlay').style.display = 'none';
+}
+
+function initGoogleSignIn() {
+  if (typeof google === 'undefined' || !google.accounts) {
+    setTimeout(initGoogleSignIn, 200);
+    return;
   }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleCredentialResponse,
+    auto_select: true
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('googleSignIn'),
+    { theme: 'filled_blue', size: 'small', shape: 'pill', text: 'signin', locale: 'ja' }
+  );
+  google.accounts.id.renderButton(
+    document.getElementById('googleSignInLarge'),
+    { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ja' }
+  );
+  google.accounts.id.prompt();
+}
 
-  // JSONP で依頼者を取得（postMessage のフォールバック）
-  window.adkanriRequester = function(text) {
-    if (typeof text === 'string' && text.length) {
-      setHeaderRequester(text, text.indexOf('ログインが必要') >= 0 || text.indexOf('のみ利用可能') >= 0 || text.indexOf('取得できません') >= 0);
+function reAuthenticate() {
+  document.getElementById('authOverlay').style.display = 'flex';
+  if (typeof google !== 'undefined' && google.accounts) {
+    google.accounts.id.prompt();
+  }
+}
+
+// ====================================================
+// API ヘルパー
+// ====================================================
+function apiCall(method, path, body) {
+  if (isTokenExpired()) {
+    reAuthenticate();
+    return Promise.reject(new Error('ログインが必要です'));
+  }
+  var opts = {
+    method: method,
+    headers: {
+      'Authorization': 'Bearer ' + authToken,
+      'Content-Type': 'application/json'
     }
   };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(API_URL + path, opts).then(function(res) {
+    return res.json().then(function(data) {
+      if (res.status === 401) {
+        reAuthenticate();
+        throw new Error(data.error || 'ログインが必要です');
+      }
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      return data;
+    });
+  });
+}
 
-  (function loadRequester() {
-    var s = document.createElement('script');
-    s.src = GAS_BASE + '?getUser=1&callback=adkanriRequester';
-    s.onerror = function() { setHeaderRequester('依頼者: 取得できません', true); };
-    document.head.appendChild(s);
-  })();
+// ====================================================
+// データ定義
+// ====================================================
+var CATEGORIES = [
+  { id: 'account', label: 'アカウント関連（作成・紐づけ・エラー）', icon: '\uD83D\uDD11' },
+  { id: 'link', label: 'リンク発行依頼', icon: '\uD83D\uDD17' },
+  { id: 'spreadsheet', label: 'スプシ関連', icon: '\uD83D\uDCCA' },
+  { id: 'new_project', label: '新規案件', icon: '\uD83C\uDD95' },
+  { id: 'new_offer', label: '新規オファー追加（アカ開設・単価登録・リンク発行などまとめて依頼）', icon: '\uD83D\uDCE6' },
+  { id: 'price_change', label: '単価変更', icon: '\uD83D\uDCB0' },
+  { id: 'csv_fix', label: 'CSV保管修正/後着火修正依頼', icon: '\uD83D\uDCC1' },
+  { id: 'cap_notify', label: 'キャップ通知依頼', icon: '\uD83D\uDD14' },
+  { id: 'other', label: 'その他/エラー関連', icon: '\u2753' }
+];
 
-  // GAS iframe から依頼者情報を受信（postMessage があれば上書き）
-  window.addEventListener('message', function(e) {
-    if (e.data && e.data.type === 'ADKANRI_REQUESTER') {
-      setHeaderRequester(e.data.text || '', e.data.error);
+var SUB_CATEGORIES = {
+  account: [
+    { id: 'new_account', label: '新規アカウント開設依頼' },
+    { id: 'fb_page', label: 'FBページ作成依頼' },
+    { id: 'fb_pixel', label: 'FBピクセル紐づけ依頼' },
+    { id: 'fb_permission', label: 'FBアカウント・ページ権限付与依頼' },
+    { id: 'account_ban', label: 'アカBAN対応依頼' }
+  ],
+  csv_fix: [
+    { id: 'csv_fix_sub', label: 'CSV保管修正' },
+    { id: 'late_fire', label: '後着火修正依頼' }
+  ],
+  new_project: [
+    { id: 'new_project_report', label: '新規案件開始報告' }
+  ],
+  other: [
+    { id: 'shukkou_miss', label: '出稿ミス共有' },
+    { id: 'other_general', label: 'その他' }
+  ]
+};
+
+var FIELDS = {
+  new_account: [
+    { id: 'project', label: '案件名', type: 'text', required: true },
+    { id: 'media', label: '媒体', type: 'select', options: ['FB','Tik','LAP','X','YT','その他'], required: true },
+    { id: 'quantity', label: '数量', type: 'number', required: true },
+    { id: 'deadline', label: '期限', type: 'text', required: false },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  fb_page: [
+    { id: 'project', label: '案件名', type: 'text', required: true },
+    { id: 'page_name', label: 'ページ名', type: 'text', required: true },
+    { id: 'permission', label: '権限（運用者）', type: 'text', required: false },
+    { id: 'deadline', label: '期限', type: 'text', required: false },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  fb_pixel: [
+    { id: 'account', label: '紐づけ先アカウント', type: 'text', required: true },
+    { id: 'pixel', label: '紐づけるピクセル', type: 'text', required: true },
+    { id: 'deadline', label: '期限', type: 'text', required: false }
+  ],
+  fb_permission: [
+    { id: 'target_type', label: 'ページ OR アカウント', type: 'select', options: ['ページ','アカウント'], required: true },
+    { id: 'target_name', label: 'ページ名 / アカウント名', type: 'text', required: true },
+    { id: 'deadline', label: '期限', type: 'text', required: false },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  account_ban: [
+    { id: 'media', label: '媒体', type: 'select', options: ['FB','Tik','LAP','X','YT','その他'], required: true },
+    { id: 'account_name', label: 'アカウント名', type: 'text', required: true },
+    { id: 'noticed_date', label: '気づいた日', type: 'date', required: true },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  link: [
+    { id: 'asp', label: 'ASP', type: 'text', required: true },
+    { id: 'project', label: '案件名', type: 'text', required: true },
+    { id: 'media', label: '媒体', type: 'select', options: ['FB','Tik','X','YT','LAP','その他'], required: true },
+    { id: 'offer_name', label: 'オファー名', type: 'text', required: true },
+    { id: 'lp', label: 'LP', type: 'text', required: false },
+    { id: 'quantity', label: '本数', type: 'text', required: true },
+    { id: 'deadline', label: '期限', type: 'text', required: false },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  spreadsheet: [
+    { id: 'sheet_name', label: 'シート名', type: 'text', required: true },
+    { id: 'error_type', label: 'エラー内容', type: 'select', options: ['運用中のキャンペーンが出力されていない','キャンペーンのデータ(消化金額,imp,click)が間違っている','キャンペーンのMCV,CVが反映されていない','その他'], required: true },
+    { id: 'media', label: '媒体', type: 'text', required: false },
+    { id: 'account_name', label: 'アカウント名', type: 'text', required: false },
+    { id: 'cell_url', label: '該当セルURL', type: 'text', required: false },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  new_project_report: [
+    { id: 'project', label: '案件名', type: 'text', required: true },
+    { id: 'asp', label: 'ASP', type: 'text', required: true },
+    { id: 'media', label: '媒体', type: 'text', required: true },
+    { id: 'lp', label: 'LP', type: 'text', required: false },
+    { id: 'link_count', label: 'リンク本数', type: 'text', required: false },
+    { id: 'unit_price', label: '単価', type: 'text', required: false },
+    { id: 'deadline', label: '期限', type: 'text', required: false },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  new_offer: [
+    { id: 'offer_name', label: 'オファー名', type: 'text', required: true },
+    { id: 'lp', label: 'LP', type: 'text', required: true },
+    { id: 'link_count', label: 'リンク本数', type: 'text', required: true },
+    { id: 'unit_price', label: '単価', type: 'text', required: true },
+    { id: 'account_count', label: 'アカウント個数', type: 'text', required: true },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  price_change: [
+    { id: 'project', label: '案件', type: 'text', required: true },
+    { id: 'unit_price', label: '単価', type: 'text', required: true },
+    { id: 'apply_date', label: '適用日付', type: 'text', required: true },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  csv_fix_sub: [
+    { id: 'campaign_before', label: '変更前キャンペーン名', type: 'text', required: true },
+    { id: 'campaign_after', label: '変更後キャンペーン名', type: 'text', required: true },
+    { id: 'fix_type', label: '修正内容（MCV/CV）', type: 'text', required: true },
+    { id: 'date', label: '日付', type: 'text', required: true },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  late_fire: [
+    { id: 'campaign', label: 'キャンペーン名', type: 'text', required: true },
+    { id: 'fix_type', label: '修正内容（MCV/CV）', type: 'text', required: true },
+    { id: 'date', label: '日付', type: 'text', required: true },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  cap_notify: [
+    { id: 'project', label: '案件', type: 'text', required: true },
+    { id: 'media', label: '媒体', type: 'text', required: true },
+    { id: 'cap', label: 'キャップ', type: 'text', required: true },
+    { id: 'notify_count', label: '通知件数', type: 'text', required: true },
+    { id: 'note', label: '備考', type: 'textarea', required: false }
+  ],
+  shukkou_miss: [
+    { id: 'detail', label: '詳細', type: 'textarea', required: true }
+  ],
+  other_general: [
+    { id: 'detail', label: '詳細', type: 'textarea', required: true }
+  ]
+};
+
+// ====================================================
+// フォーム状態
+// ====================================================
+var state = { categoryId: '', categoryLabel: '', subCategoryId: '', subCategoryLabel: '' };
+
+// ====================================================
+// 初期化
+// ====================================================
+document.addEventListener('DOMContentLoaded', function() {
+  initGoogleSignIn();
+  renderCategories();
+
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() {
+      tabs.forEach(function(b) { b.classList.remove('active'); });
+      t.classList.add('active');
+      document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+      if (t.dataset.tab === 'tasks') loadTasks();
+    });
+  });
+});
+
+// ====================================================
+// カテゴリ描画
+// ====================================================
+function renderCategories() {
+  var grid = document.getElementById('categoryGrid');
+  grid.innerHTML = '';
+  CATEGORIES.forEach(function(cat) {
+    var btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.innerHTML = '<span class="cat-icon">' + cat.icon + '</span>' + cat.label;
+    btn.onclick = function() { selectCategory(cat); };
+    btn.dataset.id = cat.id;
+    grid.appendChild(btn);
+  });
+}
+
+function selectCategory(cat) {
+  state.categoryId = cat.id;
+  state.categoryLabel = cat.label;
+  state.subCategoryId = '';
+  state.subCategoryLabel = '';
+
+  document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('[data-id="' + cat.id + '"]').classList.add('active');
+
+  var subs = SUB_CATEGORIES[cat.id];
+  var stepNum = document.querySelector('#step3 .step-num');
+
+  if (subs && subs.length > 1) {
+    renderSubCategories(subs);
+    show('step2'); hide('step3'); hide('submitArea');
+    if (stepNum) stepNum.textContent = '3';
+  } else if (subs && subs.length === 1) {
+    hide('step2');
+    if (stepNum) stepNum.textContent = '3';
+    selectSubCategory(subs[0]);
+  } else {
+    hide('step2');
+    if (stepNum) stepNum.textContent = '2';
+    var fieldKey = cat.id;
+    if (FIELDS[fieldKey]) {
+      state.subCategoryId = fieldKey;
+      state.subCategoryLabel = '';
+      renderFields(FIELDS[fieldKey]);
+      show('step3'); show('submitArea');
+    } else { hide('step3'); hide('submitArea'); }
+  }
+}
+
+function renderSubCategories(subs) {
+  var list = document.getElementById('subCategoryList');
+  list.innerHTML = '';
+  subs.forEach(function(sub) {
+    var btn = document.createElement('button');
+    btn.className = 'sub-btn';
+    btn.textContent = sub.label;
+    btn.dataset.id = sub.id;
+    btn.onclick = function() { selectSubCategory(sub); };
+    list.appendChild(btn);
+  });
+}
+
+function selectSubCategory(sub) {
+  state.subCategoryId = sub.id;
+  state.subCategoryLabel = sub.label;
+  document.querySelectorAll('.sub-btn').forEach(function(b) { b.classList.remove('active'); });
+  var active = document.querySelector('.sub-btn[data-id="' + sub.id + '"]');
+  if (active) active.classList.add('active');
+  var fields = FIELDS[sub.id];
+  if (fields) { renderFields(fields); show('step3'); show('submitArea'); }
+}
+
+function renderFields(fields) {
+  var container = document.getElementById('detailFields');
+  container.innerHTML = '';
+  container.classList.add('fade-in');
+  fields.forEach(function(f) {
+    var div = document.createElement('div');
+    div.className = 'field';
+    div.id = 'field-' + f.id;
+    var label = document.createElement('label');
+    label.setAttribute('for', 'input-' + f.id);
+    label.innerHTML = f.label + (f.required ? '<span class="required">*</span>' : '');
+    div.appendChild(label);
+    var input;
+    if (f.type === 'select') {
+      input = document.createElement('select');
+      var empty = document.createElement('option');
+      empty.value = ''; empty.textContent = '選択してください';
+      input.appendChild(empty);
+      f.options.forEach(function(opt) {
+        var o = document.createElement('option');
+        o.value = opt; o.textContent = opt;
+        input.appendChild(o);
+      });
+    } else if (f.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.placeholder = f.label + 'を入力';
+    } else {
+      input = document.createElement('input');
+      input.type = f.type || 'text';
+      input.placeholder = f.label + 'を入力';
+    }
+    input.id = 'input-' + f.id;
+    input.dataset.label = f.label;
+    input.dataset.required = f.required ? 'true' : 'false';
+    div.appendChild(input);
+    container.appendChild(div);
+  });
+}
+
+// ====================================================
+// バリデーション
+// ====================================================
+function validate() {
+  var valid = true;
+  document.querySelectorAll('.error-msg').forEach(function(e) { e.remove(); });
+  document.querySelectorAll('.field-error').forEach(function(e) { e.classList.remove('field-error'); });
+  if (!currentUser) { valid = false; reAuthenticate(); }
+  if (!state.categoryId) { valid = false; }
+  document.querySelectorAll('#detailFields input, #detailFields select, #detailFields textarea').forEach(function(inp) {
+    if (inp.dataset.required === 'true' && (!inp.value || inp.value.trim() === '')) {
+      valid = false;
+      var field = inp.closest('.field');
+      field.classList.add('field-error');
+      var err = document.createElement('div');
+      err.className = 'error-msg';
+      err.textContent = inp.dataset.label + 'は必須です';
+      field.appendChild(err);
     }
   });
+  return valid;
+}
 
-  const tabs = document.querySelectorAll('.tab');
-  const panels = document.querySelectorAll('.panel');
-  const viewBtns = document.querySelectorAll('.view-btn');
-  const requestorInput = document.querySelector('.requestor-input');
-  const emailInput = document.getElementById('email');
-  const applyBtn = document.getElementById('applyEmail');
-  const taskFrame = document.getElementById('taskFrame');
-  const taskUnavailable = document.getElementById('taskUnavailable');
+// ====================================================
+// 送信
+// ====================================================
+function handleSubmit() {
+  if (!validate()) return;
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>送信中...';
 
-  function showPanel(name) {
-    panels.forEach(p => {
-      p.classList.toggle('active', p.id === 'panel-' + name);
-    });
-    tabs.forEach(t => {
-      t.classList.toggle('active', t.dataset.tab === name);
-    });
-    if (name === 'tasks' && DASHBOARD_URL) {
-      updateTaskFrameUrl();
+  var fields = [];
+  document.querySelectorAll('#detailFields input, #detailFields select, #detailFields textarea').forEach(function(inp) {
+    fields.push({ label: inp.dataset.label, value: inp.value });
+  });
+
+  apiCall('POST', '/api/submit', {
+    name: currentUser.email,
+    category: state.categoryLabel,
+    subCategory: state.subCategoryLabel,
+    fields: fields
+  }).then(function(result) {
+    if (result.success) {
+      document.getElementById('requestId').textContent = result.id;
+      hide('formScreen'); show('successScreen');
+    } else {
+      alert('送信に失敗しました: ' + (result.error || '不明なエラー'));
+      btn.disabled = false; btn.textContent = '送信する';
     }
-  }
+  }).catch(function(err) {
+    alert('エラー: ' + err.message);
+    btn.disabled = false; btn.textContent = '送信する';
+  });
+}
 
-  function getTaskFrameUrl() {
-    const view = document.querySelector('.view-btn.active')?.dataset.view || 'all';
-    const email = emailInput?.value?.trim() || '';
-    if (view === 'all') return DASHBOARD_URL + '/';
-    if (view === 'requestor' && email) {
-      return DASHBOARD_URL + '/?view=requestor&email=' + encodeURIComponent(email);
-    }
-    return DASHBOARD_URL + '/?view=requestor';
-  }
+// ====================================================
+// リセット
+// ====================================================
+function resetForm() {
+  state.categoryId = ''; state.categoryLabel = '';
+  state.subCategoryId = ''; state.subCategoryLabel = '';
+  document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
+  hide('step2'); hide('step3'); hide('submitArea');
+  document.getElementById('detailFields').innerHTML = '';
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitBtn').textContent = '送信する';
+  hide('successScreen'); show('formScreen');
+}
 
-  function updateTaskFrameUrl() {
-    if (!DASHBOARD_URL) {
-      taskFrame.style.display = 'none';
-      taskUnavailable.style.display = 'block';
+// ====================================================
+// タスク一覧
+// ====================================================
+function loadTasks() {
+  var area = document.getElementById('taskListArea');
+  area.innerHTML = '<div class="task-loading">読み込み中...</div>';
+
+  apiCall('GET', '/api/tasks').then(function(tasks) {
+    if (!tasks || tasks.length === 0) {
+      area.innerHTML = '<div class="task-empty">タスクがありません</div>';
       return;
     }
-    taskFrame.src = getTaskFrameUrl();
-    taskFrame.style.display = 'block';
-    taskUnavailable.style.display = 'none';
-  }
-
-  tabs.forEach(t => {
-    t.addEventListener('click', () => showPanel(t.dataset.tab));
-  });
-
-  viewBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      viewBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      requestorInput.style.display = btn.dataset.view === 'requestor' ? 'flex' : 'none';
-      if (DASHBOARD_URL) updateTaskFrameUrl();
+    var html = '<table class="task-table"><thead><tr><th>ID</th><th>依頼者</th><th>内容</th><th>日時</th><th>進捗</th><th></th></tr></thead><tbody>';
+    tasks.forEach(function(t) {
+      html += '<tr class="task-row" data-task-id="' + t.taskId + '">';
+      html += '<td>' + t.reqId + '</td>';
+      html += '<td>' + t.requester + '</td>';
+      html += '<td>' + t.category + (t.subCategory ? ' / ' + t.subCategory : '') + '</td>';
+      html += '<td>' + t.createdAt + '</td>';
+      html += '<td><select class="status-select" data-task-id="' + t.taskId + '">';
+      html += '<option value="未対応"' + (t.status === '未対応' ? ' selected' : '') + '>未対応</option>';
+      html += '<option value="対応中"' + (t.status === '対応中' ? ' selected' : '') + '>対応中</option>';
+      html += '<option value="完了"' + (t.status === '完了' ? ' selected' : '') + '>完了</option>';
+      html += '</select></td>';
+      html += '<td><button class="btn-update" onclick="doUpdateStatus(' + t.taskId + ')">更新</button></td>';
+      html += '</tr>';
     });
+    html += '</tbody></table>';
+    area.innerHTML = html;
+  }).catch(function(err) {
+    area.innerHTML = '<div class="task-empty">読み込みに失敗しました: ' + err.message + '</div>';
   });
+}
 
-  applyBtn?.addEventListener('click', () => {
-    if (DASHBOARD_URL) updateTaskFrameUrl();
-  });
+function doUpdateStatus(taskId) {
+  var row = document.querySelector('.task-row[data-task-id="' + taskId + '"]');
+  var select = row ? row.querySelector('.status-select') : null;
+  if (!select) return;
+  apiCall('PUT', '/api/tasks/' + taskId + '/status', { status: select.value })
+    .then(function() { loadTasks(); })
+    .catch(function() { alert('更新に失敗しました'); });
+}
 
-  emailInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') applyBtn?.click();
-  });
-
-  if (DASHBOARD_URL) {
-    taskFrame.src = getTaskFrameUrl();
-  } else {
-    taskFrame.style.display = 'none';
-    taskUnavailable.style.display = 'block';
-  }
-})();
+// ====================================================
+// ユーティリティ
+// ====================================================
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
 </script>
 </body>
 </html>

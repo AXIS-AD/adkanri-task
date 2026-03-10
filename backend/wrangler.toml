@@ -1,0 +1,17 @@
+name = "adkanri-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# KV ストレージ（タスクメタデータ保管用）
+# ※ 作成後に id を書き換えてください:
+#   wrangler kv:namespace create TASK_STORE
+[[kv_namespaces]]
+binding = "TASK_STORE"
+id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# 環境変数（シークレット）は wrangler secret put で設定:
+#   wrangler secret put CHATWORK_API_TOKEN
+#   wrangler secret put CHATWORK_ROOM_ID
+#   wrangler secret put ALL_USER_IDS
+#   wrangler secret put ASSIGN_MAP_JSON
+#   wrangler secret put GOOGLE_CLIENT_ID
