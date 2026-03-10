@@ -269,17 +269,14 @@
 <body>
 
 <script>
-// 直接GASのURLを開いた場合は Netlify にリダイレクト（アドレスバーを自社URLに）
-if (window.top === window.self) {
+// 直接GASのURLを開いた場合は GitHub Pages にリダイレクト（script.google.com のときのみ）
+if (window.top === window.self && /script\.google\.com/.test(window.location.hostname)) {
   window.location.replace('https://tomori-lab.github.io/adkanri-task/');
   document.body.innerHTML = '<div style="font-family:sans-serif;text-align:center;padding:40px;color:#64748b;">リダイレクト中...</div>';
 }
 </script>
 
-<div class="header">
-  <h1>TO アド管理依頼 <span id="currentUser" class="header-requester"></span></h1>
-  <p>アド管理チームへの依頼フォーム</p>
-</div>
+<span id="currentUser" class="hidden"></span>
 
 <div class="app-body">
   <div class="main-content">
