@@ -49,13 +49,17 @@
   .admin-only { display: none; }
   .is-admin .admin-only { display: block; }
 
-  .person-row { display: flex; flex-wrap: nowrap; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .person-btn { flex: 1; min-width: 0; padding: 10px 8px; border-radius: 6px; border: 2px solid transparent; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; text-align: center; }
+  .sub-sidebar { width: 180px; background: var(--surface); border-right: 1px solid var(--border); padding: 12px 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: width .2s, opacity .2s; display: flex; flex-direction: column; }
+  .sub-sidebar.hidden { width: 0; padding: 0; overflow: hidden; border-right: none; opacity: 0; }
+  .sub-sidebar-title { font-size: 12px; font-weight: 700; color: var(--text2); padding: 8px 14px 6px; text-transform: uppercase; letter-spacing: .5px; }
+
+  .person-row { display: flex; flex-wrap: nowrap; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .person-btn { flex: 1; min-width: 0; padding: 8px 4px; border-radius: 6px; border: 2px solid transparent; background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; text-align: center; }
   .person-btn:hover { color: var(--text); background: rgba(255,255,255,.12); }
   .person-btn.active { color: var(--text); border-color: var(--person-color, var(--accent)); }
 
-  .genre-list { padding: 8px 0; display: flex; flex-direction: column; gap: 2px; flex: 1; }
-  .genre-btn { display: block; width: 100%; padding: 8px 16px; border: none; border-left: 3px solid transparent; background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; font-weight: 500; text-align: left; transition: all .2s; }
+  .genre-list { padding: 4px 0; display: flex; flex-direction: column; gap: 1px; flex: 1; }
+  .genre-btn { display: block; width: 100%; padding: 8px 14px; border: none; border-left: 3px solid transparent; background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; font-weight: 500; text-align: left; transition: all .2s; }
   .genre-btn:hover { color: var(--text); background: rgba(255,255,255,.05); }
   .genre-btn.active { color: var(--accent); border-left-color: var(--accent); background: rgba(59,130,246,.1); }
 
@@ -251,19 +255,22 @@
       <button class="nav-btn admin-only" data-page="admin" onclick="switchPage('admin')">⚒️ 管理設定</button>
     </div>
 
-    <div id="taskFilters" class="admin-only" style="display:none;">
-      <div class="person-row" id="personRow"></div>
-      <nav class="genre-list">
-        <button class="genre-btn active" data-genre="all" onclick="setGenre('all')">すべて</button>
-        <button class="genre-btn" data-genre="tsunagikomi" onclick="setGenre('tsunagikomi')">つなぎこみ</button>
-        <button class="genre-btn" data-genre="sheet" onclick="setGenre('sheet')">スプシ</button>
-        <button class="genre-btn" data-genre="number_match" onclick="setGenre('number_match')">数字合わせ</button>
-        <button class="genre-btn" data-genre="asp" onclick="setGenre('asp')">ASP</button>
-        <button class="genre-btn" data-genre="other" onclick="setGenre('other')">その他</button>
-        <button class="genre-btn" data-genre="teiki" onclick="setGenre('teiki')">定期タスク</button>
-        <button class="genre-btn" data-genre="long_term" onclick="setGenre('long_term')">長期タスク</button>
-      </nav>
-    </div>
+  </aside>
+
+  <aside class="sub-sidebar hidden" id="subSidebar">
+    <div class="sub-sidebar-title">担当</div>
+    <div class="person-row" id="personRow"></div>
+    <div class="sub-sidebar-title" style="margin-top:4px;">カテゴリ</div>
+    <nav class="genre-list">
+      <button class="genre-btn active" data-genre="all" onclick="setGenre('all')">すべて</button>
+      <button class="genre-btn" data-genre="tsunagikomi" onclick="setGenre('tsunagikomi')">つなぎこみ</button>
+      <button class="genre-btn" data-genre="sheet" onclick="setGenre('sheet')">スプシ</button>
+      <button class="genre-btn" data-genre="number_match" onclick="setGenre('number_match')">数字合わせ</button>
+      <button class="genre-btn" data-genre="asp" onclick="setGenre('asp')">ASP</button>
+      <button class="genre-btn" data-genre="other" onclick="setGenre('other')">その他</button>
+      <button class="genre-btn" data-genre="teiki" onclick="setGenre('teiki')">定期タスク</button>
+      <button class="genre-btn" data-genre="long_term" onclick="setGenre('long_term')">長期タスク</button>
+    </nav>
   </aside>
 
   <div class="main-content">
@@ -483,15 +490,15 @@ function switchPage(page) {
   document.querySelectorAll(".panel").forEach(function(p) { p.classList.remove("active"); });
   document.getElementById("panel-" + page).classList.add("active");
 
-  var taskFilters = document.getElementById("taskFilters");
+  var subSidebar = document.getElementById("subSidebar");
   var headerStats = document.getElementById("headerStats");
 
   if (page === "tasks") {
-    taskFilters.style.display = "block";
+    subSidebar.classList.remove("hidden");
     headerStats.style.display = "flex";
     if (!tasksLoaded) loadAll();
   } else {
-    taskFilters.style.display = "none";
+    subSidebar.classList.add("hidden");
     headerStats.style.display = "none";
   }
 
