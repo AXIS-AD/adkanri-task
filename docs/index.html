@@ -81,6 +81,16 @@
   .reload-btn:not(:disabled):active .reload-icon { transform: rotate(360deg); }
   .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: white; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: default; }
 
+  .summary-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .summary-card { flex: 1; min-width: 140px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+  .summary-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .summary-card .summary-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .summary-card .summary-count { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .summary-card .summary-count span { font-size: 13px; font-weight: 500; color: var(--text2); margin-left: 2px; }
+  .summary-card .summary-bar { position: absolute; bottom: 0; left: 0; height: 3px; border-radius: 0 0 12px 12px; }
+  .summary-detail { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .summary-detail .sd-item { font-size: 11px; color: var(--text2); }
+
   .panel { display: none; flex: 1; overflow-y: auto; }
   .panel.active { display: block; }
   main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px; }
@@ -1047,6 +1057,30 @@ function renderAll() {
 
   var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
   var html = "";
+
+  if (selectedPersonId === "all" && !isManualGenre && selectedGenre === "all") {
+    var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }];
+    var chatworkTasks = allTasks.filter(function(t) { return !t.isManual; });
+    html += '<div class="summary-row">';
+    people.forEach(function(p) {
+      var pTasks = chatworkTasks.filter(function(t) { return t.assigneeId === p.id; });
+      var openCount = pTasks.filter(function(t) { return t.localStatus === "open"; }).length;
+      var ipCount = pTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
+      var waitCount = pTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
+      var color = PERSON_COLORS[p.name] || "var(--accent)";
+      html += '<div class="summary-card" onclick="setPerson(' + p.id + ')">';
+      html += '<div class="summary-name">' + esc(p.name) + '</div>';
+      html += '<div class="summary-count">' + pTasks.length + '<span>件</span></div>';
+      html += '<div class="summary-detail">';
+      if (openCount) html += '<span class="sd-item">未着手 ' + openCount + '</span>';
+      if (ipCount) html += '<span class="sd-item">着手中 ' + ipCount + '</span>';
+      if (waitCount) html += '<span class="sd-item">相手待ち ' + waitCount + '</span>';
+      html += '</div>';
+      html += '<div class="summary-bar" style="width:100%;background:' + color + ';"></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
 
   if (isManualGenre) {
     var addBtn = '<button class="add-task-btn" onclick="addManualTask(\'' + selectedGenre + '\')">＋ 追加</button>';
