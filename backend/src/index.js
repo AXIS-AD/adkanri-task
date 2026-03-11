@@ -22,6 +22,8 @@ export default {
         response = await handleSubmit(request, env);
       } else if (path === '/api/tasks' && request.method === 'GET') {
         response = await handleGetTasks(request, env);
+      } else if (path === '/api/my-requests' && request.method === 'GET') {
+        response = await handleGetMyRequests(request, env);
       } else if (/^\/api\/tasks\/\d+\/status$/.test(path) && request.method === 'PUT') {
         response = await handleUpdateStatus(request, env);
       }
@@ -182,6 +184,60 @@ async function handleGetTasks(request, env) {
       category: m.category || '-',
       subCategory: m.subCategory || '',
       createdAt: m.createdAt || '-',
+    });
+  }
+
+  result.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  return jsonResponse(result);
+}
+
+// ====================================================
+// ハンドラ: 自分の依頼一覧（ダッシュボードルームから取得）
+// ====================================================
+
+async function handleGetMyRequests(request, env) {
+  const user = await verifyGoogleToken(request, env);
+  const cfg = getChatworkConfig(env);
+  const local = await getDashboardLocal(env);
+
+  const res = await fetch(
+    `https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/tasks?status=open`,
+    { headers: { 'X-ChatWorkToken': cfg.apiToken } }
+  );
+  if (!res.ok) return jsonResponse([]);
+  const tasks = await res.json();
+
+  const doneRes = await fetch(
+    `https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/tasks?status=done`,
+    { headers: { 'X-ChatWorkToken': cfg.apiToken } }
+  ).catch(() => null);
+  const doneTasks = doneRes && doneRes.ok ? await doneRes.json() : [];
+
+  const allTasks = [...tasks, ...doneTasks];
+  const result = [];
+  const userEmail = user.email.toLowerCase();
+
+  for (const t of allTasks) {
+    const body = t.body || '';
+    const requester = extractRequester(body);
+    if (!requester || requester !== userEmail) continue;
+
+    const meta = local[String(t.task_id)] || {};
+    const statusMap = { open: '\u672A\u7740\u624B', in_progress: '\u7740\u624B\u4E2D', waiting: '\u76F8\u624B\u5F85\u3061', done: '\u5B8C\u4E86' };
+    const displayStatus = statusMap[meta.localStatus] || (t.status === 'done' ? '\u5B8C\u4E86' : '\u672A\u7740\u624B');
+
+    const catMatch = body.match(/\u5927\u5206\u985E\uFF1A([^\n]+)/);
+    const subMatch = body.match(/\u5C0F\u5206\u985E\uFF1A([^\n]+)/);
+    const titleMatch = body.match(/\u3010([^\u3011]+)\u3011/);
+
+    result.push({
+      taskId: t.task_id,
+      title: titleMatch ? titleMatch[1] : extractTitle(body),
+      category: catMatch ? catMatch[1].trim() : '-',
+      subCategory: subMatch ? subMatch[1].trim() : '',
+      status: displayStatus,
+      assignee: t.account ? t.account.name : '',
+      createdAt: t.limit_time ? new Date(t.limit_time * 1000).toISOString().slice(0, 10) : '-',
     });
   }
 
