@@ -391,9 +391,25 @@ async function handleUpdateAdminRoles(request, env) {
 // Chatwork 連携
 // ====================================================
 
+const DASHBOARD_ROOM_ID = '333632829';
+
+const HARDCODED_ASSIGN_MAP = {
+  '\u30A2\u30AB\u30A6\u30F3\u30C8\u95A2\u9023\uFF08\u4F5C\u6210\u30FB\u7D10\u3065\u3051\u30FB\u30A8\u30E9\u30FC\uFF09': '10696465',
+  '\u30EA\u30F3\u30AF\u767A\u884C\u4F9D\u983C': '10696465',
+  '\u30B9\u30D7\u30B7\u95A2\u9023': '10034061',
+  '\u65B0\u898F\u6848\u4EF6': '10034061',
+  '\u65B0\u898F\u30AA\u30D5\u30A1\u30FC\u8FFD\u52A0': '10034061',
+  '\u5358\u4FA1\u5909\u66F4': '10034061',
+  'CSV\u4FDD\u7BA1\u4FEE\u6B63/\u5F8C\u7740\u706B\u4FEE\u6B63': '10034061',
+  '\u30AD\u30E3\u30C3\u30D7\u901A\u77E5\u4F9D\u983C': '10034061',
+  '\u305D\u306E\u4ED6/\u30A8\u30E9\u30FC\u95A2\u9023': '10034061',
+};
+
 function getChatworkConfig(env) {
   let assignMap = {};
   try { assignMap = JSON.parse(env.ASSIGN_MAP_JSON || '{}'); } catch (_) {}
+  const hasValidKeys = Object.keys(assignMap).some((k) => !/\?/.test(k) && k.length > 2);
+  if (!hasValidKeys) assignMap = HARDCODED_ASSIGN_MAP;
   return {
     apiToken: env.CHATWORK_API_TOKEN || '',
     roomId: env.CHATWORK_ROOM_ID || '',
@@ -402,36 +418,41 @@ function getChatworkConfig(env) {
   };
 }
 
+function resolveAssignee(cfg, category, bh) {
+  if (!bh) return cfg.allUserIds;
+  let toId = cfg.assignMap[category];
+  if (!toId) {
+    for (const key of Object.keys(cfg.assignMap)) {
+      if (category && category.includes(key)) { toId = cfg.assignMap[key]; break; }
+    }
+  }
+  return toId || cfg.allUserIds;
+}
+
 async function sendChatworkTask(formData, reqId, env) {
   const cfg = getChatworkConfig(env);
   const bh = isBusinessHours();
-  let toId = null;
-  if (bh) {
-    toId = cfg.assignMap[formData.category];
-    if (!toId) {
-      for (const key of Object.keys(cfg.assignMap)) {
-        if (formData.category && formData.category.includes(key)) { toId = cfg.assignMap[key]; break; }
-      }
-    }
-  }
-  if (!toId) toId = cfg.allUserIds;
+  const toId = resolveAssignee(cfg, formData.category, bh);
 
   const subLabel = formData.subCategory || formData.category;
   const fieldLines = [];
   if (formData.fields) {
     for (const f of formData.fields) {
-      if (f.value && String(f.value).trim()) fieldLines.push(f.label + '：' + f.value);
+      if (f.value && String(f.value).trim()) fieldLines.push(f.label + '\uFF1A' + f.value);
     }
   }
 
+  const infoBlock = '\n\n\u3010' + subLabel + '\u3011\n[info]\n\u4F9D\u983C\u8005\uFF1A' + formData.name
+    + '\n\u5927\u5206\u985E\uFF1A' + formData.category
+    + (formData.subCategory ? '\n\u5C0F\u5206\u985E\uFF1A' + formData.subCategory : '')
+    + (fieldLines.length ? '\n' + fieldLines.join('\n') : '')
+    + '\n[/info]';
+
   // 依頼追跡用ルーム（REQ-ID付き）
   let trackingBody = REQ_PREFIX + ' ' + reqId + '\n\n';
-  trackingBody += '依頼がきました。対応お願いします！';
-  if (!bh) trackingBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
-  trackingBody += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
-  if (formData.subCategory) trackingBody += '\n小分類：' + formData.subCategory;
-  for (const fl of fieldLines) trackingBody += '\n' + fl;
-  trackingBody += '\n[/info]';
+  trackingBody += '\u4F9D\u983C\u304C\u304D\u307E\u3057\u305F\u3002\u5BFE\u5FDC\u304A\u9858\u3044\u3057\u307E\u3059\uFF01';
+  if (!bh) trackingBody += '\n\u26A0\uFE0F \u55B6\u696D\u6642\u9593\u5916\u306E\u305F\u3081\u5168\u54E1\u306B\u30BF\u30B9\u30AF\u5316\u3057\u3066\u3044\u307E\u3059';
+  trackingBody += infoBlock;
 
   const res = await fetch(`https://api.chatwork.com/v2/rooms/${cfg.roomId}/tasks`, {
     method: 'POST',
@@ -442,33 +463,26 @@ async function sendChatworkTask(formData, reqId, env) {
       to_ids: toId,
     }),
   });
-
   const result = await res.json();
 
-  // ダッシュボード用ルーム (333632829) — REQ-ID不要、名前表示
-  const dashboardRoom = env.CHATWORK_ROOM_2 || '333632829';
-  if (dashboardRoom) {
-    let dashBody = '依頼がきました。対応お願いします！';
-    if (!bh) dashBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
-    dashBody += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
-    if (formData.subCategory) dashBody += '\n小分類：' + formData.subCategory;
-    for (const fl of fieldLines) dashBody += '\n' + fl;
-    dashBody += '\n[/info]';
-    try {
-      await fetch(`https://api.chatwork.com/v2/rooms/${dashboardRoom}/tasks`, {
-        method: 'POST',
-        headers: { 'X-ChatWorkToken': cfg.apiToken },
-        body: new URLSearchParams({
-          body: dashBody,
-          limit: String(Math.floor(Date.now() / 1000) + 86400),
-          to_ids: toId,
-        }),
-      });
-    } catch (_) {}
-  }
+  // ダッシュボード用ルーム (333632829) — REQ-IDなし
+  let dashBody = '\u4F9D\u983C\u304C\u304D\u307E\u3057\u305F\u3002\u5BFE\u5FDC\u304A\u9858\u3044\u3057\u307E\u3059\uFF01';
+  if (!bh) dashBody += '\n\u26A0\uFE0F \u55B6\u696D\u6642\u9593\u5916\u306E\u305F\u3081\u5168\u54E1\u306B\u30BF\u30B9\u30AF\u5316\u3057\u3066\u3044\u307E\u3059';
+  dashBody += infoBlock;
+  try {
+    await fetch(`https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/tasks`, {
+      method: 'POST',
+      headers: { 'X-ChatWorkToken': cfg.apiToken },
+      body: new URLSearchParams({
+        body: dashBody,
+        limit: String(Math.floor(Date.now() / 1000) + 86400),
+        to_ids: toId,
+      }),
+    });
+  } catch (_) {}
 
   if (result.task_ids && result.task_ids[0]) return result.task_ids[0];
-  throw new Error('チャットワーク通知に失敗しました: ' + JSON.stringify(result));
+  throw new Error('\u30C1\u30E3\u30C3\u30C8\u30EF\u30FC\u30AF\u901A\u77E5\u306B\u5931\u6557\u3057\u307E\u3057\u305F: ' + JSON.stringify(result));
 }
 
 // ====================================================
