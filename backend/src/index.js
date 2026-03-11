@@ -136,7 +136,8 @@ async function verifyGoogleToken(request, env) {
 async function handleSubmit(request, env) {
   const user = await verifyGoogleToken(request, env);
   const formData = await request.json();
-  formData.name = user.email;
+  formData.name = user.name || user.email;
+  formData.email = user.email;
 
   const reqId = 'REQ-' + formatJST(new Date(), 'yyyyMMdd-HHmmss');
   const taskId = await sendChatworkTask(formData, reqId, env);
@@ -404,30 +405,39 @@ function getChatworkConfig(env) {
 async function sendChatworkTask(formData, reqId, env) {
   const cfg = getChatworkConfig(env);
   const bh = isBusinessHours();
-  let toId = bh ? cfg.assignMap[formData.category] : cfg.allUserIds;
-  if (!toId) toId = cfg.allUserIds;
-
-  let body = REQ_PREFIX + ' ' + reqId + '\n\n';
-  body += '依頼がきました。対応お願いします！';
-  if (!bh) body += '\n⚠️ 営業時間外のため全員にタスク化しています';
-
-  const subLabel = formData.subCategory || formData.category;
-  body += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
-  if (formData.subCategory) body += '\n小分類：' + formData.subCategory;
-  if (formData.fields) {
-    for (const f of formData.fields) {
-      if (f.value && String(f.value).trim()) {
-        body += '\n' + f.label + '：' + f.value;
+  let toId = null;
+  if (bh) {
+    toId = cfg.assignMap[formData.category];
+    if (!toId) {
+      for (const key of Object.keys(cfg.assignMap)) {
+        if (formData.category && formData.category.includes(key)) { toId = cfg.assignMap[key]; break; }
       }
     }
   }
-  body += '\n[/info]';
+  if (!toId) toId = cfg.allUserIds;
+
+  const subLabel = formData.subCategory || formData.category;
+  const fieldLines = [];
+  if (formData.fields) {
+    for (const f of formData.fields) {
+      if (f.value && String(f.value).trim()) fieldLines.push(f.label + '：' + f.value);
+    }
+  }
+
+  // 依頼追跡用ルーム（REQ-ID付き）
+  let trackingBody = REQ_PREFIX + ' ' + reqId + '\n\n';
+  trackingBody += '依頼がきました。対応お願いします！';
+  if (!bh) trackingBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
+  trackingBody += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
+  if (formData.subCategory) trackingBody += '\n小分類：' + formData.subCategory;
+  for (const fl of fieldLines) trackingBody += '\n' + fl;
+  trackingBody += '\n[/info]';
 
   const res = await fetch(`https://api.chatwork.com/v2/rooms/${cfg.roomId}/tasks`, {
     method: 'POST',
     headers: { 'X-ChatWorkToken': cfg.apiToken },
     body: new URLSearchParams({
-      body,
+      body: trackingBody,
       limit: String(Math.floor(Date.now() / 1000) + 86400),
       to_ids: toId,
     }),
@@ -435,15 +445,21 @@ async function sendChatworkTask(formData, reqId, env) {
 
   const result = await res.json();
 
-  // ダッシュボード用ルーム (333632829) にも同じ担当でタスク作成
+  // ダッシュボード用ルーム (333632829) — REQ-ID不要、名前表示
   const dashboardRoom = env.CHATWORK_ROOM_2 || '333632829';
-  if (dashboardRoom && dashboardRoom !== cfg.roomId) {
+  if (dashboardRoom) {
+    let dashBody = '依頼がきました。対応お願いします！';
+    if (!bh) dashBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
+    dashBody += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
+    if (formData.subCategory) dashBody += '\n小分類：' + formData.subCategory;
+    for (const fl of fieldLines) dashBody += '\n' + fl;
+    dashBody += '\n[/info]';
     try {
       await fetch(`https://api.chatwork.com/v2/rooms/${dashboardRoom}/tasks`, {
         method: 'POST',
         headers: { 'X-ChatWorkToken': cfg.apiToken },
         body: new URLSearchParams({
-          body,
+          body: dashBody,
           limit: String(Math.floor(Date.now() / 1000) + 86400),
           to_ids: toId,
         }),
