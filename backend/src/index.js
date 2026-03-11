@@ -225,6 +225,8 @@ async function handleGetMyRequests(request, env) {
     const statusMap = { open: '\u672A\u7740\u624B', in_progress: '\u7740\u624B\u4E2D', waiting: '\u76F8\u624B\u5F85\u3061', done: '\u5B8C\u4E86' };
     const displayStatus = statusMap[meta.localStatus] || (t.status === 'done' ? '\u5B8C\u4E86' : '\u672A\u7740\u624B');
 
+    if (displayStatus === '\u5B8C\u4E86') continue;
+
     const catMatch = body.match(/\u5927\u5206\u985E\uFF1A([^\n]+)/);
     const subMatch = body.match(/\u5C0F\u5206\u985E\uFF1A([^\n]+)/);
     const titleMatch = body.match(/\u3010([^\u3011]+)\u3011/);
