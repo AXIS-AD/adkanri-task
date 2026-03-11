@@ -63,7 +63,6 @@
   header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
   .header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
   .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-  header .view-badge { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
   .header-meta { font-size: 11px; color: var(--text2); white-space: nowrap; }
   .sidebar-toggle { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 16px; cursor: pointer; display: none; align-items: center; justify-content: center; flex-shrink: 0; }
   .sidebar-toggle:hover { background: rgba(255,255,255,.1); color: var(--text); }
@@ -267,12 +266,9 @@
     <header>
       <div class="header-left">
         <button class="sidebar-toggle" id="sidebarOpen" onclick="toggleSidebar()">&#9776;</button>
-        <span class="view-badge" id="viewBadge"></span>
         <div class="stats" id="headerStats" style="display:none;">
           <span class="header-meta" id="lastUpdated"></span>
-          <span class="header-meta">・</span>
-          <span class="header-meta"><strong id="totalCount">-</strong> 件</span>
-          <button class="header-icon-btn" id="reloadBtn" onclick="loadAll()" title="再読み込み">&#8635;</button>
+          <button class="header-icon-btn" id="reloadBtn" onclick="loadAll()" title="再読み込み">&#x21bb;</button>
         </div>
       </div>
       <div class="header-right">
@@ -485,7 +481,6 @@ function switchPage(page) {
 
   var taskFilters = document.getElementById("taskFilters");
   var headerStats = document.getElementById("headerStats");
-  var viewBadge = document.getElementById("viewBadge");
 
   if (page === "tasks") {
     taskFilters.style.display = "block";
@@ -499,8 +494,6 @@ function switchPage(page) {
   if (page === "mystatus") loadMyRequests();
   if (page === "admin") loadAdminRoles();
 
-  var person = peopleData.find(function(p) { return p.id === selectedPersonId; });
-  viewBadge.textContent = page === "tasks" ? (person ? person.name : "") + "のタスク" : "";
 }
 
 // ============================
@@ -1068,7 +1061,6 @@ function renderAll() {
     }
   }
 
-  document.getElementById("totalCount").textContent = tasksToShow.length;
   if (!html.trim()) {
     html = apiError ? '<div class="empty-state">Chatworkからタスクを取得できませんでした。</div>'
       : isManualGenre ? '<div class="empty-state"><button class="add-task-btn" style="font-size:14px;padding:10px 24px;" onclick="addManualTask(\'' + selectedGenre + '\')">＋ ' + CATEGORY_LABELS[selectedGenre] + 'を追加</button></div>'
@@ -1114,7 +1106,6 @@ async function loadAll() {
     renderPersonButtons(); renderAll(); tasksLoaded = true;
     document.getElementById("lastUpdated").textContent = "最終更新: " + new Date().toLocaleTimeString("ja-JP");
     var sel = peopleData.find(function(p) { return p.id === selectedPersonId; });
-    document.getElementById("viewBadge").textContent = sel ? sel.name + "のタスク" : "";
     if (apiError) { document.getElementById("apiErrorBanner").textContent = "Chatwork: " + apiError; document.getElementById("apiErrorBanner").style.display = "block"; }
   } catch (err) {
     document.getElementById("app").innerHTML = '<div class="empty-state" style="color:var(--red);">読み込みエラー: ' + esc(err.message) + '</div>';
