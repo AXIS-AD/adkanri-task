@@ -196,7 +196,7 @@ async function handleGetTasks(request, env) {
 // ====================================================
 
 async function handleGetMyRequests(request, env) {
-  const user = await verifyGoogleToken(request, env);
+  await verifyGoogleToken(request, env);
   const cfg = getChatworkConfig(env);
   const local = await getDashboardLocal(env);
 
@@ -215,15 +215,11 @@ async function handleGetMyRequests(request, env) {
 
   const allTasks = [...tasks, ...doneTasks];
   const result = [];
-  const userEmail = user.email.toLowerCase();
-  const userName = (user.name || '').toLowerCase();
 
   for (const t of allTasks) {
     const body = t.body || '';
     const reqName = extractRequesterName(body);
     if (!reqName) continue;
-    const reqLower = reqName.toLowerCase();
-    if (reqLower !== userEmail && reqLower !== userName && !userEmail.startsWith(reqLower + '@')) continue;
 
     const meta = local[String(t.task_id)] || {};
     const statusMap = { open: '\u672A\u7740\u624B', in_progress: '\u7740\u624B\u4E2D', waiting: '\u76F8\u624B\u5F85\u3061', done: '\u5B8C\u4E86' };
@@ -239,6 +235,7 @@ async function handleGetMyRequests(request, env) {
       category: catMatch ? catMatch[1].trim() : '-',
       subCategory: subMatch ? subMatch[1].trim() : '',
       status: displayStatus,
+      requester: reqName,
       assignee: t.account ? t.account.name : '',
       createdAt: t.limit_time ? new Date(t.limit_time * 1000).toISOString().slice(0, 10) : '-',
     });

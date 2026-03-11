@@ -236,6 +236,7 @@
   .req-status.pending { background: rgba(234,179,8,.15); color: var(--yellow); }
   .req-status.progress { background: rgba(59,130,246,.15); color: var(--accent); }
   .req-status.done { background: rgba(34,197,94,.15); color: var(--green); }
+  .req-status.waiting { background: rgba(168,85,247,.15); color: #a855f7; }
 </style>
 </head>
 <body>
@@ -704,22 +705,21 @@ async function loadMyRequests() {
   try {
     var tasks = await apiCall("GET", "/api/my-requests");
     if (!Array.isArray(tasks) || tasks.length === 0) {
-      area.innerHTML = '<div class="empty-state">あなたからの依頼はまだありません</div>';
+      area.innerHTML = '<div class="empty-state">依頼はまだありません</div>';
       return;
     }
     function statusClass(s) { return s === "完了" ? "done" : s === "着手中" ? "progress" : s === "相手待ち" ? "waiting" : "pending"; }
-    function statusColor(s) { return s === "完了" ? "var(--green)" : s === "着手中" ? "var(--accent)" : s === "相手待ち" ? "var(--yellow)" : "var(--text2)"; }
-    var html = '<div class="cards">';
+    var html = '<table class="req-table"><thead><tr><th>内容</th><th>依頼者</th><th>担当</th><th>日付</th><th>進捗</th></tr></thead><tbody>';
     tasks.forEach(function(t) {
-      var sc = statusClass(t.status);
-      var color = statusColor(t.status);
-      html += '<div class="card"><div class="card-top"><div class="card-title">' + esc(t.title || t.category) + '</div>';
-      html += '<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:' + color + '22;color:' + color + ';font-weight:600;">' + esc(t.status) + '</span></div>';
-      html += '<div class="card-meta"><span>' + esc(t.category) + (t.subCategory ? " / " + esc(t.subCategory) : "") + '</span>';
-      if (t.assignee) html += '<span>担当: ' + esc(t.assignee) + '</span>';
-      html += '</div></div>';
+      html += '<tr>';
+      html += '<td>' + esc(t.category) + (t.subCategory ? " / " + esc(t.subCategory) : "") + '</td>';
+      html += '<td>' + esc(t.requester || "-") + '</td>';
+      html += '<td>' + esc(t.assignee || "-") + '</td>';
+      html += '<td>' + esc(t.createdAt || "") + '</td>';
+      html += '<td><span class="req-status ' + statusClass(t.status) + '">' + esc(t.status || "未着手") + '</span></td>';
+      html += '</tr>';
     });
-    html += '</div>';
+    html += "</tbody></table>";
     area.innerHTML = html;
   } catch (err) {
     area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(err.message) + "</div>";
