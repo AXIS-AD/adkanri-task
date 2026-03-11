@@ -1083,7 +1083,7 @@ function renderPersonButtons() {
 
 async function loadAll() {
   var btn = document.getElementById("reloadBtn");
-  btn.disabled = true; btn.textContent = "読み込み中...";
+  btn.disabled = true; btn.innerHTML = "&#x23F3;";
   apiError = null;
   document.getElementById("apiErrorBanner").style.display = "none";
   try {
@@ -1109,7 +1109,7 @@ async function loadAll() {
     if (apiError) { document.getElementById("apiErrorBanner").textContent = "Chatwork: " + apiError; document.getElementById("apiErrorBanner").style.display = "block"; }
   } catch (err) {
     document.getElementById("app").innerHTML = '<div class="empty-state" style="color:var(--red);">読み込みエラー: ' + esc(err.message) + '</div>';
-  } finally { btn.disabled = false; btn.textContent = "再読み込み"; }
+  } finally { btn.disabled = false; btn.innerHTML = "&#x21bb;"; }
 }
 
 // ============================
