@@ -890,7 +890,7 @@ document.addEventListener("keydown", function(e) { if (e.key === "Escape" && cur
 
 function renderCard(t) {
   var dc = dueClass(t.limit), dl = dueLabel(t.limit), body = cleanBody(t.body);
-  var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">&#128465;</button>' : '';
+  var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button>' : '';
   return '<div class="card ' + dc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select><input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)"></div></div>';
 }
 
@@ -1033,7 +1033,7 @@ function renderTeikiCard(t) {
   freqSelect += '</select>';
   var noteHtml = t.note ? '<div class="card-body" style="margin-top:4px;font-size:12px;color:var(--text2);">' + esc(t.note) + '</div>' : '';
   var assigneeHtml = t.assigneeName ? '<div style="font-size:11px;color:var(--text2);margin-top:4px;">担当: ' + esc(t.assigneeName) + '</div>' : '';
-  return '<div class="card' + (isDone ? ' teiki-done' : '') + '" onclick="openTeikiModal(\'' + t.id + '\')"><div class="card-top"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')">' + (isDone ? '✓' : '') + '</button><div class="card-title" style="margin-left:8px;">' + esc(t.title) + '</div>' + freqSelect + '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">&#128465;</button></div>' + assigneeHtml + noteHtml + (isDone && t.nextDue ? '<div class="next-due">次回: ' + t.nextDue + '</div>' : '') + '</div>';
+  return '<div class="card' + (isDone ? ' teiki-done' : '') + '" onclick="openTeikiModal(\'' + t.id + '\')"><div class="card-top"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')">' + (isDone ? '✓' : '') + '</button><div class="card-title" style="margin-left:8px;">' + esc(t.title) + '</div>' + freqSelect + '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></div>' + assigneeHtml + noteHtml + (isDone && t.nextDue ? '<div class="next-due">次回: ' + t.nextDue + '</div>' : '') + '</div>';
 }
 
 function openTeikiModal(id) {
@@ -1080,7 +1080,7 @@ function renderLongTermCard(t) {
   var deadlineStr = t.deadline ? t.deadline : "期日未設定";
   var noteHtml = t.note ? '<div class="card-body" style="margin-top:4px;font-size:12px;color:var(--text2);">' + esc(t.note) + '</div>' : '';
   var assigneeHtml = t.assigneeName ? '<span>担当: ' + esc(t.assigneeName) + '</span>' : '';
-  return '<div class="card" onclick="openLongTermModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title">' + esc(t.title) + '</div><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">&#128465;</button></div><div class="card-meta"><span>' + deadlineStr + '</span><span>' + (STATUS_LABELS_LT[t.status] || "未着手") + '</span>' + assigneeHtml + '</div>' + noteHtml + (total > 0 ? '<div class="todo-progress"><div class="todo-progress-text">やること: ' + doneCount + '/' + total + ' 完了</div><div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>' : '') + '</div>';
+  return '<div class="card" onclick="openLongTermModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title">' + esc(t.title) + '</div><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></div><div class="card-meta"><span>' + deadlineStr + '</span><span>' + (STATUS_LABELS_LT[t.status] || "未着手") + '</span>' + assigneeHtml + '</div>' + noteHtml + (total > 0 ? '<div class="todo-progress"><div class="todo-progress-text">やること: ' + doneCount + '/' + total + ' 完了</div><div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>' : '') + '</div>';
 }
 
 var TODO_STATUSES = { open: "未着手", in_progress: "着手中", done: "完了" };
@@ -1115,7 +1115,7 @@ function openLongTermModal(id) {
       bodyHtml += '<option value="' + s + '"' + ((item.status || "open") === s ? ' selected' : '') + '>' + TODO_STATUSES[s] + '</option>';
     });
     bodyHtml += '</select>';
-    bodyHtml += '<button class="todo-delete-btn" onclick="removeTodoItem(\'' + id + '\',' + idx + ')" title="削除">&#128465;</button>';
+    bodyHtml += '<button class="todo-delete-btn" onclick="removeTodoItem(\'' + id + '\',' + idx + ')" title="削除">🗑️</button>';
     bodyHtml += '</div>';
   });
   bodyHtml += '</div>';
