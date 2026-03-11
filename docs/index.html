@@ -853,6 +853,34 @@ function renderListTable(tasks) {
   html += '</tbody></table>';
   return html;
 }
+function renderManualListTable(tasks, genre) {
+  if (!tasks.length) return '';
+  var isTeiki = genre === "teiki";
+  var html = '<table class="task-list-table"><thead><tr><th>' + (isTeiki ? '✓' : '') + '</th><th>タスク名</th><th>' + (isTeiki ? '頻度' : '期日') + '</th><th>担当</th><th>備考</th><th></th></tr></thead><tbody>';
+  tasks.forEach(function(t) {
+    var isDone = t.status === "done";
+    var clickFn = isTeiki ? 'openTeikiModal' : 'openLongTermModal';
+    html += '<tr class="task-list-row" onclick="' + clickFn + '(\'' + t.id + '\')" style="cursor:pointer;">';
+    if (isTeiki) {
+      html += '<td style="width:32px;text-align:center;"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')" style="width:22px;height:22px;">' + (isDone ? '✓' : '') + '</button></td>';
+      html += '<td class="tl-title">' + esc(t.title) + '</td>';
+      html += '<td>' + (FREQ_LABELS[t.frequency] || '毎月') + '</td>';
+    } else {
+      var todos = t.todos || [];
+      var doneC = todos.filter(function(x) { return x.status === "done" || x.done; }).length;
+      html += '<td style="width:32px;text-align:center;font-size:11px;color:var(--text2);">' + (todos.length ? doneC + '/' + todos.length : '-') + '</td>';
+      html += '<td class="tl-title">' + esc(t.title) + '</td>';
+      html += '<td>' + (t.deadline || '未設定') + '</td>';
+    }
+    html += '<td>' + esc(t.assigneeName || '-') + '</td>';
+    html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note || '') + '" onchange="event.stopPropagation();var tk=allTasks.find(function(x){return x.id===\'' + t.id + '\'});if(tk)tk.note=this.value;apiCall(\'POST\',\'/api/dashboard/tasks/' + t.id + '\',{note:this.value})" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
+    html += '<td style="width:32px;"><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
 function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
 function setPerson(id) { selectedPersonId = id; document.querySelectorAll(".person-btn").forEach(function(b) { var bid = b.dataset.id; b.classList.toggle("active", id === "all" ? bid === "all" : Number(bid) === id); }); loadAll(); }
 
@@ -1181,7 +1209,7 @@ function renderSection(title, tasks, dotColor, categoryKey) {
 function renderAll() {
   var isManualGenre = selectedGenre === "teiki" || selectedGenre === "long_term";
   document.getElementById("displayToggle").style.display = isManualGenre ? "none" : "flex";
-  document.getElementById("viewToggle").style.display = isManualGenre ? "none" : "flex";
+  document.getElementById("viewToggle").style.display = "flex";
 
   var tasksToShow = allTasks;
   if (selectedPersonId !== "all" && isManualGenre) {
@@ -1226,9 +1254,16 @@ function renderAll() {
     var activeTasks = tasksToShow.filter(function(t) { return t.status !== "done"; });
     var doneTasks = tasksToShow.filter(function(t) { return t.status === "done"; });
 
-    html = '<div class="section"><div class="section-header"><div class="section-dot" style="background:' + CATEGORY_COLORS[selectedGenre] + '"></div><h2>' + CATEGORY_LABELS[selectedGenre] + '</h2><span class="section-count">' + tasksToShow.length + '</span>' + addBtn + '</div><div class="cards">' + activeTasks.map(cardRenderer).join("") + '</div></div>';
+    var activeBody = viewMode === "list"
+      ? renderManualListTable(activeTasks, selectedGenre)
+      : '<div class="cards">' + activeTasks.map(cardRenderer).join("") + '</div>';
+    var doneBody = viewMode === "list"
+      ? renderManualListTable(doneTasks, selectedGenre)
+      : '<div class="cards">' + doneTasks.map(cardRenderer).join("") + '</div>';
+
+    html = '<div class="section"><div class="section-header"><div class="section-dot" style="background:' + CATEGORY_COLORS[selectedGenre] + '"></div><h2>' + CATEGORY_LABELS[selectedGenre] + '</h2><span class="section-count">' + tasksToShow.length + '</span>' + addBtn + '</div>' + activeBody + '</div>';
     if (doneTasks.length) {
-      html += '<div class="section"><div class="section-header"><div class="section-dot" style="background:var(--green)"></div><h2>完了</h2><span class="section-count">' + doneTasks.length + '</span></div><div class="cards">' + doneTasks.map(cardRenderer).join("") + '</div></div>';
+      html += '<div class="section"><div class="section-header"><div class="section-dot" style="background:var(--green)"></div><h2>完了</h2><span class="section-count">' + doneTasks.length + '</span></div>' + doneBody + '</div>';
     }
   } else {
     var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
