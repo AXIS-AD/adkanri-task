@@ -10,8 +10,15 @@ binding = "TASK_STORE"
 id = "d8d1d95bd7484f65bbf0ed6f597a7dc3"
 
 # 環境変数（シークレット）は wrangler secret put で設定:
+#
+# 既存（依頼フォーム用）:
 #   wrangler secret put CHATWORK_API_TOKEN
 #   wrangler secret put CHATWORK_ROOM_ID
 #   wrangler secret put ALL_USER_IDS
 #   wrangler secret put ASSIGN_MAP_JSON
 #   wrangler secret put GOOGLE_CLIENT_ID
+#
+# 追加（ダッシュボード用）:
+#   wrangler secret put CHATWORK_ROOM_2       # 2つ目のChatworkルームID
+#   wrangler secret put MY_ACCOUNT_ID         # デフォルト表示するChatworkアカウントID
+#   wrangler secret put PERSONS_JSON          # 担当者リスト JSON: [{"name":"筒井","id":9797164},...]

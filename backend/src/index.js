@@ -1,9 +1,9 @@
 // ====================================================
-// TOアド管理 API - Cloudflare Worker
+// TOアド管理 API - Cloudflare Worker (Unified)
 // ====================================================
 
 const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com'];
-const ALLOWED_ORIGINS = ['https://axis-ad.github.io', 'http://localhost:3000'];
+const ALLOWED_ORIGINS = ['https://axis-ad.github.io', 'http://localhost:3000', 'http://localhost:3456'];
 const REQ_PREFIX = 'REQ-ID:';
 
 export default {
@@ -17,13 +17,31 @@ export default {
     let response;
 
     try {
+      // ── 依頼フォーム ──
       if (path === '/api/submit' && request.method === 'POST') {
         response = await handleSubmit(request, env);
       } else if (path === '/api/tasks' && request.method === 'GET') {
         response = await handleGetTasks(request, env);
       } else if (/^\/api\/tasks\/\d+\/status$/.test(path) && request.method === 'PUT') {
         response = await handleUpdateStatus(request, env);
-      } else {
+      }
+      // ── ダッシュボード ──
+      else if (path === '/api/people' && request.method === 'GET') {
+        response = await handleGetPeople(request, env);
+      } else if (path === '/api/dashboard/tasks' && request.method === 'GET') {
+        response = await handleGetDashboardTasks(request, env);
+      } else if (/^\/api\/dashboard\/tasks\/[^/]+$/.test(path) && request.method === 'POST') {
+        response = await handleUpdateDashboardTask(request, env);
+      }
+      // ── 権限管理 ──
+      else if (path === '/api/role' && request.method === 'POST') {
+        response = await handleCheckRole(request, env);
+      } else if (path === '/api/admin/roles' && request.method === 'GET') {
+        response = await handleGetAdminRoles(request, env);
+      } else if (path === '/api/admin/roles' && request.method === 'POST') {
+        response = await handleUpdateAdminRoles(request, env);
+      }
+      else {
         response = jsonResponse({ error: 'Not Found' }, 404);
       }
     } catch (e) {
@@ -41,10 +59,11 @@ export default {
 
 function corsPreflightResponse(request) {
   const origin = request.headers.get('Origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
   return new Response(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : '',
+      'Access-Control-Allow-Origin': allowed ? origin : '',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
@@ -54,8 +73,9 @@ function corsPreflightResponse(request) {
 
 function addCorsHeaders(response, request) {
   const origin = request.headers.get('Origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
   const headers = new Headers(response.headers);
-  if (ALLOWED_ORIGINS.includes(origin)) {
+  if (allowed) {
     headers.set('Access-Control-Allow-Origin', origin);
   }
   return new Response(response.body, { status: response.status, headers });
@@ -125,7 +145,7 @@ async function handleSubmit(request, env) {
 }
 
 // ====================================================
-// ハンドラ: タスク一覧取得
+// ハンドラ: 依頼タスク一覧取得
 // ====================================================
 
 async function handleGetTasks(request, env) {
@@ -165,7 +185,7 @@ async function handleGetTasks(request, env) {
 }
 
 // ====================================================
-// ハンドラ: タスクステータス更新
+// ハンドラ: 依頼タスクステータス更新
 // ====================================================
 
 async function handleUpdateStatus(request, env) {
@@ -195,6 +215,114 @@ async function handleUpdateStatus(request, env) {
   }
 
   return jsonResponse({ success: true });
+}
+
+// ====================================================
+// ハンドラ: 担当者リスト
+// ====================================================
+
+async function handleGetPeople(request, env) {
+  await verifyGoogleToken(request, env);
+
+  let people = [];
+  const myId = Number(env.MY_ACCOUNT_ID || 0);
+
+  try {
+    people = JSON.parse(env.PERSONS_JSON || '[]');
+  } catch (_) {
+    people = [];
+  }
+
+  return jsonResponse({ people, myId });
+}
+
+// ====================================================
+// ハンドラ: ダッシュボード タスク一覧
+// ====================================================
+
+async function handleGetDashboardTasks(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const url = new URL(request.url);
+  const accountId = url.searchParams.get('accountId') ? Number(url.searchParams.get('accountId')) : null;
+
+  const cfg = getChatworkConfig(env);
+  const myId = Number(env.MY_ACCOUNT_ID || 0);
+  const room2 = env.CHATWORK_ROOM_2 || '';
+
+  const rooms = [cfg.roomId];
+  if (room2 && room2 !== cfg.roomId) rooms.push(room2);
+
+  const local = await getDashboardLocal(env);
+  const allTasksList = [];
+
+  for (const roomId of rooms) {
+    const targetId = accountId || myId;
+    const tasks = await fetchChatworkTasksForDashboard(roomId, cfg.apiToken, targetId);
+
+    for (const t of tasks) {
+      const meta = local[t.id] || {};
+      allTasksList.push({
+        ...t,
+        title: meta.title || extractTitle(t.body),
+        category: meta.category || autoCategory(t.body),
+        priority: meta.priority || 'medium',
+        localStatus: meta.localStatus || 'open',
+        note: meta.note || '',
+      });
+    }
+  }
+
+  return jsonResponse(allTasksList);
+}
+
+async function handleUpdateDashboardTask(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const id = new URL(request.url).pathname.split('/').pop();
+  const body = await request.json();
+  const local = await getDashboardLocal(env);
+  local[id] = { ...(local[id] || {}), ...body };
+  await saveDashboardLocal(env, local);
+
+  return jsonResponse({ ok: true });
+}
+
+// ====================================================
+// ハンドラ: 権限管理
+// ====================================================
+
+async function handleCheckRole(request, env) {
+  const user = await verifyGoogleToken(request, env);
+
+  const roles = await getAdminRoles(env);
+  const isAdmin = roles.admins.includes(user.email);
+  const isFirstUser = roles.admins.length === 0;
+
+  if (isFirstUser) {
+    roles.admins.push(user.email);
+    await saveAdminRoles(env, roles);
+    return jsonResponse({ role: 'admin', firstSetup: true });
+  }
+
+  return jsonResponse({ role: isAdmin ? 'admin' : 'user' });
+}
+
+async function handleGetAdminRoles(request, env) {
+  await verifyGoogleToken(request, env);
+  return jsonResponse(await getAdminRoles(env));
+}
+
+async function handleUpdateAdminRoles(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const { admins } = await request.json();
+  if (!Array.isArray(admins)) {
+    return jsonResponse({ error: 'admins array required' }, 400);
+  }
+
+  await saveAdminRoles(env, { admins: admins.map((e) => e.trim().toLowerCase()) });
+  return jsonResponse({ ok: true });
 }
 
 // ====================================================
@@ -250,6 +378,55 @@ async function sendChatworkTask(formData, reqId, env) {
 }
 
 // ====================================================
+// ダッシュボード: Chatwork タスク取得
+// ====================================================
+
+function extractRequester(body) {
+  const m = (body || '').match(/依頼者[：:]\s*([^\s\n]+@[^\s\n]+)/);
+  return m ? m[1].trim().toLowerCase() : null;
+}
+
+function autoCategory(body) {
+  const b = body || '';
+  if (/つなぎこみ|新規案件/.test(b)) return 'tsunagikomi';
+  if (/スプシ|シート/.test(b)) return 'sheet';
+  if (/数字合わせ|数値確認/.test(b)) return 'number_match';
+  if (/ASP/.test(b)) return 'asp';
+  if (/定期|月末|月初/.test(b)) return 'teiki';
+  return 'other';
+}
+
+function extractTitle(body) {
+  const b = (body || '').replace(/\[.*?\]/g, '');
+  const patterns = [/案件名[：:](.+)/, /【(.+?)】/, /▼(.+)/, /依頼内容（小分類）[：:](.+)/];
+  for (const p of patterns) {
+    const m = b.match(p);
+    if (m) return m[1].trim().slice(0, 40);
+  }
+  const first = b.trim().split('\n').find((l) => l.trim().length > 0);
+  return first ? first.trim().slice(0, 40) : '無題';
+}
+
+async function fetchChatworkTasksForDashboard(roomId, apiToken, targetId) {
+  const url = `https://api.chatwork.com/v2/rooms/${roomId}/tasks?status=open`;
+  const res = await fetch(url, { headers: { 'X-ChatWorkToken': apiToken } });
+  if (!res.ok) throw new Error(`Chatwork API error: ${res.status}`);
+  const tasks = await res.json();
+
+  const filtered = targetId ? tasks.filter((t) => t.account.account_id === targetId) : tasks;
+
+  return filtered.map((t) => ({
+    id: String(t.task_id),
+    roomId,
+    body: t.body,
+    limit: t.limit_time ? new Date(t.limit_time * 1000).toISOString().slice(0, 10) : null,
+    assignedBy: t.assigned_by_account?.name || '',
+    status: t.status,
+    requester: extractRequester(t.body),
+  }));
+}
+
+// ====================================================
 // KV ストレージ
 // ====================================================
 
@@ -269,6 +446,24 @@ async function saveTaskMeta(env, taskId, reqId, formData, status) {
 async function getTaskMeta(env) {
   const data = await env.TASK_STORE.get('AD_REQUEST_TASKS');
   return data ? JSON.parse(data) : {};
+}
+
+async function getDashboardLocal(env) {
+  const data = await env.TASK_STORE.get('DASHBOARD_LOCAL');
+  return data ? JSON.parse(data) : {};
+}
+
+async function saveDashboardLocal(env, data) {
+  await env.TASK_STORE.put('DASHBOARD_LOCAL', JSON.stringify(data));
+}
+
+async function getAdminRoles(env) {
+  const data = await env.TASK_STORE.get('ADMIN_ROLES');
+  return data ? JSON.parse(data) : { admins: [] };
+}
+
+async function saveAdminRoles(env, roles) {
+  await env.TASK_STORE.put('ADMIN_ROLES', JSON.stringify(roles));
 }
 
 // ====================================================

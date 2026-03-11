@@ -1,823 +1,822 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TOアド管理</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <meta name="apple-mobile-web-app-title" content="TOアド管理">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <style>
-    :root, [data-theme="dark"] {
-      --primary: #60a5fa;
-      --primary-hover: #3b82f6;
-      --primary-light: rgba(96,165,250,.2);
-      --success: #34d399;
-      --success-light: rgba(52,211,153,.2);
-      --danger: #f87171;
-      --danger-light: rgba(248,113,113,.2);
-      --bg: #0f172a;
-      --bg-card: #1e293b;
-      --bg-input: #334155;
-      --border: #475569;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --radius: 4px;
-    }
-    [data-theme="light"] {
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --primary-light: rgba(59,130,246,.1);
-      --success: #10b981;
-      --success-light: rgba(16,185,129,.1);
-      --danger: #ef4444;
-      --danger-light: rgba(239,68,68,.1);
-      --bg: #f1f5f9;
-      --bg-card: #ffffff;
-      --bg-input: #f1f5f9;
-      --border: #cbd5e1;
-      --text: #1e293b;
-      --text-muted: #64748b;
-      --text-dim: #94a3b8;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      font-family: 'Google Sans', Roboto, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.45;
-      font-size: 13px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOアド管理</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="apple-mobile-web-app-title" content="TOアド管理">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #475569;
+    --text: #f1f5f9; --text2: #94a3b8; --accent: #3b82f6;
+    --red: #ef4444; --orange: #f97316; --yellow: #eab308; --green: #22c55e;
+    --purple: #a855f7; --pink: #ec4899; --cyan: #06b6d4;
+  }
+  :root.light {
+    --bg: #f1f5f9; --surface: #ffffff; --surface2: #e2e8f0; --border: #cbd5e1;
+    --text: #0f172a; --text2: #475569; --accent: #2563eb;
+    --red: #dc2626; --orange: #ea580c; --yellow: #ca8a04; --green: #16a34a;
+    --purple: #9333ea; --pink: #db2777; --cyan: #0891b2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', -apple-system, 'Hiragino Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; }
 
-    /* ヘッダー */
-    .app-header {
-      background: var(--bg-card);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-shrink: 0;
-    }
-    .app-header h1 { font-size: 15px; font-weight: 600; white-space: nowrap; }
-    .app-header .requester { font-size: 12px; color: var(--text-muted); }
-    .app-header .requester.error { color: var(--danger); }
-    .app-header .spacer { flex: 1; }
-    .theme-toggle {
-      background: none; border: none; cursor: pointer;
-      font-size: 20px; line-height: 1; padding: 4px;
-      border-radius: 6px; transition: background .2s;
-    }
-    .theme-toggle:hover { background: rgba(128,128,128,.2); }
-    #googleSignIn { flex-shrink: 0; }
+  .auth-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .auth-overlay.hidden { display: none; }
+  .auth-box { text-align: center; padding: 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .auth-box h2 { font-size: 20px; margin-bottom: 8px; }
+  .auth-box p { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
 
-    /* レイアウト */
-    .app-layout { display: flex; height: calc(100vh - 40px); }
-    .sidebar {
-      width: 120px;
-      background: var(--bg-card);
-      border-right: 1px solid var(--border);
-      padding: 8px 0;
-      flex-shrink: 0;
-    }
-    .tabs { display: flex; flex-direction: column; gap: 2px; }
-    .tab {
-      padding: 8px 16px;
-      border: none;
-      border-left: 3px solid transparent;
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      text-align: left;
-      transition: all .2s;
-    }
-    .tab:hover { color: var(--text); background: rgba(255,255,255,.05); }
-    .tab.active { color: var(--primary); border-left-color: var(--primary); background: var(--primary-light); }
-    .content { flex: 1; overflow-y: auto; position: relative; min-width: 0; }
-    .panel { display: none; }
-    .panel.active { display: block; }
+  .app-layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 12px 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: width .2s, padding .2s; display: flex; flex-direction: column; }
+  .sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none; }
+  .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px 12px 16px; }
+  .sidebar-title { font-size: 16px; font-weight: 700; }
+  .sidebar-header button { background: transparent; border: none; color: var(--text2); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .sidebar-header button:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-user { padding: 0 16px 12px; font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* 認証オーバーレイ */
-    .auth-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(15,23,42,.9);
-      z-index: 50;
-    }
-    .auth-overlay .auth-box {
-      text-align: center;
-      padding: 40px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-    .auth-overlay h2 { font-size: 16px; margin-bottom: 8px; }
-    .auth-overlay p { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0 8px; border-bottom: 1px solid var(--border); }
+  .nav-btn { display: block; width: 100%; padding: 10px 16px; border: none; border-left: 3px solid transparent; background: transparent; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: all .2s; }
+  .nav-btn:hover { color: var(--text); background: rgba(255,255,255,.05); }
+  .nav-btn.active { color: var(--accent); border-left-color: var(--accent); background: rgba(59,130,246,.1); }
+  .admin-only { display: none; }
+  .is-admin .admin-only { display: block; }
 
-    /* フォーム */
-    .container { max-width: 640px; margin: 0 auto; padding: 16px 16px 60px; }
-    .step { margin-bottom: 16px; }
-    .step-label {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 8px;
-    }
-    .step-num {
-      background: var(--primary); color: white;
-      width: 18px; height: 18px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 600; flex-shrink: 0;
-    }
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      transition: border-color .2s;
-    }
-    .card:hover { border-color: #64748b; }
+  .person-row { display: flex; flex-wrap: nowrap; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .person-btn { flex: 1; min-width: 0; padding: 10px 8px; border-radius: 6px; border: 2px solid transparent; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; text-align: center; }
+  .person-btn:hover { color: var(--text); background: rgba(255,255,255,.12); }
+  .person-btn.active { color: var(--text); border-color: var(--person-color, var(--accent)); }
 
-    select, input[type="text"], input[type="number"], input[type="date"], textarea {
-      width: 100%; padding: 8px 10px;
-      border: 1px solid var(--border); border-radius: var(--radius);
-      font-size: 13px; font-family: inherit;
-      color: var(--text); background: var(--bg-input);
-      transition: border-color .2s;
-      -webkit-appearance: none; appearance: none;
-    }
-    select {
-      background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
-      padding-right: 28px;
-    }
-    select option { background: var(--bg-card); color: var(--text); }
-    select:focus, input:focus, textarea:focus {
-      outline: none; border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary-light);
-    }
-    textarea { resize: vertical; min-height: 72px; }
+  .genre-list { padding: 8px 0; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .genre-btn { display: block; width: 100%; padding: 8px 16px; border: none; border-left: 3px solid transparent; background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; font-weight: 500; text-align: left; transition: all .2s; }
+  .genre-btn:hover { color: var(--text); background: rgba(255,255,255,.05); }
+  .genre-btn.active { color: var(--accent); border-left-color: var(--accent); background: rgba(59,130,246,.1); }
 
-    .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    @media (max-width: 480px) { .category-grid { grid-template-columns: 1fr; } }
-    .cat-btn {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 10px 12px; font-size: 12px; font-weight: 500;
-      color: var(--text-muted); cursor: pointer; transition: all .2s;
-      text-align: left; line-height: 1.35;
-    }
-    .cat-btn:hover { border-color: var(--primary); background: var(--primary-light); color: var(--text); }
-    .cat-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; }
-    .cat-btn .cat-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+  .main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 100; }
+  header .view-badge { margin-right: auto; font-size: 11px; padding: 4px 10px; border-radius: 8px; background: var(--surface2); color: var(--text2); }
+  .sidebar-toggle { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 16px; cursor: pointer; display: none; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 8px; }
+  .sidebar-toggle:hover { background: rgba(255,255,255,.1); color: var(--text); }
+  .stats { display: flex; gap: 8px; align-items: center; }
+  .stat-badge { background: var(--surface2); padding: 4px 12px; border-radius: 12px; font-size: 12px; color: var(--text2); }
+  .stat-badge strong { color: var(--text); }
+  .reload-btn { background: var(--accent); color: white; border: none; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .reload-btn:hover { opacity: .85; }
+  .reload-btn:disabled { opacity: .5; cursor: wait; }
+  .theme-toggle { background: transparent; border: 1px solid var(--border); border-radius: 8px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .theme-toggle:hover { background: var(--surface2); }
+  .last-updated { font-size: 11px; color: var(--text2); }
 
-    .sub-category-list { display: flex; flex-direction: column; gap: 4px; }
-    .sub-btn {
-      background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 8px 12px; font-size: 12px; color: var(--text-muted);
-      cursor: pointer; transition: all .2s; text-align: left;
-    }
-    .sub-btn:hover { border-color: var(--primary); background: var(--primary-light); color: var(--text); }
-    .sub-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; }
+  .panel { display: none; flex: 1; overflow-y: auto; }
+  .panel.active { display: block; }
+  main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px; }
+  .section { margin-bottom: 32px; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .section-header h2 { font-size: 16px; font-weight: 700; }
+  .section-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .section-count { background: var(--surface2); padding: 2px 10px; border-radius: 10px; font-size: 12px; color: var(--text2); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 
-    .field { margin-bottom: 12px; }
-    .field:last-child { margin-bottom: 0; }
-    .field label { display: block; font-size: 11px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
-    .field label .required { color: var(--danger); margin-left: 2px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer; position: relative; transition: border-color .2s; }
+  .card:hover { border-color: var(--accent); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .card-title { font-size: 15px; font-weight: 600; line-height: 1.4; flex: 1; margin-right: 8px; }
+  .card-title-row { display: flex; align-items: flex-start; gap: 6px; flex: 1; min-width: 0; }
+  .card-priority { font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 700; flex-shrink: 0; }
+  .card-priority.high { background: rgba(239,68,68,.2); color: var(--red); }
+  .card-priority.medium { background: rgba(234,179,8,.2); color: var(--yellow); }
+  .card-priority.low { background: rgba(148,163,184,.2); color: var(--text2); }
+  .card-meta { display: flex; gap: 12px; font-size: 12px; color: var(--text2); margin-bottom: 10px; flex-wrap: wrap; }
+  .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; margin-bottom: 10px; }
+  .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .card-actions select, .card-actions input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+  .card-actions input { flex: 1; min-width: 120px; }
+  .edit-title-btn { background: transparent; border: none; color: var(--text2); font-size: 13px; cursor: pointer; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; opacity: 0; transition: opacity .2s; }
+  .card:hover .edit-title-btn { opacity: 1; }
+  .edit-title-btn:hover { color: var(--accent); }
+  .overdue { border-left: 3px solid var(--red); }
+  .due-today { border-left: 3px solid var(--orange); }
+  .due-soon { border-left: 3px solid var(--yellow); }
+  .display-toggle { display: flex; gap: 4px; margin-bottom: 16px; }
+  .display-toggle button { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 12px; cursor: pointer; }
+  .display-toggle button.active { background: rgba(59,130,246,.2); color: var(--accent); border-color: var(--accent); }
+  .empty-state { padding: 40px 24px; text-align: center; color: var(--text2); font-size: 14px; line-height: 1.8; }
+  .api-error-banner { background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3); color: var(--red); padding: 10px 16px; font-size: 13px; margin: 0 24px 16px; border-radius: 8px; }
 
-    .submit-area { margin-top: 16px; }
-    .submit-btn {
-      width: 100%; padding: 10px 14px;
-      background: var(--primary); color: white; border: none; border-radius: var(--radius);
-      font-size: 13px; font-weight: 500; cursor: pointer; transition: background .2s;
-    }
-    .submit-btn:hover { background: var(--primary-hover); }
-    .submit-btn:disabled { background: #64748b; cursor: not-allowed; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 640px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .modal-header h2 { font-size: 17px; font-weight: 700; flex: 1; margin-right: 12px; line-height: 1.4; }
+  .modal-close { background: transparent; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; }
+  .modal-close:hover { background: var(--surface2); color: var(--text); }
+  .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+  .modal-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+  .modal-full-body { font-size: 14px; color: var(--text); line-height: 1.7; white-space: pre-wrap; word-break: break-word; background: var(--bg); border-radius: 8px; padding: 16px; }
+  .modal-actions { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+  .modal-actions select, .modal-actions input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  .modal-actions input { flex: 1; min-width: 140px; }
 
-    .spinner {
-      display: inline-block; width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,.3); border-top-color: white;
-      border-radius: 50%; animation: spin .6s linear infinite;
-      vertical-align: middle; margin-right: 6px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+  .req-container { max-width: 640px; margin: 0 auto; padding: 24px 16px 60px; }
+  .req-step { margin-bottom: 16px; }
+  .req-step-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+  .req-step-num { background: var(--accent); color: white; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+  .req-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .cat-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; text-align: left; line-height: 1.35; transition: all .2s; }
+  .cat-btn:hover { border-color: var(--accent); background: rgba(59,130,246,.1); color: var(--text); }
+  .cat-btn.active { border-color: var(--accent); background: rgba(59,130,246,.1); color: var(--accent); font-weight: 600; }
+  .cat-btn .cat-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+  .sub-list { display: flex; flex-direction: column; gap: 4px; }
+  .sub-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 12px; color: var(--text2); cursor: pointer; text-align: left; transition: all .2s; }
+  .sub-btn:hover { border-color: var(--accent); color: var(--text); }
+  .sub-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .req-field { margin-bottom: 12px; }
+  .req-field:last-child { margin-bottom: 0; }
+  .req-field label { display: block; font-size: 11px; font-weight: 500; color: var(--text2); margin-bottom: 4px; }
+  .req-field label .required { color: var(--red); margin-left: 2px; }
+  .req-field select, .req-field input, .req-field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--surface2); }
+  .req-field textarea { resize: vertical; min-height: 72px; }
+  .req-field select:focus, .req-field input:focus, .req-field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,.2); }
+  .submit-btn { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px; }
+  .submit-btn:hover { opacity: .9; }
+  .submit-btn:disabled { background: var(--text2); cursor: not-allowed; }
+  .success-screen { text-align: center; padding: 48px 20px; }
+  .success-icon { width: 48px; height: 48px; background: rgba(34,197,94,.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 24px; color: var(--green); }
+  .success-screen h2 { font-size: 16px; margin-bottom: 6px; }
+  .success-screen p { color: var(--text2); font-size: 12px; }
+  .new-btn { display: inline-block; margin-top: 20px; padding: 8px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .field-error input, .field-error select, .field-error textarea { border-color: var(--red) !important; }
+  .error-msg { color: var(--red); font-size: 11px; margin-top: 4px; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
 
-    .success-screen { text-align: center; padding: 48px 20px; }
-    .success-icon {
-      width: 48px; height: 48px; background: var(--success-light); border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 12px; font-size: 24px; color: var(--success);
-    }
-    .success-screen h2 { font-size: 16px; margin-bottom: 6px; }
-    .success-screen p { color: var(--text-muted); font-size: 12px; }
-    .success-id { font-family: 'Roboto Mono', monospace; color: var(--primary); font-weight: 500; font-size: 13px; }
-    .new-btn {
-      display: inline-block; margin-top: 20px; padding: 8px 20px;
-      background: var(--primary); color: white; border: none; border-radius: var(--radius);
-      font-size: 13px; font-weight: 500; cursor: pointer; transition: background .2s;
-    }
-    .new-btn:hover { background: var(--primary-hover); }
+  .admin-container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+  .admin-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .admin-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .admin-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .admin-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface2); border-radius: 6px; font-size: 13px; }
+  .admin-item span { flex: 1; }
+  .admin-item button { background: transparent; border: 1px solid var(--border); color: var(--text2); padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+  .admin-item button:hover { background: rgba(239,68,68,.2); color: var(--red); border-color: var(--red); }
+  .admin-add { display: flex; gap: 8px; }
+  .admin-add input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 13px; }
+  .admin-add button { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
 
-    .hidden { display: none !important; }
-    .fade-in { animation: fadeIn .2s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-    .error-msg { color: var(--danger); font-size: 11px; margin-top: 4px; }
-    .field-error input, .field-error select, .field-error textarea { border-color: var(--danger); }
-    ::placeholder { color: var(--text-dim); }
-    ::-webkit-calendar-picker-indicator { filter: invert(0.8); }
-    [data-theme="light"] ::-webkit-calendar-picker-indicator { filter: none; }
-    [data-theme="light"] select {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    }
-    [data-theme="light"] .auth-overlay { background: rgba(241,245,249,.85); }
-
-    /* タスク一覧 */
-    .task-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .task-table th, .task-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
-    .task-table th { color: var(--text-muted); font-weight: 500; background: var(--bg-card); position: sticky; top: 0; }
-    .task-table tr:hover { background: rgba(255,255,255,.03); }
-    .task-row select { padding: 5px 6px; font-size: 11px; width: auto; min-width: 80px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); }
-    .task-row .btn-update { padding: 5px 10px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: var(--radius); cursor: pointer; }
-    .task-row .btn-update:hover { background: var(--primary-hover); }
-    .task-loading, .task-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
-  </style>
+  .req-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .req-table th, .req-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .req-table th { color: var(--text2); font-weight: 500; background: var(--surface); position: sticky; top: 0; }
+  .req-table tr:hover { background: rgba(255,255,255,.03); }
+  .req-status { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .req-status.pending { background: rgba(234,179,8,.15); color: var(--yellow); }
+  .req-status.progress { background: rgba(59,130,246,.15); color: var(--accent); }
+  .req-status.done { background: rgba(34,197,94,.15); color: var(--green); }
+</style>
 </head>
 <body>
 
-<header class="app-header">
-  <h1>TOアド管理ツール</h1>
-  <span id="headerRequester" class="requester"></span>
-  <div class="spacer"></div>
-  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="テーマ切替">&#127769;</button>
-  <div id="googleSignIn"></div>
-</header>
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <h2>TOアド管理</h2>
+    <p>AXIS / shibuya-ad.com のGoogleアカウントでログインしてください</p>
+    <div id="googleSignInLarge"></div>
+  </div>
+</div>
 
 <div class="app-layout">
-  <aside class="sidebar">
-    <nav class="tabs">
-      <button class="tab active" data-tab="request">依頼する</button>
-      <button class="tab" data-tab="tasks">タスク一覧</button>
-    </nav>
-  </aside>
-  <main class="content" id="mainContent">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1 class="sidebar-title">TOアド管理</h1>
+      <button onclick="toggleSidebar()" title="閉じる">&#10005;</button>
+    </div>
+    <div class="sidebar-user" id="sidebarUser"></div>
 
-    <!-- 認証前オーバーレイ -->
-    <div class="auth-overlay" id="authOverlay">
-      <div class="auth-box">
-        <h2>TOアド管理ツール</h2>
-        <p>AXIS / shibuya-ad.com のGoogleアカウントでログインしてください</p>
-        <div id="googleSignInLarge"></div>
-      </div>
+    <div class="sidebar-nav" id="sidebarNav">
+      <button class="nav-btn active" data-page="request" onclick="switchPage('request')">&#128221; 依頼する</button>
+      <button class="nav-btn" data-page="mystatus" onclick="switchPage('mystatus')">&#128203; 依頼状況</button>
+      <button class="nav-btn admin-only" data-page="tasks" onclick="switchPage('tasks')">&#128202; タスク管理</button>
+      <button class="nav-btn admin-only" data-page="admin" onclick="switchPage('admin')">&#9881;&#65039; 管理設定</button>
     </div>
 
-    <!-- 依頼パネル -->
-    <section class="panel active" id="panel-request">
-      <div class="container" id="formScreen">
-        <div class="step" id="step1">
-          <div class="step-label"><span class="step-num">1</span>依頼内容を選択</div>
-          <div class="card"><div class="category-grid" id="categoryGrid"></div></div>
+    <div id="taskFilters" class="admin-only" style="display:none;">
+      <div class="person-row" id="personRow"></div>
+      <nav class="genre-list">
+        <button class="genre-btn active" data-genre="all" onclick="setGenre('all')">すべて</button>
+        <button class="genre-btn" data-genre="tsunagikomi" onclick="setGenre('tsunagikomi')">つなぎこみ</button>
+        <button class="genre-btn" data-genre="sheet" onclick="setGenre('sheet')">スプシ</button>
+        <button class="genre-btn" data-genre="number_match" onclick="setGenre('number_match')">数字合わせ</button>
+        <button class="genre-btn" data-genre="asp" onclick="setGenre('asp')">ASP</button>
+        <button class="genre-btn" data-genre="other" onclick="setGenre('other')">その他</button>
+        <button class="genre-btn" data-genre="teiki" onclick="setGenre('teiki')">定期タスク</button>
+        <button class="genre-btn" data-genre="long_term" onclick="setGenre('long_term')">長期タスク</button>
+      </nav>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header>
+      <button class="sidebar-toggle" id="sidebarOpen" onclick="toggleSidebar()">&#9776;</button>
+      <span class="view-badge" id="viewBadge"></span>
+      <div class="stats" id="headerStats" style="display:none;">
+        <span class="last-updated" id="lastUpdated"></span>
+        <span class="stat-badge">Chatwork <strong id="totalCount">-</strong> 件</span>
+        <button class="reload-btn" id="reloadBtn" onclick="loadAll()">再読み込み</button>
+      </div>
+      <div style="flex:1;"></div>
+      <div id="googleSignIn"></div>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="テーマ切替">&#127769;</button>
+    </header>
+
+    <div class="panel active" id="panel-request">
+      <div class="req-container" id="reqFormScreen">
+        <div class="req-step" id="reqStep1">
+          <div class="req-step-label"><span class="req-step-num">1</span>依頼内容を選択</div>
+          <div class="req-card"><div class="cat-grid" id="categoryGrid"></div></div>
         </div>
-        <div class="step hidden" id="step2">
-          <div class="step-label"><span class="step-num">2</span>詳細カテゴリを選択</div>
-          <div class="card"><div class="sub-category-list" id="subCategoryList"></div></div>
+        <div class="req-step hidden" id="reqStep2">
+          <div class="req-step-label"><span class="req-step-num">2</span>詳細カテゴリを選択</div>
+          <div class="req-card"><div class="sub-list" id="subCategoryList"></div></div>
         </div>
-        <div class="step hidden" id="step3">
-          <div class="step-label"><span class="step-num">3</span>詳細を入力</div>
-          <div class="card" id="detailFields"></div>
+        <div class="req-step hidden" id="reqStep3">
+          <div class="req-step-label"><span class="req-step-num">3</span>詳細を入力</div>
+          <div class="req-card" id="detailFields"></div>
         </div>
-        <div class="submit-area hidden" id="submitArea">
-          <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">送信する</button>
+        <div class="hidden" id="submitArea">
+          <button class="submit-btn" id="submitBtn" onclick="handleRequestSubmit()">送信する</button>
         </div>
       </div>
-      <div class="container hidden" id="successScreen">
-        <div class="card success-screen">
+      <div class="req-container hidden" id="reqSuccessScreen">
+        <div class="req-card success-screen">
           <div class="success-icon">&#10003;</div>
           <h2>依頼を送信しました</h2>
           <p>チャットワークにタスク化されます</p>
-          <p class="success-id" id="requestId"></p>
-          <button class="new-btn" onclick="resetForm()">新しい依頼を作成</button>
+          <button class="new-btn" onclick="resetRequestForm()">新しい依頼を作成</button>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- タスク一覧パネル -->
-    <section class="panel" id="panel-tasks">
-      <div class="container">
-        <div id="taskListArea">
-          <div class="task-loading" id="taskLoading">読み込み中...</div>
+    <div class="panel" id="panel-mystatus">
+      <main>
+        <h2 style="margin-bottom:16px;">依頼状況</h2>
+        <div id="myRequestsArea"><div class="empty-state">読み込み中...</div></div>
+      </main>
+    </div>
+
+    <div class="panel" id="panel-tasks">
+      <div id="apiErrorBanner" class="api-error-banner" style="display:none;"></div>
+      <main>
+        <div class="display-toggle" id="displayToggle" style="display:none;">
+          <button class="active" data-mode="status" onclick="setDisplayMode('status')">ステータス別</button>
+          <button data-mode="category" onclick="setDisplayMode('category')">カテゴリ別</button>
+        </div>
+        <div id="app"><div class="empty-state">タスク管理を開くには左メニューから「タスク管理」を選択してください</div></div>
+      </main>
+    </div>
+
+    <div class="panel" id="panel-admin">
+      <div class="admin-container">
+        <div class="admin-section">
+          <h3>管理者権限</h3>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">管理者は全タスクの表示・ステータス管理ができます</p>
+          <div class="admin-list" id="adminList"></div>
+          <div class="admin-add">
+            <input type="email" id="adminEmailInput" placeholder="メールアドレスを入力">
+            <button onclick="addAdmin()">追加</button>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
+</div>
 
-  </main>
+<div class="modal-overlay hidden" id="taskModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle"></h2>
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="modal-full-body" id="modalBody"></div>
+    </div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
 </div>
 
 <script src="config.js"></script>
 <script>
-// ====================================================
-// 設定
-// ====================================================
-var API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
-var GOOGLE_CLIENT_ID = (typeof window.GOOGLE_CLIENT_ID !== 'undefined') ? window.GOOGLE_CLIENT_ID : '';
+// ============================
+// Config
+// ============================
+var API_BASE = (typeof API_URL !== 'undefined' && API_URL) ? API_URL : '';
 
-// ====================================================
-// 認証
-// ====================================================
+// ============================
+// Theme
+// ============================
+function toggleTheme() {
+  var isLight = document.documentElement.classList.toggle("light");
+  document.getElementById("themeToggle").textContent = isLight ? "\u2600\uFE0F" : "\uD83C\uDF19";
+  localStorage.setItem("theme", isLight ? "light" : "dark");
+}
+(function() {
+  if (localStorage.getItem("theme") === "light") {
+    document.documentElement.classList.add("light");
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById("themeToggle").textContent = "\u2600\uFE0F";
+    });
+  }
+})();
+
+function toggleSidebar() {
+  var sb = document.getElementById("sidebar");
+  var btn = document.getElementById("sidebarOpen");
+  sb.classList.toggle("collapsed");
+  btn.style.display = sb.classList.contains("collapsed") ? "inline-flex" : "none";
+}
+
+// ============================
+// Auth
+// ============================
 var authToken = null;
 var currentUser = null;
+var userRole = "user";
 
 function decodeJwt(token) {
-  var payload = token.split('.')[1];
-  return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  var payload = token.split(".")[1];
+  return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
 }
 
 function isTokenExpired() {
   if (!authToken) return true;
-  try {
-    var exp = decodeJwt(authToken).exp;
-    return Date.now() / 1000 > exp - 60;
-  } catch (e) { return true; }
+  try { return Date.now() / 1000 > decodeJwt(authToken).exp - 60; } catch(e) { return true; }
+}
+
+function reAuthenticate() {
+  document.getElementById("authOverlay").classList.remove("hidden");
+  if (typeof google !== "undefined" && google.accounts) google.accounts.id.prompt();
+}
+
+function apiCall(method, path, body) {
+  if (isTokenExpired()) { reAuthenticate(); return Promise.reject(new Error("ログインが必要です")); }
+  var opts = { method: method, headers: { "Authorization": "Bearer " + authToken, "Content-Type": "application/json" } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(API_BASE + path, opts).then(function(res) {
+    return res.json().then(function(data) {
+      if (res.status === 401) { reAuthenticate(); throw new Error(data.error || "ログインが必要です"); }
+      if (!res.ok) throw new Error(data.error || "エラーが発生しました");
+      return data;
+    });
+  });
 }
 
 function handleCredentialResponse(response) {
   authToken = response.credential;
   var payload = decodeJwt(authToken);
   currentUser = { email: payload.email, name: payload.name || payload.email };
+  document.getElementById("sidebarUser").textContent = currentUser.email;
+  document.getElementById("authOverlay").classList.add("hidden");
+  checkRole();
+}
 
-  document.getElementById('headerRequester').textContent = '依頼者: ' + currentUser.email;
-  document.getElementById('headerRequester').className = 'requester';
-  document.getElementById('authOverlay').style.display = 'none';
+async function checkRole() {
+  try {
+    var data = await apiCall("POST", "/api/role", {});
+    userRole = data.role;
+    applyRole();
+    if (data.firstSetup) switchPage("admin");
+  } catch (e) {
+    userRole = "user";
+    applyRole();
+  }
+}
+
+function applyRole() {
+  var layout = document.querySelector(".app-layout");
+  if (userRole === "admin") { layout.classList.add("is-admin"); } else { layout.classList.remove("is-admin"); }
 }
 
 function initGoogleSignIn() {
-  if (typeof google === 'undefined' || !google.accounts) {
-    setTimeout(initGoogleSignIn, 200);
-    return;
-  }
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleCredentialResponse,
-    auto_select: true
-  });
-  google.accounts.id.renderButton(
-    document.getElementById('googleSignIn'),
-    { theme: 'filled_blue', size: 'small', shape: 'pill', text: 'signin', locale: 'ja' }
-  );
-  google.accounts.id.renderButton(
-    document.getElementById('googleSignInLarge'),
-    { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ja' }
-  );
-  google.accounts.id.prompt();
-}
-
-function reAuthenticate() {
-  document.getElementById('authOverlay').style.display = 'flex';
-  if (typeof google !== 'undefined' && google.accounts) {
+  if (!GOOGLE_CLIENT_ID) return;
+  function tryInit() {
+    if (typeof google === "undefined" || !google.accounts) { setTimeout(tryInit, 200); return; }
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleCredentialResponse,
+      auto_select: true,
+    });
+    google.accounts.id.renderButton(document.getElementById("googleSignIn"), { theme: "filled_blue", size: "small", shape: "pill", text: "signin", locale: "ja" });
+    google.accounts.id.renderButton(document.getElementById("googleSignInLarge"), { theme: "filled_blue", size: "large", shape: "pill", text: "signin_with", locale: "ja" });
     google.accounts.id.prompt();
   }
+  tryInit();
 }
 
-// ====================================================
-// API ヘルパー
-// ====================================================
-function apiCall(method, path, body) {
-  if (isTokenExpired()) {
-    reAuthenticate();
-    return Promise.reject(new Error('ログインが必要です'));
+// ============================
+// Page switching
+// ============================
+var currentPage = "request";
+
+function switchPage(page) {
+  currentPage = page;
+  document.querySelectorAll(".nav-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.page === page); });
+  document.querySelectorAll(".panel").forEach(function(p) { p.classList.remove("active"); });
+  document.getElementById("panel-" + page).classList.add("active");
+
+  var taskFilters = document.getElementById("taskFilters");
+  var headerStats = document.getElementById("headerStats");
+  var viewBadge = document.getElementById("viewBadge");
+
+  if (page === "tasks") {
+    taskFilters.style.display = "block";
+    headerStats.style.display = "flex";
+    if (!tasksLoaded) loadAll();
+  } else {
+    taskFilters.style.display = "none";
+    headerStats.style.display = "none";
   }
-  var opts = {
-    method: method,
-    headers: {
-      'Authorization': 'Bearer ' + authToken,
-      'Content-Type': 'application/json'
-    }
-  };
-  if (body) opts.body = JSON.stringify(body);
-  return fetch(API_URL + path, opts).then(function(res) {
-    return res.json().then(function(data) {
-      if (res.status === 401) {
-        reAuthenticate();
-        throw new Error(data.error || 'ログインが必要です');
-      }
-      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
-      return data;
-    });
-  });
+
+  if (page === "mystatus") loadMyRequests();
+  if (page === "admin") loadAdminRoles();
+
+  var person = peopleData.find(function(p) { return p.id === selectedPersonId; });
+  viewBadge.textContent = page === "tasks" ? (person ? person.name : "") + "のタスク" : "";
 }
 
-// ====================================================
-// データ定義
-// ====================================================
+// ============================
+// Request form
+// ============================
 var CATEGORIES = [
-  { id: 'account', label: 'アカウント関連（作成・紐づけ・エラー）', icon: '\uD83D\uDD11' },
-  { id: 'link', label: 'リンク発行依頼', icon: '\uD83D\uDD17' },
-  { id: 'spreadsheet', label: 'スプシ関連', icon: '\uD83D\uDCCA' },
-  { id: 'new_project', label: '新規案件', icon: '\uD83C\uDD95' },
-  { id: 'new_offer', label: '新規オファー追加（アカ開設・単価登録・リンク発行などまとめて依頼）', icon: '\uD83D\uDCE6' },
-  { id: 'price_change', label: '単価変更', icon: '\uD83D\uDCB0' },
-  { id: 'csv_fix', label: 'CSV保管修正/後着火修正依頼', icon: '\uD83D\uDCC1' },
-  { id: 'cap_notify', label: 'キャップ通知依頼', icon: '\uD83D\uDD14' },
-  { id: 'other', label: 'その他/エラー関連', icon: '\u2753' }
+  { id: "account", label: "アカウント関連（作成・紐づけ・エラー）", icon: "\uD83D\uDD11" },
+  { id: "link", label: "リンク発行依頼", icon: "\uD83D\uDD17" },
+  { id: "spreadsheet", label: "スプシ関連", icon: "\uD83D\uDCCA" },
+  { id: "new_project", label: "新規案件", icon: "\uD83C\uDD95" },
+  { id: "new_offer", label: "新規オファー追加", icon: "\uD83D\uDCE6" },
+  { id: "price_change", label: "単価変更", icon: "\uD83D\uDCB0" },
+  { id: "csv_fix", label: "CSV保管修正/後着火修正", icon: "\uD83D\uDCC1" },
+  { id: "cap_notify", label: "キャップ通知依頼", icon: "\uD83D\uDD14" },
+  { id: "other", label: "その他/エラー関連", icon: "\u2753" },
 ];
 
 var SUB_CATEGORIES = {
   account: [
-    { id: 'new_account', label: '新規アカウント開設依頼' },
-    { id: 'fb_page', label: 'FBページ作成依頼' },
-    { id: 'fb_pixel', label: 'FBピクセル紐づけ依頼' },
-    { id: 'fb_permission', label: 'FBアカウント・ページ権限付与依頼' },
-    { id: 'account_ban', label: 'アカBAN対応依頼' }
+    { id: "new_account", label: "新規アカウント開設依頼" },
+    { id: "fb_page", label: "FBページ作成依頼" },
+    { id: "fb_pixel", label: "FBピクセル紐づけ依頼" },
+    { id: "fb_permission", label: "FBアカウント・ページ権限付与依頼" },
+    { id: "account_ban", label: "アカBAN対応依頼" },
   ],
-  csv_fix: [
-    { id: 'csv_fix_sub', label: 'CSV保管修正' },
-    { id: 'late_fire', label: '後着火修正依頼' }
-  ],
-  new_project: [
-    { id: 'new_project_report', label: '新規案件開始報告' }
-  ],
-  other: [
-    { id: 'shukkou_miss', label: '出稿ミス共有' },
-    { id: 'other_general', label: 'その他' }
-  ]
+  csv_fix: [{ id: "csv_fix_sub", label: "CSV保管修正" }, { id: "late_fire", label: "後着火修正依頼" }],
+  new_project: [{ id: "new_project_report", label: "新規案件開始報告" }],
+  other: [{ id: "shukkou_miss", label: "出稿ミス共有" }, { id: "other_general", label: "その他" }],
 };
 
 var FIELDS = {
-  new_account: [
-    { id: 'project', label: '案件名', type: 'text', required: true },
-    { id: 'media', label: '媒体', type: 'select', options: ['FB','Tik','LAP','X','YT','その他'], required: true },
-    { id: 'quantity', label: '数量', type: 'number', required: true },
-    { id: 'deadline', label: '期限', type: 'text', required: false },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  fb_page: [
-    { id: 'project', label: '案件名', type: 'text', required: true },
-    { id: 'page_name', label: 'ページ名', type: 'text', required: true },
-    { id: 'permission', label: '権限（運用者）', type: 'text', required: false },
-    { id: 'deadline', label: '期限', type: 'text', required: false },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  fb_pixel: [
-    { id: 'account', label: '紐づけ先アカウント', type: 'text', required: true },
-    { id: 'pixel', label: '紐づけるピクセル', type: 'text', required: true },
-    { id: 'deadline', label: '期限', type: 'text', required: false }
-  ],
-  fb_permission: [
-    { id: 'target_type', label: 'ページ OR アカウント', type: 'select', options: ['ページ','アカウント'], required: true },
-    { id: 'target_name', label: 'ページ名 / アカウント名', type: 'text', required: true },
-    { id: 'deadline', label: '期限', type: 'text', required: false },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  account_ban: [
-    { id: 'media', label: '媒体', type: 'select', options: ['FB','Tik','LAP','X','YT','その他'], required: true },
-    { id: 'account_name', label: 'アカウント名', type: 'text', required: true },
-    { id: 'noticed_date', label: '気づいた日', type: 'date', required: true },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  link: [
-    { id: 'asp', label: 'ASP', type: 'text', required: true },
-    { id: 'project', label: '案件名', type: 'text', required: true },
-    { id: 'media', label: '媒体', type: 'select', options: ['FB','Tik','X','YT','LAP','その他'], required: true },
-    { id: 'offer_name', label: 'オファー名', type: 'text', required: true },
-    { id: 'lp', label: 'LP', type: 'text', required: false },
-    { id: 'quantity', label: '本数', type: 'text', required: true },
-    { id: 'deadline', label: '期限', type: 'text', required: false },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  spreadsheet: [
-    { id: 'sheet_name', label: 'シート名', type: 'text', required: true },
-    { id: 'error_type', label: 'エラー内容', type: 'select', options: ['運用中のキャンペーンが出力されていない','キャンペーンのデータ(消化金額,imp,click)が間違っている','キャンペーンのMCV,CVが反映されていない','その他'], required: true },
-    { id: 'media', label: '媒体', type: 'text', required: false },
-    { id: 'account_name', label: 'アカウント名', type: 'text', required: false },
-    { id: 'cell_url', label: '該当セルURL', type: 'text', required: false },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  new_project_report: [
-    { id: 'project', label: '案件名', type: 'text', required: true },
-    { id: 'asp', label: 'ASP', type: 'text', required: true },
-    { id: 'media', label: '媒体', type: 'text', required: true },
-    { id: 'lp', label: 'LP', type: 'text', required: false },
-    { id: 'link_count', label: 'リンク本数', type: 'text', required: false },
-    { id: 'unit_price', label: '単価', type: 'text', required: false },
-    { id: 'deadline', label: '期限', type: 'text', required: false },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  new_offer: [
-    { id: 'offer_name', label: 'オファー名', type: 'text', required: true },
-    { id: 'lp', label: 'LP', type: 'text', required: true },
-    { id: 'link_count', label: 'リンク本数', type: 'text', required: true },
-    { id: 'unit_price', label: '単価', type: 'text', required: true },
-    { id: 'account_count', label: 'アカウント個数', type: 'text', required: true },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  price_change: [
-    { id: 'project', label: '案件', type: 'text', required: true },
-    { id: 'unit_price', label: '単価', type: 'text', required: true },
-    { id: 'apply_date', label: '適用日付', type: 'text', required: true },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  csv_fix_sub: [
-    { id: 'campaign_before', label: '変更前キャンペーン名', type: 'text', required: true },
-    { id: 'campaign_after', label: '変更後キャンペーン名', type: 'text', required: true },
-    { id: 'fix_type', label: '修正内容（MCV/CV）', type: 'text', required: true },
-    { id: 'date', label: '日付', type: 'text', required: true },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  late_fire: [
-    { id: 'campaign', label: 'キャンペーン名', type: 'text', required: true },
-    { id: 'fix_type', label: '修正内容（MCV/CV）', type: 'text', required: true },
-    { id: 'date', label: '日付', type: 'text', required: true },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  cap_notify: [
-    { id: 'project', label: '案件', type: 'text', required: true },
-    { id: 'media', label: '媒体', type: 'text', required: true },
-    { id: 'cap', label: 'キャップ', type: 'text', required: true },
-    { id: 'notify_count', label: '通知件数', type: 'text', required: true },
-    { id: 'note', label: '備考', type: 'textarea', required: false }
-  ],
-  shukkou_miss: [
-    { id: 'detail', label: '詳細', type: 'textarea', required: true }
-  ],
-  other_general: [
-    { id: 'detail', label: '詳細', type: 'textarea', required: true }
-  ]
+  new_account: [{ id:"project",label:"案件名",type:"text",required:true },{ id:"media",label:"媒体",type:"select",options:["FB","Tik","LAP","X","YT","その他"],required:true },{ id:"quantity",label:"数量",type:"number",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  fb_page: [{ id:"project",label:"案件名",type:"text",required:true },{ id:"page_name",label:"ページ名",type:"text",required:true },{ id:"permission",label:"権限（運用者）",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  fb_pixel: [{ id:"account",label:"紐づけ先アカウント",type:"text",required:true },{ id:"pixel",label:"紐づけるピクセル",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false }],
+  fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true },{ id:"target_name",label:"ページ名 / アカウント名",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  account_ban: [{ id:"media",label:"媒体",type:"select",options:["FB","Tik","LAP","X","YT","その他"],required:true },{ id:"account_name",label:"アカウント名",type:"text",required:true },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  link: [{ id:"asp",label:"ASP",type:"text",required:true },{ id:"project",label:"案件名",type:"text",required:true },{ id:"media",label:"媒体",type:"select",options:["FB","Tik","X","YT","LAP","その他"],required:true },{ id:"offer_name",label:"オファー名",type:"text",required:true },{ id:"lp",label:"LP",type:"text",required:false },{ id:"quantity",label:"本数",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  spreadsheet: [{ id:"sheet_name",label:"シート名",type:"text",required:true },{ id:"error_type",label:"エラー内容",type:"select",options:["運用中のキャンペーンが出力されていない","キャンペーンのデータが間違っている","MCV,CVが反映されていない","その他"],required:true },{ id:"media",label:"媒体",type:"text",required:false },{ id:"account_name",label:"アカウント名",type:"text",required:false },{ id:"cell_url",label:"該当セルURL",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  new_project_report: [{ id:"project",label:"案件名",type:"text",required:true },{ id:"asp",label:"ASP",type:"text",required:true },{ id:"media",label:"媒体",type:"text",required:true },{ id:"lp",label:"LP",type:"text",required:false },{ id:"link_count",label:"リンク本数",type:"text",required:false },{ id:"unit_price",label:"単価",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  new_offer: [{ id:"offer_name",label:"オファー名",type:"text",required:true },{ id:"lp",label:"LP",type:"text",required:true },{ id:"link_count",label:"リンク本数",type:"text",required:true },{ id:"unit_price",label:"単価",type:"text",required:true },{ id:"account_count",label:"アカウント個数",type:"text",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  price_change: [{ id:"project",label:"案件",type:"text",required:true },{ id:"unit_price",label:"単価",type:"text",required:true },{ id:"apply_date",label:"適用日付",type:"text",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  csv_fix_sub: [{ id:"campaign_before",label:"変更前キャンペーン名",type:"text",required:true },{ id:"campaign_after",label:"変更後キャンペーン名",type:"text",required:true },{ id:"fix_type",label:"修正内容（MCV/CV）",type:"text",required:true },{ id:"date",label:"日付",type:"text",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  late_fire: [{ id:"campaign",label:"キャンペーン名",type:"text",required:true },{ id:"fix_type",label:"修正内容（MCV/CV）",type:"text",required:true },{ id:"date",label:"日付",type:"text",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  cap_notify: [{ id:"project",label:"案件",type:"text",required:true },{ id:"media",label:"媒体",type:"text",required:true },{ id:"cap",label:"キャップ",type:"text",required:true },{ id:"notify_count",label:"通知件数",type:"text",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  shukkou_miss: [{ id:"detail",label:"詳細",type:"textarea",required:true }],
+  other_general: [{ id:"detail",label:"詳細",type:"textarea",required:true }],
 };
 
-// ====================================================
-// フォーム状態
-// ====================================================
-var state = { categoryId: '', categoryLabel: '', subCategoryId: '', subCategoryLabel: '' };
+var reqState = { categoryId: "", categoryLabel: "", subCategoryId: "", subCategoryLabel: "" };
 
-// ====================================================
-// 初期化
-// ====================================================
-document.addEventListener('DOMContentLoaded', function() {
-  initGoogleSignIn();
-  renderCategories();
-
-  var tabs = document.querySelectorAll('.tab');
-  tabs.forEach(function(t) {
-    t.addEventListener('click', function() {
-      tabs.forEach(function(b) { b.classList.remove('active'); });
-      t.classList.add('active');
-      document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
-      document.getElementById('panel-' + t.dataset.tab).classList.add('active');
-      if (t.dataset.tab === 'tasks') loadTasks();
-    });
-  });
-});
-
-// ====================================================
-// カテゴリ描画
-// ====================================================
 function renderCategories() {
-  var grid = document.getElementById('categoryGrid');
-  grid.innerHTML = '';
-  CATEGORIES.forEach(function(cat) {
-    var btn = document.createElement('button');
-    btn.className = 'cat-btn';
-    btn.innerHTML = '<span class="cat-icon">' + cat.icon + '</span>' + cat.label;
-    btn.onclick = function() { selectCategory(cat); };
-    btn.dataset.id = cat.id;
-    grid.appendChild(btn);
-  });
+  var grid = document.getElementById("categoryGrid");
+  grid.innerHTML = CATEGORIES.map(function(c) { return '<button class="cat-btn" data-id="' + c.id + '" onclick="selectCategory(\'' + c.id + '\')"><span class="cat-icon">' + c.icon + '</span>' + esc(c.label) + '</button>'; }).join("");
 }
 
-function selectCategory(cat) {
-  state.categoryId = cat.id;
-  state.categoryLabel = cat.label;
-  state.subCategoryId = '';
-  state.subCategoryLabel = '';
-
-  document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelector('[data-id="' + cat.id + '"]').classList.add('active');
-
-  var subs = SUB_CATEGORIES[cat.id];
-  var stepNum = document.querySelector('#step3 .step-num');
-
+function selectCategory(id) {
+  var cat = CATEGORIES.find(function(c) { return c.id === id; });
+  reqState.categoryId = cat.id;
+  reqState.categoryLabel = cat.label;
+  reqState.subCategoryId = "";
+  reqState.subCategoryLabel = "";
+  document.querySelectorAll(".cat-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.id === id); });
+  var subs = SUB_CATEGORIES[id];
+  var stepNum = document.querySelector("#reqStep3 .req-step-num");
   if (subs && subs.length > 1) {
     renderSubCategories(subs);
-    show('step2'); hide('step3'); hide('submitArea');
-    if (stepNum) stepNum.textContent = '3';
+    show("reqStep2"); hide("reqStep3"); hide("submitArea");
+    if (stepNum) stepNum.textContent = "3";
   } else if (subs && subs.length === 1) {
-    hide('step2');
-    if (stepNum) stepNum.textContent = '3';
-    selectSubCategory(subs[0]);
+    hide("reqStep2");
+    if (stepNum) stepNum.textContent = "3";
+    selectSubCategory(subs[0].id);
   } else {
-    hide('step2');
-    if (stepNum) stepNum.textContent = '2';
-    var fieldKey = cat.id;
-    if (FIELDS[fieldKey]) {
-      state.subCategoryId = fieldKey;
-      state.subCategoryLabel = '';
-      renderFields(FIELDS[fieldKey]);
-      show('step3'); show('submitArea');
-    } else { hide('step3'); hide('submitArea'); }
+    hide("reqStep2");
+    if (stepNum) stepNum.textContent = "2";
+    if (FIELDS[id]) {
+      reqState.subCategoryId = id;
+      reqState.subCategoryLabel = "";
+      renderFormFields(FIELDS[id]);
+      show("reqStep3"); show("submitArea");
+    } else { hide("reqStep3"); hide("submitArea"); }
   }
 }
 
 function renderSubCategories(subs) {
-  var list = document.getElementById('subCategoryList');
-  list.innerHTML = '';
-  subs.forEach(function(sub) {
-    var btn = document.createElement('button');
-    btn.className = 'sub-btn';
-    btn.textContent = sub.label;
-    btn.dataset.id = sub.id;
-    btn.onclick = function() { selectSubCategory(sub); };
-    list.appendChild(btn);
-  });
+  document.getElementById("subCategoryList").innerHTML = subs.map(function(s) { return '<button class="sub-btn" data-id="' + s.id + '" onclick="selectSubCategory(\'' + s.id + '\')">' + esc(s.label) + '</button>'; }).join("");
 }
 
-function selectSubCategory(sub) {
-  state.subCategoryId = sub.id;
-  state.subCategoryLabel = sub.label;
-  document.querySelectorAll('.sub-btn').forEach(function(b) { b.classList.remove('active'); });
-  var active = document.querySelector('.sub-btn[data-id="' + sub.id + '"]');
-  if (active) active.classList.add('active');
-  var fields = FIELDS[sub.id];
-  if (fields) { renderFields(fields); show('step3'); show('submitArea'); }
+function selectSubCategory(id) {
+  var sub = Object.values(SUB_CATEGORIES).flat().find(function(s) { return s.id === id; });
+  if (!sub) return;
+  reqState.subCategoryId = sub.id;
+  reqState.subCategoryLabel = sub.label;
+  document.querySelectorAll(".sub-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.id === id); });
+  if (FIELDS[id]) { renderFormFields(FIELDS[id]); show("reqStep3"); show("submitArea"); }
 }
 
-function renderFields(fields) {
-  var container = document.getElementById('detailFields');
-  container.innerHTML = '';
-  container.classList.add('fade-in');
+function renderFormFields(fields) {
+  var container = document.getElementById("detailFields");
+  container.innerHTML = "";
   fields.forEach(function(f) {
-    var div = document.createElement('div');
-    div.className = 'field';
-    div.id = 'field-' + f.id;
-    var label = document.createElement('label');
-    label.setAttribute('for', 'input-' + f.id);
-    label.innerHTML = f.label + (f.required ? '<span class="required">*</span>' : '');
-    div.appendChild(label);
-    var input;
-    if (f.type === 'select') {
-      input = document.createElement('select');
-      var empty = document.createElement('option');
-      empty.value = ''; empty.textContent = '選択してください';
-      input.appendChild(empty);
-      f.options.forEach(function(opt) {
-        var o = document.createElement('option');
-        o.value = opt; o.textContent = opt;
-        input.appendChild(o);
-      });
-    } else if (f.type === 'textarea') {
-      input = document.createElement('textarea');
-      input.placeholder = f.label + 'を入力';
+    var div = document.createElement("div");
+    div.className = "req-field";
+    div.id = "field-" + f.id;
+    var inputHtml;
+    if (f.type === "select") {
+      inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">選択してください</option>' + f.options.map(function(o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select>';
+    } else if (f.type === "textarea") {
+      inputHtml = '<textarea id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" placeholder="' + f.label + 'を入力"></textarea>';
     } else {
-      input = document.createElement('input');
-      input.type = f.type || 'text';
-      input.placeholder = f.label + 'を入力';
+      inputHtml = '<input type="' + (f.type || "text") + '" id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" placeholder="' + f.label + 'を入力">';
     }
-    input.id = 'input-' + f.id;
-    input.dataset.label = f.label;
-    input.dataset.required = f.required ? 'true' : 'false';
-    div.appendChild(input);
+    div.innerHTML = '<label for="input-' + f.id + '">' + f.label + (f.required ? '<span class="required">*</span>' : "") + '</label>' + inputHtml;
     container.appendChild(div);
   });
 }
 
-// ====================================================
-// バリデーション
-// ====================================================
-function validate() {
+function handleRequestSubmit() {
+  if (!currentUser) { reAuthenticate(); return; }
   var valid = true;
-  document.querySelectorAll('.error-msg').forEach(function(e) { e.remove(); });
-  document.querySelectorAll('.field-error').forEach(function(e) { e.classList.remove('field-error'); });
-  if (!currentUser) { valid = false; reAuthenticate(); }
-  if (!state.categoryId) { valid = false; }
-  document.querySelectorAll('#detailFields input, #detailFields select, #detailFields textarea').forEach(function(inp) {
-    if (inp.dataset.required === 'true' && (!inp.value || inp.value.trim() === '')) {
+  document.querySelectorAll(".error-msg").forEach(function(e) { e.remove(); });
+  document.querySelectorAll(".field-error").forEach(function(e) { e.classList.remove("field-error"); });
+  document.querySelectorAll("#detailFields input, #detailFields select, #detailFields textarea").forEach(function(inp) {
+    if (inp.dataset.required === "true" && !inp.value.trim()) {
       valid = false;
-      var field = inp.closest('.field');
-      field.classList.add('field-error');
-      var err = document.createElement('div');
-      err.className = 'error-msg';
-      err.textContent = inp.dataset.label + 'は必須です';
+      var field = inp.closest(".req-field");
+      field.classList.add("field-error");
+      var err = document.createElement("div");
+      err.className = "error-msg";
+      err.textContent = inp.dataset.label + "は必須です";
       field.appendChild(err);
     }
   });
-  return valid;
-}
+  if (!valid) return;
 
-// ====================================================
-// 送信
-// ====================================================
-function handleSubmit() {
-  if (!validate()) return;
-  var btn = document.getElementById('submitBtn');
+  var btn = document.getElementById("submitBtn");
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>送信中...';
 
   var fields = [];
-  document.querySelectorAll('#detailFields input, #detailFields select, #detailFields textarea').forEach(function(inp) {
+  document.querySelectorAll("#detailFields input, #detailFields select, #detailFields textarea").forEach(function(inp) {
     fields.push({ label: inp.dataset.label, value: inp.value });
   });
 
-  apiCall('POST', '/api/submit', {
-    name: currentUser.email,
-    category: state.categoryLabel,
-    subCategory: state.subCategoryLabel,
-    fields: fields
-  }).then(function(result) {
-    if (result.success) {
-      document.getElementById('requestId').textContent = result.id;
-      hide('formScreen'); show('successScreen');
-    } else {
-      alert('送信に失敗しました: ' + (result.error || '不明なエラー'));
-      btn.disabled = false; btn.textContent = '送信する';
-    }
-  }).catch(function(err) {
-    alert('エラー: ' + err.message);
-    btn.disabled = false; btn.textContent = '送信する';
-  });
+  apiCall("POST", "/api/submit", { name: currentUser.email, category: reqState.categoryLabel, subCategory: reqState.subCategoryLabel, fields: fields })
+    .then(function(result) {
+      if (result.success) { hide("reqFormScreen"); show("reqSuccessScreen"); }
+      else { alert("送信に失敗しました: " + (result.error || "")); btn.disabled = false; btn.textContent = "送信する"; }
+    }).catch(function(err) { alert("エラー: " + err.message); btn.disabled = false; btn.textContent = "送信する"; });
 }
 
-// ====================================================
-// リセット
-// ====================================================
-function resetForm() {
-  state.categoryId = ''; state.categoryLabel = '';
-  state.subCategoryId = ''; state.subCategoryLabel = '';
-  document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
-  hide('step2'); hide('step3'); hide('submitArea');
-  document.getElementById('detailFields').innerHTML = '';
-  document.getElementById('submitBtn').disabled = false;
-  document.getElementById('submitBtn').textContent = '送信する';
-  hide('successScreen'); show('formScreen');
+function resetRequestForm() {
+  reqState = { categoryId: "", categoryLabel: "", subCategoryId: "", subCategoryLabel: "" };
+  document.querySelectorAll(".cat-btn").forEach(function(b) { b.classList.remove("active"); });
+  hide("reqStep2"); hide("reqStep3"); hide("submitArea");
+  document.getElementById("detailFields").innerHTML = "";
+  document.getElementById("submitBtn").disabled = false;
+  document.getElementById("submitBtn").textContent = "送信する";
+  hide("reqSuccessScreen"); show("reqFormScreen");
 }
 
-// ====================================================
-// タスク一覧
-// ====================================================
-function loadTasks() {
-  var area = document.getElementById('taskListArea');
-  area.innerHTML = '<div class="task-loading">読み込み中...</div>';
-
-  apiCall('GET', '/api/tasks').then(function(tasks) {
-    if (!tasks || tasks.length === 0) {
-      area.innerHTML = '<div class="task-empty">タスクがありません</div>';
+// ============================
+// My Requests
+// ============================
+async function loadMyRequests() {
+  var area = document.getElementById("myRequestsArea");
+  area.innerHTML = '<div class="empty-state">読み込み中...</div>';
+  try {
+    var tasks = await apiCall("GET", "/api/tasks");
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      area.innerHTML = '<div class="empty-state">依頼はまだありません</div>';
       return;
     }
-    var html = '<table class="task-table"><thead><tr><th>ID</th><th>依頼者</th><th>内容</th><th>日時</th><th>進捗</th><th></th></tr></thead><tbody>';
+    function statusClass(s) { return s === "完了" ? "done" : s === "対応中" ? "progress" : "pending"; }
+    var html = '<table class="req-table"><thead><tr><th>内容</th><th>日時</th><th>進捗</th></tr></thead><tbody>';
     tasks.forEach(function(t) {
-      html += '<tr class="task-row" data-task-id="' + t.taskId + '">';
-      html += '<td>' + t.reqId + '</td>';
-      html += '<td>' + t.requester + '</td>';
-      html += '<td>' + t.category + (t.subCategory ? ' / ' + t.subCategory : '') + '</td>';
-      html += '<td>' + t.createdAt + '</td>';
-      html += '<td><select class="status-select" data-task-id="' + t.taskId + '">';
-      html += '<option value="未対応"' + (t.status === '未対応' ? ' selected' : '') + '>未対応</option>';
-      html += '<option value="対応中"' + (t.status === '対応中' ? ' selected' : '') + '>対応中</option>';
-      html += '<option value="完了"' + (t.status === '完了' ? ' selected' : '') + '>完了</option>';
-      html += '</select></td>';
-      html += '<td><button class="btn-update" onclick="doUpdateStatus(' + t.taskId + ')">更新</button></td>';
-      html += '</tr>';
+      html += '<tr><td>' + esc(t.category) + (t.subCategory ? " / " + esc(t.subCategory) : "") + '</td>';
+      html += '<td>' + esc(t.createdAt || "") + '</td>';
+      html += '<td><span class="req-status ' + statusClass(t.status) + '">' + esc(t.status || "未対応") + '</span></td></tr>';
     });
-    html += '</tbody></table>';
+    html += "</tbody></table>";
     area.innerHTML = html;
-  }).catch(function(err) {
-    area.innerHTML = '<div class="task-empty">読み込みに失敗しました: ' + err.message + '</div>';
-  });
+  } catch (err) {
+    area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(err.message) + "</div>";
+  }
 }
 
-function doUpdateStatus(taskId) {
-  var row = document.querySelector('.task-row[data-task-id="' + taskId + '"]');
-  var select = row ? row.querySelector('.status-select') : null;
-  if (!select) return;
-  apiCall('PUT', '/api/tasks/' + taskId + '/status', { status: select.value })
-    .then(function() { loadTasks(); })
-    .catch(function() { alert('更新に失敗しました'); });
+// ============================
+// Admin panel
+// ============================
+async function loadAdminRoles() {
+  try {
+    var data = await apiCall("GET", "/api/admin/roles");
+    var list = document.getElementById("adminList");
+    if (!data.admins || data.admins.length === 0) {
+      list.innerHTML = '<div style="color:var(--text2);font-size:12px;">管理者がいません</div>';
+      return;
+    }
+    list.innerHTML = data.admins.map(function(email) { return '<div class="admin-item"><span>' + esc(email) + '</span><button onclick="removeAdmin(\'' + email + '\')">削除</button></div>'; }).join("");
+  } catch (e) {}
 }
 
-// ====================================================
-// ユーティリティ
-// ====================================================
-function show(id) { document.getElementById(id).classList.remove('hidden'); }
-function hide(id) { document.getElementById(id).classList.add('hidden'); }
+async function addAdmin() {
+  var input = document.getElementById("adminEmailInput");
+  var email = input.value.trim().toLowerCase();
+  if (!email) return;
+  try {
+    var data = await apiCall("GET", "/api/admin/roles");
+    var admins = data.admins || [];
+    if (!admins.includes(email)) admins.push(email);
+    await apiCall("POST", "/api/admin/roles", { admins: admins });
+    input.value = "";
+    loadAdminRoles();
+  } catch (e) { alert("追加に失敗しました"); }
+}
 
-// ====================================================
-// テーマ切替
-// ====================================================
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  var btn = document.getElementById('themeToggle');
-  btn.innerHTML = theme === 'dark' ? '\u{1F319}' : '\u{2600}\uFE0F';
-  btn.title = theme === 'dark' ? 'ライトテーマに切替' : 'ダークテーマに切替';
-  localStorage.setItem('adkanri-theme', theme);
+async function removeAdmin(email) {
+  if (!confirm(email + " の管理者権限を削除しますか？")) return;
+  try {
+    var data = await apiCall("GET", "/api/admin/roles");
+    var admins = (data.admins || []).filter(function(e) { return e !== email; });
+    await apiCall("POST", "/api/admin/roles", { admins: admins });
+    loadAdminRoles();
+  } catch (e) { alert("削除に失敗しました"); }
 }
-function toggleTheme() {
-  var current = document.documentElement.getAttribute('data-theme') || 'dark';
-  applyTheme(current === 'dark' ? 'light' : 'dark');
+
+// ============================
+// Task management (admin)
+// ============================
+var PRIORITY_LABELS = { high: "高", medium: "中", low: "低" };
+var CATEGORY_LABELS = { tsunagikomi: "つなぎこみ", sheet: "スプシ", number_match: "数字合わせ", asp: "ASP", other: "その他", teiki: "定期タスク", long_term: "長期タスク" };
+var CATEGORY_ORDER = ["tsunagikomi", "sheet", "number_match", "asp", "other", "teiki", "long_term"];
+var CATEGORY_COLORS = { tsunagikomi: "var(--accent)", sheet: "var(--green)", number_match: "var(--yellow)", asp: "var(--purple)", other: "var(--text2)", teiki: "var(--cyan)", long_term: "var(--orange)" };
+var GENRE_MAP = { all: null, tsunagikomi: "tsunagikomi", sheet: "sheet", number_match: "number_match", asp: "asp", other: "other", teiki: "teiki", long_term: "long_term" };
+
+var allTasks = [], peopleData = [], myId = null, apiError = null;
+var displayMode = "status", selectedPersonId = null, selectedGenre = "all";
+var tasksLoaded = false;
+
+function normalizeCategory(cat) { return cat && CATEGORY_LABELS[cat] ? cat : "other"; }
+function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+function today() { return new Date().toISOString().slice(0, 10); }
+function dueClass(l) { if (!l) return ""; var diff = (new Date(l) - new Date(today())) / 86400000; return diff < 0 ? "overdue" : diff === 0 ? "due-today" : diff <= 2 ? "due-soon" : ""; }
+function dueLabel(l) { if (!l) return "期限なし"; var diff = Math.round((new Date(l) - new Date(today())) / 86400000); return diff < 0 ? Math.abs(diff) + "日超過" : diff === 0 ? "今日" : diff === 1 ? "明日" : diff + "日後"; }
+function cleanBody(body) { return (body || "").replace(/\[.*?\]/g, "").replace(/依頼がきました。対応お願いします！/g, "").replace(/【.*?】/g, "").trim().split("\n").filter(function(l) { return l.trim(); }).slice(0, 3).join("\n"); }
+
+function setDisplayMode(mode) { displayMode = mode; document.querySelectorAll(".display-toggle button").forEach(function(b) { b.classList.toggle("active", b.dataset.mode === mode); }); renderAll(); }
+function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
+function setPerson(id) { selectedPersonId = id; document.querySelectorAll(".person-btn").forEach(function(b) { b.classList.toggle("active", Number(b.dataset.id) === id); }); loadAll(); }
+
+async function updateTask(id, field, value) { await apiCall("POST", "/api/dashboard/tasks/" + id, { [field]: value }); }
+function handleStatusChange(id, val) { updateTask(id, "localStatus", val); var t = allTasks.find(function(x) { return x.id === id; }); if (t) { t.localStatus = val; renderAll(); } }
+function handleCategoryChange(id, val) { updateTask(id, "category", val); var t = allTasks.find(function(x) { return x.id === id; }); if (t) { t.category = val; renderAll(); } }
+
+function editTitle(id, btn) {
+  var task = allTasks.find(function(t) { return t.id === id; }); if (!task) return;
+  var titleEl = btn.closest(".card-title-row").querySelector(".card-title");
+  var input = document.createElement("input");
+  input.type = "text"; input.value = task.title;
+  input.style.cssText = "font-size:15px;font-weight:600;background:var(--surface2);border:1px solid var(--accent);color:var(--text);padding:2px 6px;border-radius:6px;width:100%;outline:none;";
+  titleEl.replaceWith(input); input.focus(); input.select();
+  function save() { var val = input.value.trim(); if (val && val !== task.title) { task.title = val; updateTask(id, "title", val); } renderAll(); }
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", function(e) { if (e.key === "Enter") input.blur(); if (e.key === "Escape") { input.value = task.title; input.blur(); } });
 }
-(function() {
-  var saved = localStorage.getItem('adkanri-theme') || 'dark';
-  applyTheme(saved);
-})();
+
+var currentModalId = null;
+function openModal(id) {
+  var task = allTasks.find(function(t) { return t.id === id; }); if (!task) return;
+  currentModalId = id;
+  document.getElementById("modalTitle").textContent = task.title;
+  document.getElementById("modalMeta").innerHTML = '<span>' + (task.limit || "期限なし") + ' (' + dueLabel(task.limit) + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(task.category)] + '</span>' + (task.assignedBy ? '<span>by ' + esc(task.assignedBy) + '</span>' : '');
+  document.getElementById("modalBody").textContent = task.body || "(本文なし)";
+  document.getElementById("modalActions").innerHTML =
+    '<select onchange="handleStatusChange(\'' + id + '\',this.value);openModal(\'' + id + '\')"><option value="open"' + (task.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (task.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (task.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (task.localStatus==="done"?" selected":"") + '>完了</option></select>' +
+    '<select onchange="handleCategoryChange(\'' + id + '\',this.value);openModal(\'' + id + '\')">' + CATEGORY_ORDER.map(function(k) { return '<option value="' + k + '"' + (normalizeCategory(task.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' +
+    '<input type="text" placeholder="メモ..." value="' + esc(task.note) + '" onchange="updateTask(\'' + id + '\',\'note\',this.value);allTasks.find(function(t){return t.id===\'' + id + '\'}).note=this.value">';
+  document.getElementById("taskModal").classList.remove("hidden");
+}
+function closeModal() { document.getElementById("taskModal").classList.add("hidden"); currentModalId = null; }
+document.addEventListener("keydown", function(e) { if (e.key === "Escape" && currentModalId) closeModal(); });
+
+function renderCard(t) {
+  var dc = dueClass(t.limit), dl = dueLabel(t.limit), body = cleanBody(t.body);
+  return '<div class="card ' + dc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div><div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span>' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div><div class="card-body">' + esc(body) + '</div><div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select><input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)"></div></div>';
+}
+
+function renderSection(title, tasks, dotColor) {
+  if (!tasks.length) return "";
+  return '<div class="section"><div class="section-header"><div class="section-dot" style="background:' + dotColor + '"></div><h2>' + title + '</h2><span class="section-count">' + tasks.length + '</span></div><div class="cards">' + tasks.map(renderCard).join("") + '</div></div>';
+}
+
+function renderAll() {
+  document.getElementById("displayToggle").style.display = allTasks.length > 0 ? "flex" : "none";
+  var tasksToShow = allTasks;
+  if (GENRE_MAP[selectedGenre]) tasksToShow = allTasks.filter(function(t) { return normalizeCategory(t.category) === GENRE_MAP[selectedGenre]; });
+  var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
+  var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
+  var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
+  var html = "";
+  if (displayMode === "category") {
+    html = CATEGORY_ORDER.map(function(cat) { var t = active.filter(function(x) { return normalizeCategory(x.category) === cat; }); t.sort(ps); return renderSection(CATEGORY_LABELS[cat], t, CATEGORY_COLORS[cat]); }).join("") + (done.length ? renderSection("完了", done, "var(--green)") : "");
+  } else {
+    var o = tasksToShow.filter(function(t) { return t.localStatus === "open"; }); o.sort(ps);
+    var ip = tasksToShow.filter(function(t) { return t.localStatus === "in_progress"; }); ip.sort(ps);
+    var w = tasksToShow.filter(function(t) { return t.localStatus === "waiting"; }); w.sort(ps);
+    html = [renderSection("未着手", o, "var(--text2)"), renderSection("着手中", ip, "var(--accent)"), renderSection("相手待ち", w, "var(--yellow)"), done.length ? renderSection("完了", done, "var(--green)") : ""].join("");
+  }
+  document.getElementById("totalCount").textContent = tasksToShow.length;
+  if (!html.trim()) {
+    html = apiError ? '<div class="empty-state">Chatworkからタスクを取得できませんでした。</div>'
+      : allTasks.length === 0 ? '<div class="empty-state" style="font-size:18px;">タスクがありません。おめでとうございます\uD83C\uDF89\u2728</div>'
+      : '<div class="empty-state">「' + esc(CATEGORY_LABELS[selectedGenre]||selectedGenre) + '」に該当するタスクはありません。</div>';
+  }
+  document.getElementById("app").innerHTML = html;
+}
+
+var PERSON_COLORS = { "\u7B52\u4E95": "#b8e986", "\u53CB\u5229": "#ffb3d9", "\u77F3\u7530": "#87ceeb" };
+function renderPersonButtons() {
+  var row = document.getElementById("personRow");
+  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }];
+  var activeId = selectedPersonId != null ? selectedPersonId : (myId != null ? myId : (people[0] ? people[0].id : null));
+  row.innerHTML = people.map(function(p) {
+    var color = PERSON_COLORS[p.name] || "var(--accent)";
+    return '<button class="person-btn ' + (p.id === activeId ? "active" : "") + '" data-id="' + p.id + '" style="--person-color:' + color + '" onclick="setPerson(' + p.id + ')">' + esc(p.name) + '</button>';
+  }).join("");
+}
+
+async function loadAll() {
+  var btn = document.getElementById("reloadBtn");
+  btn.disabled = true; btn.textContent = "読み込み中...";
+  apiError = null;
+  document.getElementById("apiErrorBanner").style.display = "none";
+  try {
+    var params = [];
+    if (selectedPersonId != null) params.push("accountId=" + selectedPersonId);
+    params.push("_t=" + Date.now());
+
+    var tasksPromise = apiCall("GET", "/api/dashboard/tasks?" + params.join("&"));
+    var peoplePromise = apiCall("GET", "/api/people").catch(function() { return { people: [], myId: null }; });
+    var results = await Promise.all([tasksPromise, peoplePromise]);
+    var tasksJson = results[0];
+    var peopleJson = results[1];
+
+    if (Array.isArray(tasksJson)) allTasks = tasksJson;
+    else { apiError = tasksJson.error || "取得失敗"; allTasks = []; }
+
+    peopleData = Array.isArray(peopleJson.people) ? peopleJson.people : [];
+    myId = peopleJson.myId != null ? peopleJson.myId : null;
+    if (selectedPersonId == null && peopleData.length > 0) selectedPersonId = myId != null ? myId : (peopleData[0] ? peopleData[0].id : null);
+    renderPersonButtons(); renderAll(); tasksLoaded = true;
+    document.getElementById("lastUpdated").textContent = "最終更新: " + new Date().toLocaleTimeString("ja-JP");
+    var sel = peopleData.find(function(p) { return p.id === selectedPersonId; });
+    document.getElementById("viewBadge").textContent = sel ? sel.name + "のタスク" : "";
+    if (apiError) { document.getElementById("apiErrorBanner").textContent = "Chatwork: " + apiError; document.getElementById("apiErrorBanner").style.display = "block"; }
+  } catch (err) {
+    document.getElementById("app").innerHTML = '<div class="empty-state" style="color:var(--red);">読み込みエラー: ' + esc(err.message) + '</div>';
+  } finally { btn.disabled = false; btn.textContent = "再読み込み"; }
+}
+
+// ============================
+// Utilities
+// ============================
+function show(id) { document.getElementById(id).classList.remove("hidden"); }
+function hide(id) { document.getElementById(id).classList.add("hidden"); }
+
+// ============================
+// Init
+// ============================
+document.addEventListener("DOMContentLoaded", function() {
+  initGoogleSignIn();
+  renderCategories();
+});
 </script>
 </body>
 </html>
