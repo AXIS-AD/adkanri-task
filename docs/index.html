@@ -750,7 +750,7 @@ var CATEGORY_COLORS = { tsunagikomi: "var(--accent)", sheet: "var(--green)", num
 var GENRE_MAP = { all: null, tsunagikomi: "tsunagikomi", sheet: "sheet", number_match: "number_match", asp: "asp", other: "other", teiki: "teiki", long_term: "long_term" };
 
 var allTasks = [], peopleData = [], myId = null, apiError = null;
-var displayMode = "status", selectedPersonId = null, selectedGenre = "all";
+var displayMode = "status", selectedPersonId = "all", selectedGenre = "all";
 var tasksLoaded = false;
 
 function normalizeCategory(cat) { return cat && CATEGORY_LABELS[cat] ? cat : "other"; }
