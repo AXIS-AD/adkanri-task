@@ -327,20 +327,7 @@ async function handleCreateManualTask(request, env) {
   const body = await request.json();
   const tasks = await getManualTasks(env);
   const id = 'manual-' + Date.now();
-  tasks.push({
-    id,
-    title: body.title || '\u7121\u984C',
-    category: body.category || 'teiki',
-    priority: body.priority || 'medium',
-    localStatus: 'open',
-    note: body.note || '',
-    body: '',
-    limit: body.limit || null,
-    assignedBy: '',
-    roomId: '',
-    requester: null,
-    isManual: true,
-  });
+  tasks.push({ id, isManual: true, ...body });
   await saveManualTasks(env, tasks);
 
   return jsonResponse({ ok: true, id });

@@ -121,6 +121,29 @@
   .card:hover .delete-task-btn { opacity: 1; }
   .delete-task-btn:hover { color: var(--red); }
 
+  .teiki-check { background: none; border: 2px solid var(--border); width: 24px; height: 24px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: all .2s; }
+  .teiki-check:hover { border-color: var(--green); }
+  .teiki-check.done { background: var(--green); border-color: var(--green); color: white; }
+  .freq-badge { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: rgba(6,182,212,.15); color: var(--cyan); font-weight: 600; flex-shrink: 0; }
+  .next-due { font-size: 11px; color: var(--text2); margin-top: 4px; }
+  .card.teiki-done .card-title { text-decoration: line-through; color: var(--text2); }
+
+  .todo-progress { margin-top: 8px; }
+  .todo-progress-text { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .3s; }
+  .todo-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+  .todo-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background: var(--surface2); border-radius: 6px; font-size: 13px; }
+  .todo-item input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--green); width: 16px; height: 16px; cursor: pointer; }
+  .todo-item.checked span { text-decoration: line-through; color: var(--text2); }
+  .todo-date { font-size: 11px; color: var(--text2); flex-shrink: 0; }
+  .todo-text { flex: 1; }
+  .todo-add { display: flex; gap: 6px; margin-top: 8px; }
+  .todo-add input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 13px; }
+  .todo-add input:focus { outline: none; border-color: var(--accent); }
+  .todo-add button { padding: 8px 14px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .status-select-inline { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
   .modal-overlay.hidden { display: none; }
   .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 640px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -749,14 +772,50 @@ function renderCard(t) {
   return '<div class="card ' + dc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span>' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select><input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)"></div></div>';
 }
 
-async function addManualTask(category) {
-  var title = prompt(CATEGORY_LABELS[category] + "のタスク名を入力:");
-  if (!title || !title.trim()) return;
+// ============================
+// Manual task add forms
+// ============================
+var showingAddForm = false;
+
+function toggleAddForm(category) {
+  showingAddForm = !showingAddForm;
+  renderAll();
+  if (showingAddForm) {
+    var inp = document.getElementById("addTaskTitle");
+    if (inp) inp.focus();
+  }
+}
+
+function renderAddForm(category) {
+  if (!showingAddForm) return '';
+  if (category === 'teiki') {
+    return '<div class="add-task-form" id="addFormArea"><input type="text" id="addTaskTitle" placeholder="タスク名" onkeydown="if(event.key===\'Enter\')submitAddForm(\'' + category + '\')"><select id="addTaskFreq"><option value="daily">毎日</option><option value="weekly">毎週</option><option value="biweekly">隔週</option><option value="monthly" selected>毎月</option></select><button class="btn-save" onclick="submitAddForm(\'' + category + '\')">追加</button><button class="btn-cancel" onclick="showingAddForm=false;renderAll()">キャンセル</button></div>';
+  } else {
+    return '<div class="add-task-form" id="addFormArea"><input type="text" id="addTaskTitle" placeholder="タスク名" onkeydown="if(event.key===\'Enter\')submitAddForm(\'' + category + '\')"><input type="date" id="addTaskDeadline"><button class="btn-save" onclick="submitAddForm(\'' + category + '\')">追加</button><button class="btn-cancel" onclick="showingAddForm=false;renderAll()">キャンセル</button></div>';
+  }
+}
+
+async function submitAddForm(category) {
+  var title = document.getElementById("addTaskTitle").value.trim();
+  if (!title) return;
+  var data = { title: title, category: category, status: "open" };
+  if (category === "teiki") {
+    data.frequency = document.getElementById("addTaskFreq").value;
+    data.completedAt = null;
+    data.nextDue = null;
+  } else {
+    var dl = document.getElementById("addTaskDeadline").value;
+    data.deadline = dl || null;
+    data.todos = [];
+  }
   try {
-    await apiCall("POST", "/api/dashboard/manual-tasks", { title: title.trim(), category: category });
+    await apiCall("POST", "/api/dashboard/manual-tasks", data);
+    showingAddForm = false;
     loadAll();
   } catch (e) { alert("追加に失敗しました: " + e.message); }
 }
+
+function addManualTask(category) { toggleAddForm(category); }
 
 async function deleteManualTask(id) {
   if (!confirm("このタスクを削除しますか？")) return;
@@ -765,6 +824,126 @@ async function deleteManualTask(id) {
     allTasks = allTasks.filter(function(t) { return t.id !== id; });
     renderAll();
   } catch (e) { alert("削除に失敗しました: " + e.message); }
+}
+
+// ============================
+// 定期タスク: complete + recurrence
+// ============================
+var FREQ_LABELS = { daily: "毎日", weekly: "毎週", biweekly: "隔週", monthly: "毎月" };
+
+function calculateNextDue(frequency) {
+  var d = new Date();
+  switch (frequency) {
+    case "daily": d.setDate(d.getDate() + 1); break;
+    case "weekly": d.setDate(d.getDate() + 7); break;
+    case "biweekly": d.setDate(d.getDate() + 14); break;
+    case "monthly": d.setMonth(d.getMonth() + 1); break;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function checkTeikiRecurrence(t) {
+  if (t.status === "done" && t.nextDue && new Date(today()) >= new Date(t.nextDue)) {
+    t.status = "open";
+    t.completedAt = null;
+    t.nextDue = null;
+    updateTask(t.id, "status", "open");
+    updateTask(t.id, "completedAt", null);
+    updateTask(t.id, "nextDue", null);
+  }
+}
+
+async function toggleTeikiComplete(id) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (!t) return;
+  if (t.status === "done") {
+    t.status = "open"; t.completedAt = null; t.nextDue = null;
+    await apiCall("POST", "/api/dashboard/tasks/" + id, { status: "open", completedAt: null, nextDue: null });
+  } else {
+    var nd = calculateNextDue(t.frequency || "monthly");
+    t.status = "done"; t.completedAt = today(); t.nextDue = nd;
+    await apiCall("POST", "/api/dashboard/tasks/" + id, { status: "done", completedAt: today(), nextDue: nd });
+  }
+  renderAll();
+}
+
+function renderTeikiCard(t) {
+  checkTeikiRecurrence(t);
+  var isDone = t.status === "done";
+  var freq = FREQ_LABELS[t.frequency] || "毎月";
+  return '<div class="card' + (isDone ? ' teiki-done' : '') + '"><div class="card-top"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')">' + (isDone ? '✓' : '') + '</button><div class="card-title" style="margin-left:8px;">' + esc(t.title) + '</div><span class="freq-badge">' + freq + '</span><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">&#128465;</button></div>' + (isDone && t.nextDue ? '<div class="next-due">次回: ' + t.nextDue + '</div>' : '') + '</div>';
+}
+
+// ============================
+// 長期タスク: deadline + todos
+// ============================
+var STATUS_LABELS_LT = { open: "未着手", in_progress: "着手中", done: "完了" };
+
+function renderLongTermCard(t) {
+  var todos = t.todos || [];
+  var doneCount = todos.filter(function(x) { return x.done; }).length;
+  var total = todos.length;
+  var pct = total > 0 ? Math.round(doneCount / total * 100) : 0;
+  var deadlineStr = t.deadline ? t.deadline : "期日未設定";
+  return '<div class="card" onclick="openLongTermModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title">' + esc(t.title) + '</div><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">&#128465;</button></div><div class="card-meta"><span>' + deadlineStr + '</span><span>' + (STATUS_LABELS_LT[t.status] || "未着手") + '</span></div>' + (total > 0 ? '<div class="todo-progress"><div class="todo-progress-text">やること: ' + doneCount + '/' + total + ' 完了</div><div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>' : '') + '</div>';
+}
+
+function openLongTermModal(id) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (!t) return;
+  currentModalId = id;
+  document.getElementById("modalTitle").textContent = t.title;
+  var todos = t.todos || [];
+
+  var metaHtml = '<span>' + (t.deadline || "期日未設定") + '</span>';
+  metaHtml += '<select class="status-select-inline" onchange="updateLongTermStatus(\'' + id + '\',this.value)">';
+  ["open","in_progress","done"].forEach(function(s) {
+    metaHtml += '<option value="' + s + '"' + (t.status === s ? ' selected' : '') + '>' + STATUS_LABELS_LT[s] + '</option>';
+  });
+  metaHtml += '</select>';
+  document.getElementById("modalMeta").innerHTML = metaHtml;
+
+  var bodyHtml = '<h3 style="font-size:14px;margin-bottom:10px;color:var(--text);">やること</h3>';
+  bodyHtml += '<div class="todo-list">';
+  if (todos.length === 0) {
+    bodyHtml += '<div style="color:var(--text2);font-size:13px;padding:8px 0;">まだ追加されていません</div>';
+  }
+  todos.forEach(function(item, idx) {
+    bodyHtml += '<div class="todo-item' + (item.done ? ' checked' : '') + '"><input type="checkbox"' + (item.done ? ' checked' : '') + ' onchange="toggleTodoItem(\'' + id + '\',' + idx + ')"><span class="todo-date">' + (item.date || "") + '</span><span class="todo-text">' + esc(item.text) + '</span></div>';
+  });
+  bodyHtml += '</div>';
+  bodyHtml += '<div class="todo-add"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItem(\'' + id + '\')"><button onclick="addTodoItem(\'' + id + '\')">追加</button></div>';
+  document.getElementById("modalBody").innerHTML = bodyHtml;
+  document.getElementById("modalActions").innerHTML = '';
+  document.getElementById("taskModal").classList.remove("hidden");
+}
+
+async function updateLongTermStatus(id, val) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (t) { t.status = val; await apiCall("POST", "/api/dashboard/tasks/" + id, { status: val }); renderAll(); openLongTermModal(id); }
+}
+
+async function addTodoItem(taskId) {
+  var inp = document.getElementById("todoNewText");
+  var text = inp.value.trim();
+  if (!text) return;
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t) return;
+  var todos = t.todos || [];
+  todos.push({ text: text, date: today(), done: false });
+  t.todos = todos;
+  await apiCall("POST", "/api/dashboard/tasks/" + taskId, { todos: todos });
+  renderAll();
+  openLongTermModal(taskId);
+}
+
+async function toggleTodoItem(taskId, idx) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t || !t.todos) return;
+  t.todos[idx].done = !t.todos[idx].done;
+  await apiCall("POST", "/api/dashboard/tasks/" + taskId, { todos: t.todos });
+  renderAll();
+  openLongTermModal(taskId);
 }
 
 function renderSection(title, tasks, dotColor, categoryKey) {
@@ -785,10 +964,16 @@ function renderAll() {
 
   if (isManualGenre) {
     var addBtn = '<button class="add-task-btn" onclick="addManualTask(\'' + selectedGenre + '\')">＋ 追加</button>';
-    var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; }); active.sort(ps);
-    var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
-    html = '<div class="section"><div class="section-header"><div class="section-dot" style="background:' + CATEGORY_COLORS[selectedGenre] + '"></div><h2>' + CATEGORY_LABELS[selectedGenre] + '</h2><span class="section-count">' + tasksToShow.length + '</span>' + addBtn + '</div><div class="cards">' + active.map(renderCard).join("") + '</div></div>';
-    if (done.length) html += renderSection("完了", done, "var(--green)");
+    var cardRenderer = selectedGenre === "teiki" ? renderTeikiCard : renderLongTermCard;
+
+    var activeTasks = tasksToShow.filter(function(t) { return t.status !== "done"; });
+    var doneTasks = tasksToShow.filter(function(t) { return t.status === "done"; });
+
+    html = renderAddForm(selectedGenre);
+    html += '<div class="section"><div class="section-header"><div class="section-dot" style="background:' + CATEGORY_COLORS[selectedGenre] + '"></div><h2>' + CATEGORY_LABELS[selectedGenre] + '</h2><span class="section-count">' + tasksToShow.length + '</span>' + addBtn + '</div><div class="cards">' + activeTasks.map(cardRenderer).join("") + '</div></div>';
+    if (doneTasks.length) {
+      html += '<div class="section"><div class="section-header"><div class="section-dot" style="background:var(--green)"></div><h2>完了</h2><span class="section-count">' + doneTasks.length + '</span></div><div class="cards">' + doneTasks.map(cardRenderer).join("") + '</div></div>';
+    }
   } else {
     var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
     var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
@@ -805,7 +990,7 @@ function renderAll() {
   document.getElementById("totalCount").textContent = tasksToShow.length;
   if (!html.trim()) {
     html = apiError ? '<div class="empty-state">Chatworkからタスクを取得できませんでした。</div>'
-      : isManualGenre ? '<div class="empty-state"><button class="add-task-btn" style="font-size:14px;padding:10px 24px;" onclick="addManualTask(\'' + selectedGenre + '\')">＋ ' + CATEGORY_LABELS[selectedGenre] + 'を追加</button></div>'
+      : isManualGenre ? renderAddForm(selectedGenre) + '<div class="empty-state"><button class="add-task-btn" style="font-size:14px;padding:10px 24px;" onclick="addManualTask(\'' + selectedGenre + '\')">＋ ' + CATEGORY_LABELS[selectedGenre] + 'を追加</button></div>'
       : allTasks.length === 0 ? '<div class="empty-state" style="font-size:18px;">タスクがありません。おめでとうございます\uD83C\uDF89\u2728</div>'
       : '<div class="empty-state">「' + esc(CATEGORY_LABELS[selectedGenre]||selectedGenre) + '」に該当するタスクはありません。</div>';
   }
