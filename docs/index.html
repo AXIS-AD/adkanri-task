@@ -287,15 +287,9 @@
     <div class="panel" id="panel-tasks">
       <div id="apiErrorBanner" class="api-error-banner" style="display:none;"></div>
       <main>
-        <div style="display:none;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;" id="taskToolbar">
-          <div class="display-toggle" style="display:flex;margin-bottom:0;">
-            <button class="active" data-mode="status" onclick="setDisplayMode('status')">ステータス別</button>
-            <button data-mode="category" onclick="setDisplayMode('category')">カテゴリ別</button>
-          </div>
-          <div style="margin-left:auto;display:flex;gap:6px;">
-            <button class="add-task-btn" onclick="addManualTask('teiki')">＋ 定期タスク</button>
-            <button class="add-task-btn" onclick="addManualTask('long_term')">＋ 長期タスク</button>
-          </div>
+        <div class="display-toggle" id="displayToggle" style="display:none;">
+          <button class="active" data-mode="status" onclick="setDisplayMode('status')">ステータス別</button>
+          <button data-mode="category" onclick="setDisplayMode('category')">カテゴリ別</button>
         </div>
         <div id="app"><div class="empty-state">タスク管理を開くには左メニューから「タスク管理」を選択してください</div></div>
       </main>
@@ -780,7 +774,7 @@ function renderSection(title, tasks, dotColor, categoryKey) {
 }
 
 function renderAll() {
-  document.getElementById("taskToolbar").style.display = "flex";
+  document.getElementById("displayToggle").style.display = "flex";
   var tasksToShow = allTasks;
   if (GENRE_MAP[selectedGenre]) tasksToShow = allTasks.filter(function(t) { return normalizeCategory(t.category) === GENRE_MAP[selectedGenre]; });
   var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
