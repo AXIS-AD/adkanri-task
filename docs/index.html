@@ -752,7 +752,7 @@ function cleanBody(body) { return (body || "").replace(/\[.*?\]/g, "").replace(/
 
 function setDisplayMode(mode) { displayMode = mode; document.querySelectorAll(".display-toggle button[data-mode]").forEach(function(b) { b.classList.toggle("active", b.dataset.mode === mode); }); renderAll(); }
 function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
-function setPerson(id) { selectedPersonId = id; document.querySelectorAll(".person-btn").forEach(function(b) { b.classList.toggle("active", Number(b.dataset.id) === id); }); loadAll(); }
+function setPerson(id) { selectedPersonId = id; document.querySelectorAll(".person-btn").forEach(function(b) { var bid = b.dataset.id; b.classList.toggle("active", id === "all" ? bid === "all" : Number(bid) === id); }); loadAll(); }
 
 async function updateTask(id, field, value) { await apiCall("POST", "/api/dashboard/tasks/" + id, { [field]: value }); }
 function handleStatusChange(id, val) { updateTask(id, "localStatus", val); var t = allTasks.find(function(x) { return x.id === id; }); if (t) { t.localStatus = val; renderAll(); } }
@@ -1086,10 +1086,13 @@ function renderPersonButtons() {
   var row = document.getElementById("personRow");
   var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }];
   var activeId = selectedPersonId != null ? selectedPersonId : (myId != null ? myId : (people[0] ? people[0].id : null));
-  row.innerHTML = people.map(function(p) {
+  var allActive = activeId === "all";
+  var html = '<button class="person-btn ' + (allActive ? "active" : "") + '" data-id="all" style="--person-color:var(--accent)" onclick="setPerson(\'all\')">全員</button>';
+  html += people.map(function(p) {
     var color = PERSON_COLORS[p.name] || "var(--accent)";
-    return '<button class="person-btn ' + (p.id === activeId ? "active" : "") + '" data-id="' + p.id + '" style="--person-color:' + color + '" onclick="setPerson(' + p.id + ')">' + esc(p.name) + '</button>';
+    return '<button class="person-btn ' + (!allActive && p.id === activeId ? "active" : "") + '" data-id="' + p.id + '" style="--person-color:' + color + '" onclick="setPerson(' + p.id + ')">' + esc(p.name) + '</button>';
   }).join("");
+  row.innerHTML = html;
 }
 
 async function loadAll() {
@@ -1099,7 +1102,7 @@ async function loadAll() {
   document.getElementById("apiErrorBanner").style.display = "none";
   try {
     var params = [];
-    if (selectedPersonId != null) params.push("accountId=" + selectedPersonId);
+    if (selectedPersonId != null && selectedPersonId !== "all") params.push("accountId=" + selectedPersonId);
     params.push("_t=" + Date.now());
 
     var tasksPromise = apiCall("GET", "/api/dashboard/tasks?" + params.join("&"));

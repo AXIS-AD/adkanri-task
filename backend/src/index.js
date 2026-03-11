@@ -268,7 +268,7 @@ async function handleGetDashboardTasks(request, env) {
   const allTasksList = [];
 
   for (const roomId of rooms) {
-    const targetId = accountId || myId;
+    const targetId = accountId !== null ? accountId : null;
     const tasks = await fetchChatworkTasksForDashboard(roomId, cfg.apiToken, targetId);
 
     for (const t of tasks) {
