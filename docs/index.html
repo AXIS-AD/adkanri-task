@@ -111,6 +111,8 @@
   .card-priority.medium { background: rgba(234,179,8,.2); color: var(--yellow); }
   .card-priority.low { background: rgba(148,163,184,.2); color: var(--text2); }
   .card-meta { display: flex; gap: 12px; font-size: 12px; color: var(--text2); margin-bottom: 10px; flex-wrap: wrap; }
+  .date-label { cursor: pointer; border-bottom: 1px dashed var(--text2); }
+  .date-label:hover { color: var(--accent); border-color: var(--accent); }
   .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; margin-bottom: 10px; }
   .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .card-actions select, .card-actions input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
@@ -810,7 +812,7 @@ function openModal(id) {
   var task = allTasks.find(function(t) { return t.id === id; }); if (!task) return;
   currentModalId = id;
   document.getElementById("modalTitle").textContent = task.title;
-  document.getElementById("modalMeta").innerHTML = '<span>' + (task.limit || "期限なし") + ' (' + dueLabel(task.limit) + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(task.category)] + '</span>' + (task.assignedBy ? '<span>by ' + esc(task.assignedBy) + '</span>' : '');
+  document.getElementById("modalMeta").innerHTML = '<span>期日: <input type="date" value="' + (task.limit || '') + '" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);" onchange="updateTask(\'' + id + '\',\'limit\',this.value);var t=allTasks.find(function(x){return x.id===\'' + id + '\'});if(t)t.limit=this.value;this.nextSibling.textContent=\' (\'+dueLabel(this.value)+\')\'"><span> (' + dueLabel(task.limit) + ')</span></span><span>' + CATEGORY_LABELS[normalizeCategory(task.category)] + '</span>' + (task.assignedBy ? '<span>by ' + esc(task.assignedBy) + '</span>' : '');
   document.getElementById("modalBody").textContent = task.body || "(本文なし)";
   document.getElementById("modalActions").innerHTML =
     '<select onchange="handleStatusChange(\'' + id + '\',this.value);openModal(\'' + id + '\')"><option value="open"' + (task.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (task.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (task.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (task.localStatus==="done"?" selected":"") + '>完了</option></select>' +
@@ -824,7 +826,33 @@ document.addEventListener("keydown", function(e) { if (e.key === "Escape" && cur
 function renderCard(t) {
   var dc = dueClass(t.limit), dl = dueLabel(t.limit), body = cleanBody(t.body);
   var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">&#128465;</button>' : '';
-  return '<div class="card ' + dc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span>' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select><input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)"></div></div>';
+  return '<div class="card ' + dc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select><input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)"></div></div>';
+}
+
+function editDueDate(id, el) {
+  var task = allTasks.find(function(t) { return t.id === id; });
+  var currentVal = task ? (task.limit || "") : "";
+  var input = document.createElement("input");
+  input.type = "date";
+  input.value = currentVal;
+  input.style.cssText = "font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text1);";
+  el.replaceWith(input);
+  input.focus();
+  function save() {
+    var newVal = input.value;
+    if (newVal !== currentVal) {
+      updateTask(id, "limit", newVal);
+      if (task) task.limit = newVal;
+    }
+    var span = document.createElement("span");
+    span.className = "date-label";
+    span.title = "クリックで期日変更";
+    span.onclick = function(e) { e.stopPropagation(); editDueDate(id, span); };
+    span.textContent = (newVal || "期限なし") + " (" + dueLabel(newVal) + ")";
+    input.replaceWith(span);
+  }
+  input.addEventListener("change", save);
+  input.addEventListener("blur", save);
 }
 
 // ============================
