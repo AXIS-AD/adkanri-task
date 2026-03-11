@@ -25,9 +25,13 @@
 
   .auth-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
   .auth-overlay.hidden { display: none; }
-  .auth-box { text-align: center; padding: 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-  .auth-box h2 { font-size: 20px; margin-bottom: 8px; }
-  .auth-box p { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+  .auth-box { text-align: center; padding: 56px 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; max-width: 400px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+  .auth-logo { font-size: 40px; margin-bottom: 16px; }
+  .auth-box h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .auth-box .auth-subtitle { font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+  .auth-box .auth-domain { display: inline-block; font-size: 12px; color: var(--accent); background: rgba(59,130,246,.1); padding: 4px 12px; border-radius: 20px; margin-bottom: 24px; }
+  .auth-divider { height: 1px; background: var(--border); margin: 0 -8px 24px; }
+  .auth-signin-wrap { display: flex; justify-content: center; }
 
   .app-layout { display: flex; min-height: 100vh; }
   .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 12px 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: width .2s, padding .2s; display: flex; flex-direction: column; }
@@ -181,9 +185,12 @@
 
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-box">
+    <div class="auth-logo">⚡</div>
     <h2>TOアド管理</h2>
-    <p>AXIS / shibuya-ad.com のGoogleアカウントでログインしてください</p>
-    <div id="googleSignInLarge"></div>
+    <p class="auth-subtitle">shibuya-ad.com のGoogleアカウントでログインしてください</p>
+    <span class="auth-domain">@shibuya-ad.com</span>
+    <div class="auth-divider"></div>
+    <div class="auth-signin-wrap" id="googleSignInLarge"></div>
   </div>
 </div>
 
