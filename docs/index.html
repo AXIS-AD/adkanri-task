@@ -774,24 +774,38 @@ function renderSection(title, tasks, dotColor, categoryKey) {
 }
 
 function renderAll() {
-  document.getElementById("displayToggle").style.display = "flex";
+  var isManualGenre = selectedGenre === "teiki" || selectedGenre === "long_term";
+  document.getElementById("displayToggle").style.display = isManualGenre ? "none" : "flex";
+
   var tasksToShow = allTasks;
   if (GENRE_MAP[selectedGenre]) tasksToShow = allTasks.filter(function(t) { return normalizeCategory(t.category) === GENRE_MAP[selectedGenre]; });
-  var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
-  var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
+
   var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
   var html = "";
-  if (displayMode === "category") {
-    html = CATEGORY_ORDER.map(function(cat) { var t = active.filter(function(x) { return normalizeCategory(x.category) === cat; }); t.sort(ps); return renderSection(CATEGORY_LABELS[cat], t, CATEGORY_COLORS[cat], cat); }).join("") + (done.length ? renderSection("完了", done, "var(--green)") : "");
+
+  if (isManualGenre) {
+    var addBtn = '<button class="add-task-btn" onclick="addManualTask(\'' + selectedGenre + '\')">＋ 追加</button>';
+    var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; }); active.sort(ps);
+    var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
+    html = '<div class="section"><div class="section-header"><div class="section-dot" style="background:' + CATEGORY_COLORS[selectedGenre] + '"></div><h2>' + CATEGORY_LABELS[selectedGenre] + '</h2><span class="section-count">' + tasksToShow.length + '</span>' + addBtn + '</div><div class="cards">' + active.map(renderCard).join("") + '</div></div>';
+    if (done.length) html += renderSection("完了", done, "var(--green)");
   } else {
-    var o = tasksToShow.filter(function(t) { return t.localStatus === "open"; }); o.sort(ps);
-    var ip = tasksToShow.filter(function(t) { return t.localStatus === "in_progress"; }); ip.sort(ps);
-    var w = tasksToShow.filter(function(t) { return t.localStatus === "waiting"; }); w.sort(ps);
-    html = [renderSection("未着手", o, "var(--text2)"), renderSection("着手中", ip, "var(--accent)"), renderSection("相手待ち", w, "var(--yellow)"), done.length ? renderSection("完了", done, "var(--green)") : ""].join("");
+    var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
+    var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
+    if (displayMode === "category") {
+      html = CATEGORY_ORDER.map(function(cat) { var t = active.filter(function(x) { return normalizeCategory(x.category) === cat; }); t.sort(ps); return renderSection(CATEGORY_LABELS[cat], t, CATEGORY_COLORS[cat], cat); }).join("") + (done.length ? renderSection("完了", done, "var(--green)") : "");
+    } else {
+      var o = tasksToShow.filter(function(t) { return t.localStatus === "open"; }); o.sort(ps);
+      var ip = tasksToShow.filter(function(t) { return t.localStatus === "in_progress"; }); ip.sort(ps);
+      var w = tasksToShow.filter(function(t) { return t.localStatus === "waiting"; }); w.sort(ps);
+      html = [renderSection("未着手", o, "var(--text2)"), renderSection("着手中", ip, "var(--accent)"), renderSection("相手待ち", w, "var(--yellow)"), done.length ? renderSection("完了", done, "var(--green)") : ""].join("");
+    }
   }
+
   document.getElementById("totalCount").textContent = tasksToShow.length;
   if (!html.trim()) {
     html = apiError ? '<div class="empty-state">Chatworkからタスクを取得できませんでした。</div>'
+      : isManualGenre ? '<div class="empty-state"><button class="add-task-btn" style="font-size:14px;padding:10px 24px;" onclick="addManualTask(\'' + selectedGenre + '\')">＋ ' + CATEGORY_LABELS[selectedGenre] + 'を追加</button></div>'
       : allTasks.length === 0 ? '<div class="empty-state" style="font-size:18px;">タスクがありません。おめでとうございます\uD83C\uDF89\u2728</div>'
       : '<div class="empty-state">「' + esc(CATEGORY_LABELS[selectedGenre]||selectedGenre) + '」に該当するタスクはありません。</div>';
   }
