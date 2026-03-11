@@ -32,6 +32,10 @@ export default {
         response = await handleGetDashboardTasks(request, env);
       } else if (/^\/api\/dashboard\/tasks\/[^/]+$/.test(path) && request.method === 'POST') {
         response = await handleUpdateDashboardTask(request, env);
+      } else if (path === '/api/dashboard/manual-tasks' && request.method === 'POST') {
+        response = await handleCreateManualTask(request, env);
+      } else if (/^\/api\/dashboard\/manual-tasks\/[^/]+$/.test(path) && request.method === 'DELETE') {
+        response = await handleDeleteManualTask(request, env);
       }
       // ── 権限管理 ──
       else if (path === '/api/role' && request.method === 'POST') {
@@ -221,17 +225,24 @@ async function handleUpdateStatus(request, env) {
 // ハンドラ: 担当者リスト
 // ====================================================
 
+const DEFAULT_PEOPLE = [
+  { name: '\u7B52\u4E95', id: 9797164 },
+  { name: '\u53CB\u5229', id: 10034061 },
+  { name: '\u77F3\u7530', id: 5420288 },
+];
+
 async function handleGetPeople(request, env) {
   await verifyGoogleToken(request, env);
 
-  let people = [];
-  const myId = Number(env.MY_ACCOUNT_ID || 0);
+  const myId = Number(env.MY_ACCOUNT_ID || 10034061);
+  let people = DEFAULT_PEOPLE;
 
   try {
-    people = JSON.parse(env.PERSONS_JSON || '[]');
-  } catch (_) {
-    people = [];
-  }
+    const parsed = JSON.parse(env.PERSONS_JSON || '[]');
+    if (parsed.length > 0 && parsed[0].name && !/\?/.test(parsed[0].name)) {
+      people = parsed;
+    }
+  } catch (_) {}
 
   return jsonResponse({ people, myId });
 }
@@ -273,6 +284,12 @@ async function handleGetDashboardTasks(request, env) {
     }
   }
 
+  // 手動タスクを追加（担当者フィルタなし＝全員に表示）
+  const manualTasks = await getManualTasks(env);
+  for (const mt of manualTasks) {
+    allTasksList.push(mt);
+  }
+
   return jsonResponse(allTasksList);
 }
 
@@ -281,9 +298,61 @@ async function handleUpdateDashboardTask(request, env) {
 
   const id = new URL(request.url).pathname.split('/').pop();
   const body = await request.json();
+
+  // 手動タスクの場合はMANUAL_TASKSを更新
+  if (id.startsWith('manual-')) {
+    const tasks = await getManualTasks(env);
+    const idx = tasks.findIndex((t) => t.id === id);
+    if (idx >= 0) {
+      Object.assign(tasks[idx], body);
+      await saveManualTasks(env, tasks);
+    }
+    return jsonResponse({ ok: true });
+  }
+
   const local = await getDashboardLocal(env);
   local[id] = { ...(local[id] || {}), ...body };
   await saveDashboardLocal(env, local);
+
+  return jsonResponse({ ok: true });
+}
+
+// ====================================================
+// ハンドラ: 手動タスク作成・削除
+// ====================================================
+
+async function handleCreateManualTask(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const body = await request.json();
+  const tasks = await getManualTasks(env);
+  const id = 'manual-' + Date.now();
+  tasks.push({
+    id,
+    title: body.title || '\u7121\u984C',
+    category: body.category || 'teiki',
+    priority: body.priority || 'medium',
+    localStatus: 'open',
+    note: body.note || '',
+    body: '',
+    limit: body.limit || null,
+    assignedBy: '',
+    roomId: '',
+    requester: null,
+    isManual: true,
+  });
+  await saveManualTasks(env, tasks);
+
+  return jsonResponse({ ok: true, id });
+}
+
+async function handleDeleteManualTask(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const id = new URL(request.url).pathname.split('/').pop();
+  const tasks = await getManualTasks(env);
+  const filtered = tasks.filter((t) => t.id !== id);
+  await saveManualTasks(env, filtered);
 
   return jsonResponse({ ok: true });
 }
@@ -455,6 +524,15 @@ async function getDashboardLocal(env) {
 
 async function saveDashboardLocal(env, data) {
   await env.TASK_STORE.put('DASHBOARD_LOCAL', JSON.stringify(data));
+}
+
+async function getManualTasks(env) {
+  const data = await env.TASK_STORE.get('MANUAL_TASKS');
+  return data ? JSON.parse(data) : [];
+}
+
+async function saveManualTasks(env, tasks) {
+  await env.TASK_STORE.put('MANUAL_TASKS', JSON.stringify(tasks));
 }
 
 async function getAdminRoles(env) {
