@@ -720,9 +720,9 @@ function hasLineYahooMedia(formData) {
 }
 
 const NOTIFY_MEMBERS = [
-  { name: '\u7B52\u4E95', id: 9797164 },
-  { name: '\u53CB\u5229', id: 10034061 },
-  { name: '\u897F\u6751', id: 5420288 },
+  { name: '\u897F\u6751 \u77E5\u8F1D', id: 5420288 },
+  { name: '\u7B52\u4E95 \u306F\u306A\u4E43', id: 9797164 },
+  { name: '\u53CB\u5229 \u304D\u3089\u3089', id: 10034061 },
 ];
 
 async function sendChatworkTask(formData, reqId, env) {
@@ -783,9 +783,9 @@ async function sendChatworkTask(formData, reqId, env) {
 
   if (!bh && taskId) {
     try {
-      const toMentions = NOTIFY_MEMBERS.map((m) => '[To:' + m.id + '] ' + m.name + '\u3055\u3093').join('\n');
-      let notifyBody = toMentions + '\n\u4E0B\u8A18\u30BF\u30B9\u30AF\u5BFE\u5FDC\u304A\u9858\u3044\u3057\u307E\u3059\u3002';
-      notifyBody += infoBlock;
+      const toMentions = NOTIFY_MEMBERS.map((m) => '[To:' + m.id + ']' + m.name + '\u3055\u3093').join('\n');
+      let notifyBody = toMentions + '\n\n\u4E0B\u8A18\u30BF\u30B9\u30AF\u306E\u5BFE\u5FDC\u304A\u9858\u3044\u3057\u307E\u3059\u3002\n';
+      notifyBody += '\n[qt]' + dashBody + '[/qt]';
       await fetch(`https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/messages`, {
         method: 'POST',
         headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
