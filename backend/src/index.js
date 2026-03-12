@@ -771,6 +771,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (!task) return;
 
   const assignerAid = task.assigned_by_account?.account_id;
+  const assignerTime = task.assign_time || Math.floor(Date.now() / 1000);
   const taskBody = task.body || '';
   const taskTitle = extractTitle(taskBody);
 
@@ -783,7 +784,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (replyMessage) {
     msg += '\n' + replyMessage + '\n';
   }
-  msg += '\n[hr]\n' + taskBody.slice(0, 500);
+  msg += '\n[qt][qtmeta aid=' + (assignerAid || 0) + ' time=' + assignerTime + ']' + taskBody.slice(0, 500) + '[/qt]';
 
   await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
