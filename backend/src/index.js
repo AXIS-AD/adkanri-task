@@ -6,7 +6,12 @@ const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.co
 const ALLOWED_ORIGINS = ['https://axis-ad.github.io', 'http://localhost:3000', 'http://localhost:3456'];
 const REQ_PREFIX = 'REQ-ID:';
 
+const OVERDUE_ALERT_ROOM_ID = '376867208';
+
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(checkOverdueTasks(env));
+  },
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return corsPreflightResponse(request);
@@ -150,11 +155,9 @@ async function handleSubmit(request, env) {
 
   if (taskId) {
     await saveTaskMeta(env, taskId, reqId, formData, '未対応');
-    const subLabel = formData.subCategory || formData.category;
-    const fieldSummary = (formData.fields || []).map((f) => f.label + ':' + f.value).join(' / ');
-    const content = '\u3010' + subLabel + '\u3011' + (fieldSummary ? ' ' + fieldSummary : '');
     const assigneeName = resolveAssigneeName(env, formData);
-    await appendTaskLog(env, String(taskId), formatJST(new Date(), 'yyyy/MM/dd HH:mm'), content, formData.name, assigneeName);
+    const fieldsDetail = (formData.fields || []).map((f) => f.label + '：' + f.value).join('\n');
+    await appendTaskLog(env, String(taskId), formatJST(new Date(), 'yyyy/MM/dd HH:mm'), formData.category, formData.subCategory || '', formData.name, assigneeName, fieldsDetail);
   }
 
   return jsonResponse({ success: true, id: reqId });
@@ -612,16 +615,42 @@ async function getGoogleAccessToken(env) {
 const TASK_LOG_SHEET_ID = '1bpRgvylc3l0DaJHOX8yY-FIDPz_L1zmOUZwYMPxX67I';
 const TASK_LOG_SHEET_NAME = '\u30BF\u30B9\u30AF\u53CE\u96C6';
 
-async function appendTaskLog(env, taskId, createdDate, content, requester, assignee) {
+const TASK_LOG_HEADERS = [
+  '\u30BF\u30B9\u30AFID', '\u4F5C\u6210\u65E5', '\u5927\u5206\u985E', '\u5C0F\u5206\u985E',
+  '\u4F9D\u983C\u8005', '\u62C5\u5F53\u8005', '\u30BF\u30B9\u30AF\u8A73\u7D30', '\u5B8C\u4E86\u65E5', '\u5B8C\u4E86\u30B3\u30E1\u30F3\u30C8',
+];
+
+async function ensureTaskLogHeaders(token) {
+  const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A1:I1`);
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${range}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (res.ok) {
+    const data = await res.json();
+    if (data.values && data.values[0] && data.values[0].length > 0) return;
+  }
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [TASK_LOG_HEADERS] }),
+    }
+  );
+}
+
+async function appendTaskLog(env, taskId, createdDate, category, subCategory, requester, assignee, fieldsDetail) {
   try {
     const token = await getGoogleAccessToken(env);
-    const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A:G`);
+    await ensureTaskLogHeaders(token);
+    const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A:I`);
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [[taskId, createdDate, content, requester, assignee, '', '']] }),
+        body: JSON.stringify({ values: [[taskId, createdDate, category, subCategory || '', requester, assignee, fieldsDetail, '', '']] }),
       }
     );
   } catch (_) {}
@@ -643,7 +672,7 @@ async function updateTaskLogCompletion(env, taskId, completedDate, comment) {
       if (rows[i][0] === String(taskId)) { rowIndex = i + 1; break; }
     }
     if (rowIndex < 0) return;
-    const updateRange = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!F${rowIndex}:G${rowIndex}`);
+    const updateRange = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!H${rowIndex}:I${rowIndex}`);
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${updateRange}?valueInputOption=USER_ENTERED`,
       {
@@ -1071,4 +1100,81 @@ function formatJST(date, pattern) {
   return pattern
     .replace('yyyy', y).replace('MM', M).replace('dd', d)
     .replace('HH', H).replace('mm', m).replace('ss', s);
+}
+
+// ====================================================
+// 期限超過アラート（Cron Trigger）
+// ====================================================
+
+async function checkOverdueTasks(env) {
+  const cfg = getChatworkConfig(env);
+  const local = await getDashboardLocal(env);
+  const manualTasks = await getManualTasks(env);
+
+  const jstNow = new Date(Date.now() + 9 * 3600000);
+  const todayStr = jstNow.toISOString().slice(0, 10);
+  const todayMs = new Date(todayStr).getTime();
+  const THREE_DAYS_MS = 3 * 24 * 3600000;
+  const overdueItems = [];
+
+  const rooms = new Set();
+  rooms.add(DASHBOARD_ROOM_ID);
+  if (cfg.roomId && cfg.roomId !== DASHBOARD_ROOM_ID) rooms.add(cfg.roomId);
+
+  for (const roomId of rooms) {
+    try {
+      const res = await fetch(`https://api.chatwork.com/v2/rooms/${roomId}/tasks?status=open`, {
+        headers: { 'X-ChatWorkToken': cfg.apiToken },
+      });
+      if (!res.ok) continue;
+      const tasks = await res.json();
+      for (const t of tasks) {
+        const meta = local[t.task_id] || {};
+        if (meta.localStatus === 'done') continue;
+        const limitDate = t.limit_time ? new Date(t.limit_time * 1000).toISOString().slice(0, 10) : null;
+        const effectiveLimit = meta.limit || limitDate;
+        if (!effectiveLimit) continue;
+        const diffMs = todayMs - new Date(effectiveLimit).getTime();
+        if (diffMs >= THREE_DAYS_MS) {
+          const daysOver = Math.floor(diffMs / (24 * 3600000));
+          overdueItems.push({
+            title: (t.body || '').split('\n')[0].replace(/\[.*?\]/g, '').trim().slice(0, 60),
+            assignee: meta.assigneeName || (t.account && t.account.name) || '不明',
+            deadline: effectiveLimit,
+            daysOver: daysOver,
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  for (const mt of manualTasks) {
+    if (mt.status === 'done' || mt.category === 'teiki') continue;
+    if (!mt.deadline) continue;
+    const diffMs = todayMs - new Date(mt.deadline).getTime();
+    if (diffMs >= THREE_DAYS_MS) {
+      overdueItems.push({
+        title: mt.title || '(タイトルなし)',
+        assignee: mt.assigneeName || '不明',
+        deadline: mt.deadline,
+        daysOver: Math.floor(diffMs / (24 * 3600000)),
+      });
+    }
+  }
+
+  if (overdueItems.length === 0) return;
+
+  overdueItems.sort((a, b) => b.daysOver - a.daysOver);
+
+  let msg = '[info][title]\u26A0\uFE0F \u671F\u65E5\u8D85\u904E\u30BF\u30B9\u30AF\u30A2\u30E9\u30FC\u30C8\uFF083\u65E5\u4EE5\u4E0A\uFF09[/title]';
+  for (const item of overdueItems) {
+    msg += '\u30FB ' + item.title + '\uFF08\u62C5\u5F53: ' + item.assignee + ' / \u671F\u65E5: ' + item.deadline + ' / ' + item.daysOver + '\u65E5\u8D85\u904E\uFF09\n';
+  }
+  msg += '\n\u8A08' + overdueItems.length + '\u4EF6\u306E\u30BF\u30B9\u30AF\u304C\u671F\u65E5\u3092\u904E\u304E\u3066\u3044\u307E\u3059\u3002[/info]';
+
+  await fetch(`https://api.chatwork.com/v2/rooms/${OVERDUE_ALERT_ROOM_ID}/messages`, {
+    method: 'POST',
+    headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'body=' + encodeURIComponent(msg),
+  });
 }

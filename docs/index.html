@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260312a -->
+<html lang="ja"><!-- v20260312b -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -168,6 +168,14 @@
   .freq-badge { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: rgba(6,182,212,.15); color: var(--cyan); font-weight: 600; flex-shrink: 0; }
   .next-due { font-size: 11px; color: var(--text2); margin-top: 4px; }
   .card.teiki-done .card-title { text-decoration: line-through; color: var(--text2); }
+  .freq-type-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .freq-tab { padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text2); font-size: 13px; cursor: pointer; transition: all .2s; }
+  .freq-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .freq-panel.hidden { display: none; }
+  .weekday-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .weekday-btn { width: 40px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .weekday-btn:hover { border-color: var(--accent); }
+  .weekday-btn.selected { background: var(--accent); color: white; border-color: var(--accent); }
 
   .todo-progress { margin-top: 8px; }
   .todo-progress-text { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
@@ -952,7 +960,7 @@ function renderListTable(tasks) {
     html += '<td><select onclick="event.stopPropagation()" onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);renderAll()"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"||!t.priority?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select></td>';
     html += '<td><select onclick="event.stopPropagation()" onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select></td>';
     html += '<td><select onclick="event.stopPropagation()" onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select></td>';
-    html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
+    html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -969,7 +977,7 @@ function renderManualListTable(tasks, genre) {
     if (isTeiki) {
       html += '<td style="width:32px;text-align:center;"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')" style="width:22px;height:22px;">' + (isDone ? '✓' : '') + '</button></td>';
       html += '<td class="tl-title">' + esc(t.title) + '</td>';
-      html += '<td>' + (FREQ_LABELS[t.frequency] || '毎月') + '</td>';
+      html += '<td>' + getFreqLabel(t.frequency) + '</td>';
     } else {
       var todos = t.todos || [];
       var doneC = todos.filter(function(x) { return x.status === "done" || x.done; }).length;
@@ -978,7 +986,7 @@ function renderManualListTable(tasks, genre) {
       html += '<td>' + (t.deadline || '未設定') + '</td>';
     }
     html += '<td>' + esc(t.assigneeName || '-') + '</td>';
-    html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note || '') + '" onchange="event.stopPropagation();var tk=allTasks.find(function(x){return x.id===\'' + t.id + '\'});if(tk)tk.note=this.value;apiCall(\'POST\',\'/api/dashboard/tasks/' + t.id + '\',{note:this.value})" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
+    html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note || '') + '" onchange="saveNote(\'' + t.id + '\',this.value)" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
     html += '<td style="width:32px;"><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></td>';
     html += '</tr>';
   });
@@ -990,6 +998,11 @@ function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".ge
 function setPerson(id) { selectedPersonId = id; loadAll(); }
 
 async function updateTask(id, field, value) { await apiCall("POST", "/api/dashboard/tasks/" + id, { [field]: value }); }
+function saveNote(id, val) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (t) t.note = val;
+  updateTask(id, "note", val);
+}
 function handleAssigneeChange(id, selectEl) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (!t) return;
@@ -1054,14 +1067,36 @@ function openModal(id) {
   currentModalId = id;
   document.getElementById("modalTitle").textContent = task.title;
   document.getElementById("modalMeta").innerHTML = '<span>期日: <input type="date" value="' + (task.limit || '') + '" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);" onchange="updateTask(\'' + id + '\',\'limit\',this.value);var t=allTasks.find(function(x){return x.id===\'' + id + '\'});if(t)t.limit=this.value;this.nextSibling.textContent=\' (\'+dueLabel(this.value)+\')\'"><span> (' + dueLabel(task.limit) + ')</span></span><span>' + CATEGORY_LABELS[normalizeCategory(task.category)] + '</span>' + (task.assignedBy ? '<span>by ' + esc(task.assignedBy) + '</span>' : '');
-  document.getElementById("modalBody").textContent = task.body || "(本文なし)";
-  document.getElementById("modalActions").innerHTML =
-    '<select onchange="handleStatusChange(\'' + id + '\',this.value)"><option value="open"' + (task.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (task.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (task.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (task.localStatus==="done"?" selected":"") + '>完了</option></select>' +
-    '<select onchange="handleCategoryChange(\'' + id + '\',this.value);openModal(\'' + id + '\')">' + CATEGORY_ORDER.map(function(k) { return '<option value="' + k + '"' + (normalizeCategory(task.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' +
-    buildAssigneeSelect(id, task.assigneeId) +
-    '<input type="text" placeholder="メモ..." value="' + esc(task.note) + '" onchange="updateTask(\'' + id + '\',\'note\',this.value);allTasks.find(function(t){return t.id===\'' + id + '\'}).note=this.value">' +
-    '<button onclick="handleStatusChange(\'' + id + '\',\'done\')" style="padding:6px 16px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">✅ 完了報告</button>';
+  var bodyHtml = '<div style="margin-bottom:16px;white-space:pre-wrap;color:var(--text2);font-size:13px;line-height:1.6;">' + esc(task.body || "(本文なし)") + '</div>';
+  bodyHtml += '<div class="modal-form-group"><label>メモ</label><textarea id="modalNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(task.note || '') + '</textarea></div>';
+  bodyHtml += '<div class="modal-inline-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">';
+  bodyHtml += '<select id="modalStatus" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><option value="open"' + (task.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (task.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (task.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (task.localStatus==="done"?" selected":"") + '>完了</option></select>';
+  bodyHtml += '<select id="modalCategory" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;">' + CATEGORY_ORDER.map(function(k) { return '<option value="' + k + '"' + (normalizeCategory(task.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>';
+  bodyHtml += buildAssigneeSelect(id, task.assigneeId);
+  bodyHtml += '</div>';
+  bodyHtml += '<div style="display:flex;gap:8px;">';
+  bodyHtml += '<button class="modal-save-btn" style="flex:1;" onclick="saveModalTask(\'' + id + '\')">保存</button>';
+  bodyHtml += '<button onclick="handleStatusChange(\'' + id + '\',\'done\')" style="flex:0 0 auto;padding:12px 20px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">✅ 完了報告</button>';
+  bodyHtml += '</div>';
+  document.getElementById("modalBody").innerHTML = bodyHtml;
+  document.getElementById("modalActions").innerHTML = '';
   document.getElementById("taskModal").classList.remove("hidden");
+}
+async function saveModalTask(id) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (!t) return;
+  var noteEl = document.getElementById("modalNoteEdit");
+  var statusEl = document.getElementById("modalStatus");
+  var catEl = document.getElementById("modalCategory");
+  var updates = {};
+  if (noteEl) { t.note = noteEl.value.trim(); updates.note = t.note; }
+  if (statusEl && statusEl.value !== t.localStatus) {
+    if (statusEl.value === "done") { handleStatusChange(id, "done"); return; }
+    t.localStatus = statusEl.value; updates.localStatus = statusEl.value;
+  }
+  if (catEl && catEl.value !== normalizeCategory(t.category)) { t.category = catEl.value; updates.category = catEl.value; }
+  await apiCall("POST", "/api/dashboard/tasks/" + id, updates);
+  renderAll(); closeModal();
 }
 function closeModal() { document.getElementById("taskModal").classList.add("hidden"); currentModalId = null; }
 document.addEventListener("keydown", function(e) { if (e.key === "Escape" && currentModalId) closeModal(); });
@@ -1077,7 +1112,7 @@ function renderCard(t) {
   var dc = dueClass(t.limit), dl = dueLabel(t.limit), body = cleanBody(t.body);
   var pc = 'priority-' + (t.priority || 'medium');
   var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button>' : '';
-  return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="updateTask(\'' + t.id + '\',\'note\',this.value)"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div>';
+  return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div>';
 }
 
 function editDueDate(id, el) {
@@ -1123,7 +1158,16 @@ function addManualTask(category) {
   people.forEach(function(p) { bodyHtml += '<option value="' + p.id + '" data-name="' + esc(p.name) + '">' + esc(p.name) + '</option>'; });
   bodyHtml += '</select></div>';
   if (category === 'teiki') {
-    bodyHtml += '<div class="modal-form-group"><label>頻度</label><select id="addTaskFreq"><option value="daily">毎日</option><option value="weekly">毎週</option><option value="biweekly">隔週</option><option value="monthly" selected>毎月</option></select></div>';
+    bodyHtml += '<div class="modal-form-group"><label>頻度タイプ</label>';
+    bodyHtml += '<div class="freq-type-tabs"><button type="button" class="freq-tab active" data-type="interval" onclick="switchFreqType(\'interval\')">間隔</button><button type="button" class="freq-tab" data-type="weekday" onclick="switchFreqType(\'weekday\')">曜日</button><button type="button" class="freq-tab" data-type="monthday" onclick="switchFreqType(\'monthday\')">日付</button></div>';
+    bodyHtml += '<div id="freqPanel_interval" class="freq-panel"><select id="addTaskFreq"><option value="daily">毎日</option><option value="weekly">毎週</option><option value="biweekly">隔週</option><option value="monthly" selected>毎月</option></select></div>';
+    bodyHtml += '<div id="freqPanel_weekday" class="freq-panel hidden"><div class="weekday-btns">';
+    WEEKDAY_NAMES.forEach(function(name, i) { bodyHtml += '<button type="button" class="weekday-btn" data-day="' + i + '" onclick="selectWeekday(this,' + i + ')">' + name + '</button>'; });
+    bodyHtml += '</div></div>';
+    bodyHtml += '<div id="freqPanel_monthday" class="freq-panel hidden"><select id="addTaskMonthday">';
+    for (var md = 1; md <= 31; md++) { bodyHtml += '<option value="' + md + '">' + md + '日</option>'; }
+    bodyHtml += '</select></div>';
+    bodyHtml += '<input type="hidden" id="freqType" value="interval"></div>';
   } else {
     bodyHtml += '<div class="modal-form-group"><label>期日</label><input type="date" id="addTaskDeadline"></div>';
   }
@@ -1144,7 +1188,16 @@ async function submitAddForm(category) {
   var data = { title: title, category: category, status: "open", note: noteEl ? noteEl.value.trim() : "",
     assigneeId: assigneeEl.value, assigneeName: selOpt.getAttribute("data-name") || selOpt.text };
   if (category === "teiki") {
-    data.frequency = document.getElementById("addTaskFreq").value;
+    var ft = document.getElementById("freqType");
+    var freqType = ft ? ft.value : "interval";
+    if (freqType === "weekday") {
+      var selDay = document.querySelector(".weekday-btn.selected");
+      data.frequency = selDay ? "weekday:" + selDay.dataset.day : "weekly";
+    } else if (freqType === "monthday") {
+      data.frequency = "monthday:" + document.getElementById("addTaskMonthday").value;
+    } else {
+      data.frequency = document.getElementById("addTaskFreq").value;
+    }
     data.completedAt = null;
     data.nextDue = null;
   } else {
@@ -1172,9 +1225,32 @@ async function deleteManualTask(id) {
 // 定期タスク: complete + recurrence
 // ============================
 var FREQ_LABELS = { daily: "毎日", weekly: "毎週", biweekly: "隔週", monthly: "毎月" };
+var WEEKDAY_NAMES = ["日","月","火","水","木","金","土"];
+
+function getFreqLabel(freq) {
+  if (!freq) return "毎月";
+  if (freq.startsWith("weekday:")) return "毎週" + WEEKDAY_NAMES[parseInt(freq.split(":")[1])] + "曜日";
+  if (freq.startsWith("monthday:")) return "毎月" + freq.split(":")[1] + "日";
+  return FREQ_LABELS[freq] || freq;
+}
 
 function calculateNextDue(frequency) {
   var d = new Date();
+  if (frequency && frequency.startsWith("weekday:")) {
+    var targetDay = parseInt(frequency.split(":")[1]);
+    var current = d.getDay();
+    var diff = targetDay - current;
+    if (diff <= 0) diff += 7;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+  if (frequency && frequency.startsWith("monthday:")) {
+    var targetDate = parseInt(frequency.split(":")[1]);
+    d.setMonth(d.getMonth() + 1);
+    var lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(targetDate, lastDay));
+    return d.toISOString().slice(0, 10);
+  }
   switch (frequency) {
     case "daily": d.setDate(d.getDate() + 1); break;
     case "weekly": d.setDate(d.getDate() + 7); break;
@@ -1212,14 +1288,10 @@ async function toggleTeikiComplete(id) {
 function renderTeikiCard(t) {
   checkTeikiRecurrence(t);
   var isDone = t.status === "done";
-  var freqSelect = '<select class="status-select-inline" onchange="event.stopPropagation();updateTeikiFreq(\'' + t.id + '\',this.value)">';
-  ["daily","weekly","biweekly","monthly"].forEach(function(f) {
-    freqSelect += '<option value="' + f + '"' + (t.frequency === f ? ' selected' : '') + '>' + FREQ_LABELS[f] + '</option>';
-  });
-  freqSelect += '</select>';
+  var freqDisplay = '<span class="freq-badge">' + getFreqLabel(t.frequency) + '</span>';
   var noteHtml = t.note ? '<div class="card-body" style="margin-top:4px;font-size:12px;color:var(--text2);">' + esc(t.note) + '</div>' : '';
   var assigneeHtml = t.assigneeName ? '<div style="font-size:11px;color:var(--text2);margin-top:4px;">担当: ' + esc(t.assigneeName) + '</div>' : '';
-  return '<div class="card' + (isDone ? ' teiki-done' : '') + '" onclick="openTeikiModal(\'' + t.id + '\')"><div class="card-top"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')">' + (isDone ? '✓' : '') + '</button><div class="card-title" style="margin-left:8px;">' + esc(t.title) + '</div>' + freqSelect + '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></div>' + assigneeHtml + noteHtml + (isDone && t.nextDue ? '<div class="next-due">次回: ' + t.nextDue + '</div>' : '') + '</div>';
+  return '<div class="card' + (isDone ? ' teiki-done' : '') + '" onclick="openTeikiModal(\'' + t.id + '\')"><div class="card-top"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')">' + (isDone ? '✓' : '') + '</button><div class="card-title" style="margin-left:8px;">' + esc(t.title) + '</div>' + freqDisplay + '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></div>' + assigneeHtml + noteHtml + (isDone && t.nextDue ? '<div class="next-due">次回: ' + t.nextDue + '</div>' : '') + '</div>';
 }
 
 function openTeikiModal(id) {
@@ -1227,30 +1299,83 @@ function openTeikiModal(id) {
   if (!t) return;
   currentModalId = id;
   document.getElementById("modalTitle").textContent = t.title;
-  var metaHtml = '<span>' + FREQ_LABELS[t.frequency || "monthly"] + '</span>';
+  var metaHtml = '<span>' + getFreqLabel(t.frequency) + '</span>';
   metaHtml += '<span>' + (t.status === "done" ? "完了" : "未完了") + '</span>';
   if (t.nextDue) metaHtml += '<span>次回: ' + t.nextDue + '</span>';
   document.getElementById("modalMeta").innerHTML = metaHtml;
-  var bodyHtml = '<div class="modal-form-group"><label>備考</label><textarea id="teikiNoteEdit" rows="4" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea></div>';
-  bodyHtml += '<button class="modal-save-btn" onclick="saveTeikiNote(\'' + id + '\')">保存</button>';
+
+  var bodyHtml = '<div class="modal-form-group"><label>頻度変更</label>';
+  bodyHtml += '<div class="freq-type-tabs"><button type="button" class="freq-tab' + (!t.frequency || (!t.frequency.startsWith("weekday:") && !t.frequency.startsWith("monthday:")) ? ' active' : '') + '" data-type="interval" onclick="switchFreqTypeEdit(\'interval\')">間隔</button><button type="button" class="freq-tab' + (t.frequency && t.frequency.startsWith("weekday:") ? ' active' : '') + '" data-type="weekday" onclick="switchFreqTypeEdit(\'weekday\')">曜日</button><button type="button" class="freq-tab' + (t.frequency && t.frequency.startsWith("monthday:") ? ' active' : '') + '" data-type="monthday" onclick="switchFreqTypeEdit(\'monthday\')">日付</button></div>';
+  var curInterval = (!t.frequency || FREQ_LABELS[t.frequency]) ? (t.frequency || "monthly") : "monthly";
+  bodyHtml += '<div id="freqEditPanel_interval" class="freq-panel' + (t.frequency && (t.frequency.startsWith("weekday:") || t.frequency.startsWith("monthday:")) ? ' hidden' : '') + '"><select id="editFreqInterval"><option value="daily"' + (curInterval==="daily"?" selected":"") + '>毎日</option><option value="weekly"' + (curInterval==="weekly"?" selected":"") + '>毎週</option><option value="biweekly"' + (curInterval==="biweekly"?" selected":"") + '>隔週</option><option value="monthly"' + (curInterval==="monthly"?" selected":"") + '>毎月</option></select></div>';
+  var curWeekday = t.frequency && t.frequency.startsWith("weekday:") ? parseInt(t.frequency.split(":")[1]) : -1;
+  bodyHtml += '<div id="freqEditPanel_weekday" class="freq-panel' + (t.frequency && t.frequency.startsWith("weekday:") ? '' : ' hidden') + '"><div class="weekday-btns">';
+  WEEKDAY_NAMES.forEach(function(name, i) { bodyHtml += '<button type="button" class="weekday-btn' + (curWeekday === i ? ' selected' : '') + '" data-day="' + i + '" onclick="selectWeekdayEdit(this,' + i + ')">' + name + '</button>'; });
+  bodyHtml += '</div></div>';
+  var curMonthday = t.frequency && t.frequency.startsWith("monthday:") ? parseInt(t.frequency.split(":")[1]) : 1;
+  bodyHtml += '<div id="freqEditPanel_monthday" class="freq-panel' + (t.frequency && t.frequency.startsWith("monthday:") ? '' : ' hidden') + '"><select id="editFreqMonthday">';
+  for (var md = 1; md <= 31; md++) { bodyHtml += '<option value="' + md + '"' + (curMonthday === md ? ' selected' : '') + '>' + md + '日</option>'; }
+  bodyHtml += '</select></div>';
+  bodyHtml += '<input type="hidden" id="freqTypeEdit" value="' + (t.frequency && t.frequency.startsWith("weekday:") ? "weekday" : t.frequency && t.frequency.startsWith("monthday:") ? "monthday" : "interval") + '"></div>';
+
+  bodyHtml += '<div class="modal-form-group"><label>備考</label><textarea id="teikiNoteEdit" rows="4" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea></div>';
+  bodyHtml += '<button class="modal-save-btn" onclick="saveTeikiAll(\'' + id + '\')">保存</button>';
   document.getElementById("modalBody").innerHTML = bodyHtml;
   document.getElementById("modalActions").innerHTML = '';
   document.getElementById("taskModal").classList.remove("hidden");
 }
 
-async function saveTeikiNote(id) {
+async function saveTeikiAll(id) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (!t) return;
   var val = document.getElementById("teikiNoteEdit").value.trim();
   t.note = val;
-  await apiCall("POST", "/api/dashboard/tasks/" + id, { note: val });
+  var ft = document.getElementById("freqTypeEdit");
+  var freqType = ft ? ft.value : "interval";
+  var newFreq;
+  if (freqType === "weekday") {
+    var selDay = document.querySelector("#freqEditPanel_weekday .weekday-btn.selected");
+    newFreq = selDay ? "weekday:" + selDay.dataset.day : (t.frequency || "weekly");
+  } else if (freqType === "monthday") {
+    newFreq = "monthday:" + document.getElementById("editFreqMonthday").value;
+  } else {
+    newFreq = document.getElementById("editFreqInterval").value;
+  }
+  t.frequency = newFreq;
+  await apiCall("POST", "/api/dashboard/tasks/" + id, { note: val, frequency: newFreq });
   renderAll();
   closeModal();
+}
+
+function switchFreqTypeEdit(type) {
+  document.getElementById("freqTypeEdit").value = type;
+  document.querySelectorAll(".freq-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
+  ["interval","weekday","monthday"].forEach(function(p) {
+    var el = document.getElementById("freqEditPanel_" + p);
+    if (el) el.classList.toggle("hidden", p !== type);
+  });
+}
+function selectWeekdayEdit(btn, day) {
+  btn.closest(".weekday-btns").querySelectorAll(".weekday-btn").forEach(function(b) { b.classList.remove("selected"); });
+  btn.classList.add("selected");
 }
 
 async function updateTeikiFreq(id, val) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (t) { t.frequency = val; await apiCall("POST", "/api/dashboard/tasks/" + id, { frequency: val }); }
+}
+
+function switchFreqType(type) {
+  document.getElementById("freqType").value = type;
+  document.querySelectorAll(".freq-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
+  ["interval","weekday","monthday"].forEach(function(p) {
+    var el = document.getElementById("freqPanel_" + p);
+    if (el) el.classList.toggle("hidden", p !== type);
+  });
+}
+function selectWeekday(btn, day) {
+  document.querySelectorAll(".weekday-btn").forEach(function(b) { b.classList.remove("selected"); });
+  btn.classList.add("selected");
 }
 
 // ============================
