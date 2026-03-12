@@ -412,6 +412,24 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="doneModal" onclick="if(event.target===this)closeDoneModal()">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h2>タスク完了報告</h2>
+      <button class="modal-close" onclick="closeDoneModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div id="doneTaskPreview" style="background:var(--surface2);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--text2);border-left:3px solid var(--accent);max-height:120px;overflow-y:auto;"></div>
+      <label style="font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">返信メッセージ（任意）</label>
+      <textarea id="doneReplyText" rows="4" placeholder="完了時のコメントを入力..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;box-sizing:border-box;"></textarea>
+    </div>
+    <div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border);">
+      <button onclick="closeDoneModal()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;">キャンセル</button>
+      <button onclick="confirmDone()" style="padding:8px 22px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">完了にする</button>
+    </div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script>
 // ============================
@@ -937,12 +955,39 @@ function handleAssigneeChange(id, selectEl) {
   apiCall("POST", "/api/dashboard/tasks/" + id, { assigneeId: newId, assigneeName: newName });
   renderAll();
 }
+var pendingDoneTaskId = null;
 function handleStatusChange(id, val) {
+  if (val === "done") {
+    pendingDoneTaskId = id;
+    var t = allTasks.find(function(x) { return x.id === id; });
+    var preview = t ? esc(t.title) + (t.body ? '<br><small style="color:var(--text2)">' + esc(cleanBody(t.body)).substring(0, 200) + '</small>' : '') : '';
+    document.getElementById("doneTaskPreview").innerHTML = preview;
+    document.getElementById("doneReplyText").value = "";
+    document.getElementById("doneModal").classList.remove("hidden");
+    setTimeout(function() { document.getElementById("doneReplyText").focus(); }, 100);
+    return;
+  }
   var t = allTasks.find(function(x) { return x.id === id; });
   var payload = { localStatus: val };
   if (t && t.roomId) payload.roomId = t.roomId;
   apiCall("POST", "/api/dashboard/tasks/" + id, payload);
   if (t) { t.localStatus = val; renderAll(); }
+}
+function closeDoneModal() {
+  document.getElementById("doneModal").classList.add("hidden");
+  pendingDoneTaskId = null;
+}
+async function confirmDone() {
+  var id = pendingDoneTaskId;
+  if (!id) return;
+  var t = allTasks.find(function(x) { return x.id === id; });
+  var reply = document.getElementById("doneReplyText").value.trim();
+  var payload = { localStatus: "done", replyMessage: reply };
+  if (t && t.roomId) payload.roomId = t.roomId;
+  closeDoneModal();
+  if (currentModalId) closeModal();
+  await apiCall("POST", "/api/dashboard/tasks/" + id, payload);
+  if (t) { t.localStatus = "done"; renderAll(); }
 }
 function handleCategoryChange(id, val) { updateTask(id, "category", val); var t = allTasks.find(function(x) { return x.id === id; }); if (t) { t.category = val; renderAll(); } }
 

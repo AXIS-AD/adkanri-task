@@ -405,6 +405,12 @@ async function handleUpdateDashboardTask(request, env) {
         }
       );
     } catch (_) {}
+
+    if (body.localStatus === 'done') {
+      try {
+        await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken);
+      } catch (_) {}
+    }
   }
 
   return jsonResponse({ ok: true });
@@ -740,6 +746,53 @@ function extractTitle(body) {
   }
   const first = b.trim().split('\n').find((l) => l.trim().length > 0);
   return first ? first.trim().slice(0, 40) : '無題';
+}
+
+async function sendDoneReplyMessage(taskId, roomId, replyMessage, apiToken) {
+  const taskRes = await fetch(
+    `https://api.chatwork.com/v2/rooms/${roomId}/tasks`,
+    { headers: { 'X-ChatWorkToken': apiToken } }
+  );
+  if (!taskRes.ok) return;
+  const tasks = await taskRes.json();
+  const allTasks = [...tasks];
+
+  const doneRes = await fetch(
+    `https://api.chatwork.com/v2/rooms/${roomId}/tasks?status=done`,
+    { headers: { 'X-ChatWorkToken': apiToken } }
+  );
+  if (doneRes.ok) {
+    const doneTasks = await doneRes.json();
+    allTasks.push(...doneTasks);
+  }
+
+  const task = allTasks.find((t) => String(t.task_id) === String(taskId));
+  if (!task) return;
+
+  const assignerAid = task.assigned_by_account?.account_id;
+  const taskBody = task.body || '';
+  const taskTitle = extractTitle(taskBody);
+
+  let msg = '[info][title]\u2705 \u30BF\u30B9\u30AF\u5B8C\u4E86[/title]';
+  msg += '\u30BF\u30B9\u30AF\u300C' + taskTitle + '\u300D\u3092\u5B8C\u4E86\u3057\u307E\u3057\u305F\u3002\n';
+  if (replyMessage) {
+    msg += '\n\u25A0 \u30B3\u30E1\u30F3\u30C8\n' + replyMessage + '\n';
+  }
+  msg += '\n[hr]\n' + taskBody.slice(0, 500);
+  msg += '[/info]';
+
+  if (assignerAid) {
+    msg = '[To:' + assignerAid + ']\n' + msg;
+  }
+
+  await fetch(
+    `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
+    {
+      method: 'POST',
+      headers: { 'X-ChatWorkToken': apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'body=' + encodeURIComponent(msg),
+    }
+  );
 }
 
 async function fetchChatworkTasksForDashboard(roomId, apiToken, targetId) {
