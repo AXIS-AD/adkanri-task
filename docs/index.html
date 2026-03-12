@@ -703,7 +703,17 @@ function loadSheetOptions(sheetId, range, selectId, condRange, condValue, condRe
     .then(function(options) {
       var sel = document.getElementById(selectId);
       if (!sel) return;
-      sel.innerHTML = '<option value="">選択してください</option>' + options.map(function(o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+      sel.innerHTML = '<option value="">選択してください</option>' + options.map(function(o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("") + '<option value="__manual__">その他（手動入力）</option>';
+      sel.addEventListener("change", function() {
+        if (this.value === "__manual__") {
+          var inp = document.createElement("input");
+          inp.type = "text"; inp.id = selectId; inp.placeholder = "手動で入力";
+          inp.dataset.label = sel.dataset.label; inp.dataset.required = sel.dataset.required;
+          inp.style.cssText = "width:100%;";
+          sel.replaceWith(inp);
+          inp.focus();
+        }
+      });
     })
     .catch(function() {
       var sel = document.getElementById(selectId);
