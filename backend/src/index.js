@@ -801,7 +801,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (toAid) {
     msg += '[To:' + toAid + '] ' + toName + '\u3055\u3093\n';
   }
-  msg += '[info][title]\u2705 ' + taskTitle + ' - \u5B8C\u4E86[/title]';
+  msg += '[info][title]\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01[/title]';
   if (replyMessage) {
     msg += replyMessage + '\n';
   }
