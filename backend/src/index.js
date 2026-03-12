@@ -1166,7 +1166,14 @@ async function checkOverdueTasks(env) {
 
   overdueItems.sort((a, b) => b.daysOver - a.daysOver);
 
-  let msg = '[info][title]\u26A0\uFE0F \u671F\u65E5\u8D85\u904E\u30BF\u30B9\u30AF\u30A2\u30E9\u30FC\u30C8\uFF083\u65E5\u4EE5\u4E0A\uFF09[/title]';
+  const ALERT_MEMBERS = [
+    { name: '\u897F\u6751', id: 5420288 },
+    { name: '\u7B52\u4E95', id: 9797164 },
+    { name: '\u53CB\u5229', id: 10034061 },
+    { name: '\u77F3\u7530', id: 10696465 },
+  ];
+  let msg = ALERT_MEMBERS.map((m) => '[To:' + m.id + ']' + m.name + '\u3055\u3093').join('\n') + '\n\n';
+  msg += '[info][title]\u26A0\uFE0F \u671F\u65E5\u8D85\u904E\u30BF\u30B9\u30AF\u30A2\u30E9\u30FC\u30C8\uFF083\u65E5\u4EE5\u4E0A\uFF09[/title]';
   for (const item of overdueItems) {
     msg += '\u30FB ' + item.title + '\uFF08\u62C5\u5F53: ' + item.assignee + ' / \u671F\u65E5: ' + item.deadline + ' / ' + item.daysOver + '\u65E5\u8D85\u904E\uFF09\n';
   }

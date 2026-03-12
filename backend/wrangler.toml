@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2024-01-01"
 
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["0 1 * * *"]
 
 # KV ストレージ（タスクメタデータ保管用）
 # ※ 作成後に id を書き換えてください:
