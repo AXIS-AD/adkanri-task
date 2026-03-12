@@ -150,6 +150,11 @@ async function handleSubmit(request, env) {
 
   if (taskId) {
     await saveTaskMeta(env, taskId, reqId, formData, '未対応');
+    const subLabel = formData.subCategory || formData.category;
+    const fieldSummary = (formData.fields || []).map((f) => f.label + ':' + f.value).join(' / ');
+    const content = '\u3010' + subLabel + '\u3011' + (fieldSummary ? ' ' + fieldSummary : '');
+    const assigneeName = resolveAssigneeName(env, formData);
+    await appendTaskLog(env, String(taskId), formatJST(new Date(), 'yyyy/MM/dd HH:mm'), content, formData.name, assigneeName);
   }
 
   return jsonResponse({ success: true, id: reqId });
@@ -411,6 +416,8 @@ async function handleUpdateDashboardTask(request, env) {
         const doneToken = env.CHATWORK_DONE_TOKEN || cfg.apiToken;
         await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken, doneToken);
       } catch (_) {}
+      const completedDate = formatJST(new Date(), 'yyyy/MM/dd HH:mm');
+      await updateTaskLogCompletion(env, id, completedDate, body.replyMessage || '');
     }
   }
 
@@ -566,7 +573,7 @@ async function getGoogleAccessToken(env) {
   const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
   const payload = base64url(new TextEncoder().encode(JSON.stringify({
     iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
@@ -599,6 +606,56 @@ async function getGoogleAccessToken(env) {
 }
 
 // ====================================================
+// タスクログ（Google Sheets書き込み）
+// ====================================================
+
+const TASK_LOG_SHEET_ID = '1bpRgvylc3l0DaJHOX8yY-FIDPz_L1zmOUZwYMPxX67I';
+const TASK_LOG_SHEET_NAME = '\u30BF\u30B9\u30AF\u53CE\u96C6';
+
+async function appendTaskLog(env, taskId, createdDate, content, requester, assignee) {
+  try {
+    const token = await getGoogleAccessToken(env);
+    const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A:G`);
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[taskId, createdDate, content, requester, assignee, '', '']] }),
+      }
+    );
+  } catch (_) {}
+}
+
+async function updateTaskLogCompletion(env, taskId, completedDate, comment) {
+  try {
+    const token = await getGoogleAccessToken(env);
+    const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A:A`);
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${range}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    const rows = data.values || [];
+    let rowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === String(taskId)) { rowIndex = i + 1; break; }
+    }
+    if (rowIndex < 0) return;
+    const updateRange = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!F${rowIndex}:G${rowIndex}`);
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${updateRange}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[completedDate, comment]] }),
+      }
+    );
+  } catch (_) {}
+}
+
+// ====================================================
 // Chatwork 連携
 // ====================================================
 
@@ -627,6 +684,15 @@ function getChatworkConfig(env) {
     allUserIds: env.ALL_USER_IDS || '',
     assignMap,
   };
+}
+
+function resolveAssigneeName(env, formData) {
+  const cfg = getChatworkConfig(env);
+  const bh = isBusinessHours();
+  const toId = !bh ? cfg.allUserIds : hasLineYahooMedia(formData) ? LINE_YAHOO_ASSIGNEE : resolveAssignee(cfg, formData.category, bh);
+  const ids = String(toId).split(',');
+  const names = ids.map((id) => { const p = DEFAULT_PEOPLE.find((pp) => String(pp.id) === id.trim()); return p ? p.name : id.trim(); });
+  return names.join(', ');
 }
 
 function resolveAssignee(cfg, category, bh) {
