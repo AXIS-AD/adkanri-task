@@ -727,6 +727,20 @@ function extractRequesterName(body) {
   return m ? m[1].trim() : null;
 }
 
+function findPersonByName(list, name) {
+  if (!list || !name) return null;
+  const exact = list.find((m) => m.name === name);
+  if (exact) return exact;
+  const contains = list.find((m) => name.includes(m.name) || m.name.includes(name));
+  if (contains) return contains;
+  const surname = name.replace(/\s+/g, '').slice(0, 2);
+  if (surname.length >= 2) {
+    const partial = list.find((m) => m.name && m.name.replace(/\s+/g, '').startsWith(surname));
+    if (partial) return partial;
+  }
+  return null;
+}
+
 function autoCategory(body) {
   const b = body || '';
   if (/つなぎこみ|新規案件/.test(b)) return 'tsunagikomi';
@@ -780,7 +794,8 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
     const knownMatch = DEFAULT_PEOPLE.find((p) => requesterName.includes(p.name));
     if (knownMatch) {
       requesterAid = knownMatch.id;
-    } else {
+    }
+    if (!requesterAid) {
       try {
         const membersRes = await fetch(
           `https://api.chatwork.com/v2/rooms/${roomId}/members`,
@@ -788,7 +803,20 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
         );
         if (membersRes.ok) {
           const members = await membersRes.json();
-          const match = members.find((m) => requesterName.includes(m.name) || m.name.includes(requesterName));
+          const match = findPersonByName(members, requesterName);
+          if (match) requesterAid = match.account_id;
+        }
+      } catch (_) {}
+    }
+    if (!requesterAid) {
+      try {
+        const contactsRes = await fetch(
+          'https://api.chatwork.com/v2/contacts',
+          { headers: { 'X-ChatWorkToken': readToken } }
+        );
+        if (contactsRes.ok) {
+          const contacts = await contactsRes.json();
+          const match = findPersonByName(contacts, requesterName);
           if (match) requesterAid = match.account_id;
         }
       } catch (_) {}
