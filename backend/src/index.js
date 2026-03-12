@@ -777,17 +777,22 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   const requesterName = extractRequesterName(taskBody);
   let requesterAid = null;
   if (requesterName) {
-    try {
-      const membersRes = await fetch(
-        `https://api.chatwork.com/v2/rooms/${roomId}/members`,
-        { headers: { 'X-ChatWorkToken': readToken } }
-      );
-      if (membersRes.ok) {
-        const members = await membersRes.json();
-        const match = members.find((m) => requesterName.includes(m.name) || m.name.includes(requesterName));
-        if (match) requesterAid = match.account_id;
-      }
-    } catch (_) {}
+    const knownMatch = DEFAULT_PEOPLE.find((p) => requesterName.includes(p.name));
+    if (knownMatch) {
+      requesterAid = knownMatch.id;
+    } else {
+      try {
+        const membersRes = await fetch(
+          `https://api.chatwork.com/v2/rooms/${roomId}/members`,
+          { headers: { 'X-ChatWorkToken': readToken } }
+        );
+        if (membersRes.ok) {
+          const members = await membersRes.json();
+          const match = members.find((m) => requesterName.includes(m.name) || m.name.includes(requesterName));
+          if (match) requesterAid = match.account_id;
+        }
+      } catch (_) {}
+    }
   }
   const toAid = requesterAid || assignerAid;
 
