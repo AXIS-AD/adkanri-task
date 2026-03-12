@@ -785,7 +785,7 @@ async function sendChatworkTask(formData, reqId, env) {
     try {
       const toMentions = NOTIFY_MEMBERS.map((m) => '[To:' + m.id + ']' + m.name + '\u3055\u3093').join('\n');
       let notifyBody = toMentions + '\n\n\u4E0B\u8A18\u30BF\u30B9\u30AF\u306E\u5BFE\u5FDC\u304A\u9858\u3044\u3057\u307E\u3059\u3002\n';
-      notifyBody += '\n[qt]' + dashBody + '[/qt]';
+      notifyBody += '\n[info]' + dashBody + '[/info]';
       await fetch(`https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/messages`, {
         method: 'POST',
         headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
