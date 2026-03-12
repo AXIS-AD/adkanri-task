@@ -408,7 +408,8 @@ async function handleUpdateDashboardTask(request, env) {
 
     if (body.localStatus === 'done') {
       try {
-        await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken);
+        const doneToken = env.CHATWORK_DONE_TOKEN || cfg.apiToken;
+        await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken, doneToken);
       } catch (_) {}
     }
   }
@@ -748,10 +749,10 @@ function extractTitle(body) {
   return first ? first.trim().slice(0, 40) : '無題';
 }
 
-async function sendDoneReplyMessage(taskId, roomId, replyMessage, apiToken) {
+async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sendToken) {
   const taskRes = await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/tasks`,
-    { headers: { 'X-ChatWorkToken': apiToken } }
+    { headers: { 'X-ChatWorkToken': readToken } }
   );
   if (!taskRes.ok) return;
   const tasks = await taskRes.json();
@@ -759,7 +760,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, apiToken) {
 
   const doneRes = await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/tasks?status=done`,
-    { headers: { 'X-ChatWorkToken': apiToken } }
+    { headers: { 'X-ChatWorkToken': readToken } }
   );
   if (doneRes.ok) {
     const doneTasks = await doneRes.json();
@@ -788,7 +789,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, apiToken) {
     `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
     {
       method: 'POST',
-      headers: { 'X-ChatWorkToken': apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'X-ChatWorkToken': sendToken, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'body=' + encodeURIComponent(msg),
     }
   );
