@@ -883,24 +883,37 @@ function extractTitle(body) {
   const mainCat = (b.match(/依頼内容（大分類）[：:](.+)/) || b.match(/大分類[：:](.+)/) || [])[1];
   const project = (b.match(/案件[：:](.+)/) || b.match(/案件名[：:](.+)/) || [])[1];
   const account = (b.match(/アカウント名[：:](.+)/) || b.match(/アカウント[：:](.+)/) || [])[1];
+  const media = (b.match(/媒体[：:](.+)/) || [])[1];
 
   const parts = [];
-  if (subCat) parts.push(subCat.trim());
-  else if (mainCat) parts.push(mainCat.trim());
+  const usefulCat = (v) => v && !/^その他$/.test(v.trim()) && !/^（/.test(v.trim());
+  if (subCat && usefulCat(subCat)) parts.push(subCat.trim());
+  else if (mainCat && usefulCat(mainCat)) parts.push(mainCat.trim());
 
-  if (project) parts.push(project.trim());
-  else if (account) parts.push(account.trim());
+  if (project && usefulCat(project)) parts.push(project.trim().slice(0, 30));
+  else if (account) parts.push(account.trim().slice(0, 30));
+  else if (media) parts.push(media.trim().slice(0, 30));
 
   if (parts.length > 0) return parts.join(' / ').slice(0, 60);
 
   const bracketMatch = b.match(/【(.+?)】/);
-  if (bracketMatch) return bracketMatch[1].trim().slice(0, 40);
+  if (bracketMatch && usefulCat(bracketMatch[1])) return bracketMatch[1].trim().slice(0, 40);
 
-  const lines = b.trim().split('\n').filter((l) => {
-    const lt = l.trim();
-    return lt.length > 0 && !/^依頼がきました/.test(lt) && !/^対応お願い/.test(lt) && !/^営業時間外/.test(lt);
-  });
-  return lines.length > 0 ? lines[0].trim().slice(0, 50) : '無題';
+  const SKIP = /^(依頼がきました|対応お願い|営業時間外|お疲れ|下記タスク|⚠|依頼日[：:]|氏名[：:]|エンターキー確認中$)/;
+  const META = /^(依頼内容|大分類|小分類|案件|媒体|ASP|商流|アカウント|ピクセル|備考)[：:]/;
+  const lines = b.trim().split('\n').map((l) => l.trim()).filter((l) => l.length > 3);
+
+  const contentLines = lines.filter((l) => !SKIP.test(l) && !META.test(l));
+  if (contentLines.length > 0) return contentLines[0].slice(0, 50);
+
+  const metaVal = lines.find((l) => META.test(l) && !SKIP.test(l));
+  if (metaVal) {
+    const val = metaVal.split(/[：:]/)[1];
+    if (val && val.trim().length > 0 && usefulCat(val)) return metaVal.slice(0, 50);
+  }
+
+  const any = lines.find((l) => !SKIP.test(l));
+  return any ? any.slice(0, 50) : '無題';
 }
 
 async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sendToken) {
