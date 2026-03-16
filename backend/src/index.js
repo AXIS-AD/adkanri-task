@@ -1030,10 +1030,11 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (replyMessage) {
     msg += '[info][title]\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01[/title]';
     msg += replyMessage + '\n';
-    msg += '[/info]';
+    msg += '[/info]\n';
   } else {
-    msg += '\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01';
+    msg += '\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01\n';
   }
+  msg += '[qt][qtmeta aid=' + (assignerAid || 0) + ' time=' + assignerTime + ']' + taskBody.replace(/\[.*?\]/g, '').trim().slice(0, 500) + '[/qt]';
 
   await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
