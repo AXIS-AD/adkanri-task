@@ -254,7 +254,7 @@ async function handleGetMyRequests(request, env) {
       subCategory: subMatch ? subMatch[1].trim() : '',
       status: displayStatus,
       requester: reqName,
-      assignee: meta.assigneeName || (t.account ? t.account.name : ''),
+      assignee: meta.assigneeName || resolvePersonName(t.account),
       createdAt: t.limit_time ? new Date(t.limit_time * 1000).toISOString().slice(0, 10) : '-',
       body: body.replace(/\[.*?\]/g, '').trim(),
     });
@@ -307,6 +307,12 @@ const DEFAULT_PEOPLE = [
   { name: '\u77F3\u7530', id: 10696465 },
   { name: '\u897F\u6751', id: 5420288 },
 ];
+
+function resolvePersonName(account) {
+  if (!account) return '';
+  const match = DEFAULT_PEOPLE.find((p) => p.id === account.account_id);
+  return match ? match.name : (account.name || '');
+}
 
 async function handleGetPeople(request, env) {
   await verifyGoogleToken(request, env);
@@ -1047,7 +1053,7 @@ async function fetchChatworkTasksForDashboard(roomId, apiToken, targetId) {
     limit: t.limit_time ? new Date(t.limit_time * 1000).toISOString().slice(0, 10) : null,
     assignedBy: t.assigned_by_account?.name || '',
     assigneeId: t.account?.account_id || 0,
-    assigneeName: t.account?.name || '',
+    assigneeName: resolvePersonName(t.account),
     status: t.status,
     requester: extractRequester(t.body),
   }));

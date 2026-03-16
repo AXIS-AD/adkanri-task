@@ -938,7 +938,7 @@ async function loadMyRequests() {
     var html = '<table class="req-table"><thead><tr><th>内容</th><th>依頼者</th><th>担当</th><th>日付</th><th>進捗</th></tr></thead><tbody>';
     myRequestsData.forEach(function(t, idx) {
       html += '<tr style="cursor:pointer;" onclick="openRequestModal(' + idx + ')">';
-      html += '<td>' + esc(t.category) + (t.subCategory ? " / " + esc(t.subCategory) : "") + '</td>';
+      html += '<td>' + esc(t.title || "-") + '</td>';
       html += '<td>' + esc(t.requester || "-") + '</td>';
       html += '<td>' + esc(t.assignee || "-") + '</td>';
       html += '<td>' + esc(t.createdAt || "") + '</td>';
