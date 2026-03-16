@@ -433,7 +433,8 @@ async function handleUpdateDashboardTask(request, env) {
     if (body.localStatus === 'done') {
       try {
         const doneToken = env.CHATWORK_DONE_TOKEN || cfg.apiToken;
-        await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken, doneToken);
+        const savedTitle = local[id]?.title || null;
+        await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken, doneToken, savedTitle);
       } catch (_) {}
       const completedDate = formatJST(new Date(), 'yyyy/MM/dd HH:mm');
       await updateTaskLogCompletion(env, id, completedDate, body.replyMessage || '');
@@ -959,7 +960,7 @@ function extractTitle(body) {
   return any ? any.slice(0, 50) : '無題';
 }
 
-async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sendToken) {
+async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sendToken, savedTitle) {
   const taskRes = await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/tasks`,
     { headers: { 'X-ChatWorkToken': readToken } }
@@ -983,7 +984,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   const assignerAid = task.assigned_by_account?.account_id;
   const assignerTime = task.assign_time || Math.floor(Date.now() / 1000);
   const taskBody = task.body || '';
-  const taskTitle = extractTitle(taskBody);
+  const taskTitle = savedTitle || extractTitle(taskBody);
 
   const requesterName = extractRequesterName(taskBody);
   let requesterAid = null;
@@ -1029,11 +1030,10 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (replyMessage) {
     msg += '[info][title]\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01[/title]';
     msg += replyMessage + '\n';
-    msg += '[/info]\n';
+    msg += '[/info]';
   } else {
-    msg += '\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01\n';
+    msg += '\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01';
   }
-  msg += '[qt][qtmeta aid=' + (assignerAid || 0) + ' time=' + assignerTime + ']' + taskBody.slice(0, 500) + '[/qt]';
 
   await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
