@@ -549,11 +549,12 @@ async function handleGetSheetOptions(request, env) {
   const condRange = url.searchParams.get('condRange');
   const condValue = url.searchParams.get('condValue');
   const condReplace = url.searchParams.get('condReplace');
+  const condFilter = url.searchParams.get('condFilter');
   if (!spreadsheetId || !range) {
     return jsonResponse({ error: 'id and range required' }, 400);
   }
 
-  const cacheKey = `SHEET_CACHE_${spreadsheetId}_${range}_${condRange || ''}_${condValue || ''}`;
+  const cacheKey = `SHEET_CACHE_${spreadsheetId}_${range}_${condRange || ''}_${condValue || ''}_${condFilter || ''}`;
   const cached = await env.TASK_STORE.get(cacheKey);
   if (cached) {
     const parsed = JSON.parse(cached);
@@ -575,8 +576,12 @@ async function handleGetSheetOptions(request, env) {
     const condVals = (condData.values || []).map((r) => (r[0] || '').trim());
     const merged = [];
     for (let i = 0; i < mainVals.length; i++) {
-      const val = condVals[i] === condValue ? (condReplace || condValue) : mainVals[i];
-      if (val) merged.push(val);
+      if (condFilter === 'true') {
+        if (condVals[i] === condValue && mainVals[i]) merged.push(mainVals[i]);
+      } else {
+        const val = condVals[i] === condValue ? (condReplace || condValue) : mainVals[i];
+        if (val) merged.push(val);
+      }
     }
     unique = [...new Set(merged)];
   } else {

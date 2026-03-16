@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309a -->
+<html lang="ja"><!-- v20260309b -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1073,10 +1073,11 @@ var SHEET_ID = "1Xk-p_-6Np-e5keqOy5fcgmU-TF28H5dU7UeEYDUX_7k";
 var SHEET_MEDIA = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!B8:B15" };
 var SHEET_PROJECT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!O7:O150" };
 var SHEET_ASP = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!T7:T150", condRange: "DB!S7:S150", condValue: "\u30CA\u30CF\u30C8", condReplace: "\u30CA\u30CF\u30C8" };
+var SHEET_FB_PAGE = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBページ一覧!F7:F", condRange: "FBページ一覧!D7:D", condValue: "運用中", condFilter: true };
 
 var FIELDS = {
   new_account: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"quantity",label:"数量",type:"number",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
-  fb_page: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"page_name",label:"ページ名",type:"text",required:true },{ id:"permission",label:"権限（運用者）",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  fb_page: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"page_name",label:"ページ名",required:true,...SHEET_FB_PAGE },{ id:"permission",label:"権限（運用者）",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   fb_pixel: [{ id:"account",label:"紐づけ先アカウント",type:"text",required:true },{ id:"pixel",label:"紐づけるピクセル",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false }],
   fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true },{ id:"target_name",label:"ページ名 / アカウント名",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   account_ban: [{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",type:"text",required:true },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
@@ -1153,7 +1154,7 @@ function renderFormFields(fields) {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">選択してください</option>' + f.options.map(function(o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select>';
     } else if (f.type === "sheet-select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">読み込み中...</option></select>';
-      loadSheetOptions(f.sheetId, f.sheetRange, "input-" + f.id, f.condRange, f.condValue, f.condReplace);
+      loadSheetOptions(f.sheetId, f.sheetRange, "input-" + f.id, f.condRange, f.condValue, f.condReplace, f.condFilter);
     } else if (f.type === "textarea") {
       inputHtml = '<textarea id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" placeholder="' + f.label + 'を入力"></textarea>';
     } else {
@@ -1164,9 +1165,10 @@ function renderFormFields(fields) {
   });
 }
 
-function loadSheetOptions(sheetId, range, selectId, condRange, condValue, condReplace) {
+function loadSheetOptions(sheetId, range, selectId, condRange, condValue, condReplace, condFilter) {
   var params = "/api/sheet-options?id=" + encodeURIComponent(sheetId) + "&range=" + encodeURIComponent(range);
   if (condRange) params += "&condRange=" + encodeURIComponent(condRange) + "&condValue=" + encodeURIComponent(condValue || "") + "&condReplace=" + encodeURIComponent(condReplace || "");
+  if (condFilter) params += "&condFilter=true";
   apiCall("GET", params)
     .then(function(options) {
       var sel = document.getElementById(selectId);
