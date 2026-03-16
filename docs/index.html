@@ -1864,6 +1864,29 @@ function buildReport() {
   }
 }
 
+function getMorningTaskIds() {
+  var td = today();
+  var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
+  var todayOrOverdue = myTasks.filter(function(t) {
+    if (!t.limit) return false;
+    return t.limit <= td;
+  });
+  var teikiTasks = getMyTeikiTasks().filter(function(t) { return t.status !== "done"; });
+  var ids = {};
+  todayOrOverdue.forEach(function(t) { ids[t.id] = true; });
+  teikiTasks.forEach(function(t) { ids[t.id] = true; });
+  return ids;
+}
+
+function getMyTeikiTasks() {
+  var teiki = allTasks.filter(function(t) { return t.isManual && normalizeCategory(t.category) === "teiki"; });
+  if (!myId) return teiki;
+  return teiki.filter(function(t) {
+    if (!t.assigneeId) return true;
+    return String(t.assigneeId) === String(myId);
+  });
+}
+
 function buildMorningReport() {
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var td = today();
@@ -1873,6 +1896,7 @@ function buildMorningReport() {
     return t.limit <= td;
   });
   var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
+  var teikiTasks = getMyTeikiTasks().filter(function(t) { return t.status !== "done"; });
 
   var catGroups = {};
   var REPORT_CATS = [
@@ -1886,13 +1910,20 @@ function buildMorningReport() {
     if (t.localStatus === "waiting") return;
     var cat = normalizeCategory(t.category);
     var mapped = "other";
-    if (cat === "teiki") mapped = "teiki";
-    else if (cat === "number_match") mapped = "number_match";
+    if (cat === "number_match") mapped = "number_match";
     else if (cat === "tsunagikomi") mapped = "tsunagikomi";
     else mapped = "other";
     if (!catGroups[mapped]) catGroups[mapped] = [];
     catGroups[mapped].push(t);
   });
+
+  teikiTasks.forEach(function(t) {
+    if (!catGroups["teiki"]) catGroups["teiki"] = [];
+    catGroups["teiki"].push(t);
+  });
+
+  var morningIds = getMorningTaskIds();
+  try { localStorage.setItem("morningTaskIds_" + td, JSON.stringify(morningIds)); } catch(_) {}
 
   var lines = "[info][title]今日やること[/title]";
   REPORT_CATS.forEach(function(c) {
@@ -1921,45 +1952,76 @@ function buildMorningReport() {
 }
 
 function buildEveningReport() {
-  var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var td = today();
+  var morningIds = {};
+  try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + td) || "{}"); } catch(_) {}
 
-  var todayOrOverdue = myTasks.filter(function(t) {
-    if (!t.limit) return false;
-    return t.limit <= td;
+  var cwTasks = getMyTasks();
+  var teikiTasks = getMyTeikiTasks();
+
+  var doneCw = cwTasks.filter(function(t) { return t.localStatus === "done"; });
+  var activeCw = cwTasks.filter(function(t) { return t.localStatus !== "done" && t.limit && t.limit <= td; });
+  var doneTeiki = teikiTasks.filter(function(t) { return t.status === "done"; });
+  var activeTeiki = teikiTasks.filter(function(t) { return t.status !== "done"; });
+
+  var completed = [];
+  var inProgress = [];
+  var notStarted = [];
+  var waiting = [];
+  var sashikomi = [];
+
+  doneCw.forEach(function(t) {
+    if (morningIds[t.id]) { completed.push(t); }
+    else { sashikomi.push(t); }
+  });
+  doneTeiki.forEach(function(t) {
+    if (morningIds[t.id]) { completed.push(t); }
+    else { sashikomi.push(t); }
   });
 
-  var STATUS_ORDER = [
-    { key: "done", label: "完了" },
-    { key: "in_progress", label: "着手中" },
-    { key: "open", label: "未着手" },
-    { key: "waiting", label: "相手待ち" }
-  ];
-
-  var doneTodayTasks = getMyTasks().filter(function(t) {
-    return t.localStatus === "done";
+  activeCw.forEach(function(t) {
+    if (t.localStatus === "in_progress") inProgress.push(t);
+    else if (t.localStatus === "waiting") waiting.push(t);
+    else notStarted.push(t);
+  });
+  activeTeiki.forEach(function(t) {
+    if (morningIds[t.id]) notStarted.push(t);
   });
 
-  var groups = {};
-  todayOrOverdue.forEach(function(t) {
-    var st = t.localStatus || "open";
-    if (!groups[st]) groups[st] = [];
-    groups[st].push(t);
-  });
-  if (doneTodayTasks.length > 0) {
-    groups["done"] = doneTodayTasks;
-  }
-
-  var lines = "[info][title]退勤報告[/title]";
-  STATUS_ORDER.forEach(function(s) {
-    if (groups[s.key] && groups[s.key].length > 0) {
-      lines += "\n【" + s.label + "】";
-      groups[s.key].forEach(function(t) {
-        lines += "\n・" + (t.title || "（タイトルなし）");
-      });
+  activeCw.forEach(function(t) {
+    if (!morningIds[t.id] && t.localStatus !== "done") {
+      sashikomi.push(t);
     }
   });
-  if (Object.keys(groups).length === 0) {
+
+  var lines = "[info][title]退勤報告[/title]";
+
+  if (completed.length > 0) {
+    lines += "\n【完了】";
+    completed.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
+  }
+  if (inProgress.length > 0) {
+    lines += "\n\n【着手中】";
+    inProgress.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
+  }
+  if (notStarted.length > 0) {
+    lines += "\n\n【未着手】";
+    notStarted.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
+  }
+  if (waiting.length > 0) {
+    lines += "\n\n【相手待ち】";
+    waiting.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
+  }
+  if (sashikomi.length > 0) {
+    lines += "\n\n【差し込みタスク】";
+    sashikomi.forEach(function(t) {
+      var st = t.localStatus || t.status || "open";
+      var stLabel = st === "done" ? "完了" : st === "in_progress" ? "着手中" : st === "waiting" ? "相手待ち" : "";
+      lines += "\n・" + (t.title || "（タイトルなし）") + (stLabel ? "（" + stLabel + "）" : "");
+    });
+  }
+
+  if (!completed.length && !inProgress.length && !notStarted.length && !waiting.length && !sashikomi.length) {
     lines += "\nタスクなし";
   }
   lines += "\n[/info]";
