@@ -368,8 +368,7 @@ async function handleGetDashboardTasks(request, env) {
       if (seen.has(t.id)) continue;
       seen.add(t.id);
       const meta = local[t.id] || {};
-      const effectiveAssigneeId = meta.assigneeId || t.assigneeId;
-      if (accountId !== null && effectiveAssigneeId !== accountId) continue;
+      if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
         title: meta.title || extractTitle(t.body),
@@ -377,8 +376,8 @@ async function handleGetDashboardTasks(request, env) {
         priority: meta.priority || 'medium',
         localStatus: meta.localStatus || 'open',
         note: meta.note || '',
-        assigneeId: effectiveAssigneeId,
-        assigneeName: meta.assigneeName || t.assigneeName,
+        assigneeId: t.assigneeId,
+        assigneeName: t.assigneeName,
       });
     }
   }
