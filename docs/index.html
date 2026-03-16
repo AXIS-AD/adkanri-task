@@ -2015,71 +2015,79 @@ function buildEveningReport() {
   var morningIds = {};
   try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + td) || "{}"); } catch(_) {}
 
-  var cwTasks = getMyTasks();
-  var teikiTasks = getMyTeikiTasks();
-
-  var doneCw = cwTasks.filter(function(t) { return t.localStatus === "done"; });
-  var activeCw = cwTasks.filter(function(t) { return t.localStatus !== "done" && t.limit && t.limit <= td; });
-  var doneTeiki = teikiTasks.filter(function(t) { return t.status === "done"; });
-  var activeTeiki = teikiTasks.filter(function(t) { return t.status !== "done"; });
-
-  var completed = [];
-  var inProgress = [];
-  var notStarted = [];
-  var waiting = [];
-  var sashikomi = [];
-
-  doneCw.forEach(function(t) {
-    if (morningIds[t.id]) { completed.push(t); }
-    else { sashikomi.push(t); }
-  });
-  doneTeiki.forEach(function(t) {
-    if (morningIds[t.id]) { completed.push(t); }
-    else { sashikomi.push(t); }
-  });
-
-  activeCw.forEach(function(t) {
-    if (t.localStatus === "in_progress") inProgress.push(t);
-    else if (t.localStatus === "waiting") waiting.push(t);
-    else notStarted.push(t);
-  });
-  activeTeiki.forEach(function(t) {
-    if (morningIds[t.id]) notStarted.push(t);
-  });
-
-  activeCw.forEach(function(t) {
-    if (!morningIds[t.id] && t.localStatus !== "done") {
-      sashikomi.push(t);
-    }
-  });
-
   function stIcon(st) {
     if (st === "done") return "\u2705";
     if (st === "in_progress") return "\uD83D\uDD3C";
     if (st === "waiting") return "\u23F3";
     return "\u274C";
   }
+  function getStatus(t) { return t.localStatus || t.status || "open"; }
 
-  var morningAll = completed.concat(inProgress).concat(notStarted).concat(waiting);
+  var cwTasks = getMyTasks();
+  var teikiTasks = getMyTeikiTasks();
+
+  var morningCw = cwTasks.filter(function(t) { return morningIds[t.id]; });
+  var morningTeiki = teikiTasks.filter(function(t) { return morningIds[t.id]; });
+  var waitingTasks = morningCw.filter(function(t) { return getStatus(t) === "waiting"; });
+
+  var sashikomi = [];
+  cwTasks.forEach(function(t) {
+    if (!morningIds[t.id]) sashikomi.push(t);
+  });
+  teikiTasks.forEach(function(t) {
+    if (!morningIds[t.id] && (t.status === "done" || getStatus(t) !== "open")) sashikomi.push(t);
+  });
+
+  var REPORT_CATS = [
+    { key: "teiki", label: "定期タスク" },
+    { key: "number_match", label: "数字合わせ" },
+    { key: "tsunagikomi", label: "つなぎこみ" },
+    { key: "other", label: "その他" }
+  ];
+
+  var catGroups = {};
+  morningCw.forEach(function(t) {
+    if (getStatus(t) === "waiting") return;
+    var cat = normalizeCategory(t.category);
+    var mapped = "other";
+    if (cat === "number_match") mapped = "number_match";
+    else if (cat === "tsunagikomi") mapped = "tsunagikomi";
+    else mapped = "other";
+    if (!catGroups[mapped]) catGroups[mapped] = [];
+    catGroups[mapped].push(t);
+  });
+  morningTeiki.forEach(function(t) {
+    if (!catGroups["teiki"]) catGroups["teiki"] = [];
+    catGroups["teiki"].push(t);
+  });
 
   var lines = "[info][title]退勤報告[/title]";
+  REPORT_CATS.forEach(function(c, idx) {
+    if (idx > 0) lines += "\n[hr]";
+    lines += "\n【" + c.label + "】";
+    if (catGroups[c.key] && catGroups[c.key].length > 0) {
+      catGroups[c.key].forEach(function(t) {
+        lines += "\n" + stIcon(getStatus(t)) + " " + (t.title || "（タイトルなし）");
+      });
+    }
+  });
+  lines += "\n[/info]";
 
-  if (morningAll.length > 0) {
-    morningAll.forEach(function(t) {
-      var st = t.localStatus || t.status || "open";
-      lines += "\n" + stIcon(st) + " " + (t.title || "（タイトルなし）");
+  lines += "\n[info][title]待ちタスク[/title]";
+  if (waitingTasks.length > 0) {
+    waitingTasks.forEach(function(t) {
+      lines += "\n\u23F3 " + (t.title || "（タイトルなし）");
     });
   }
+  lines += "\n[/info]";
+
+  lines += "\n[info][title]差し込みタスク[/title]";
   if (sashikomi.length > 0) {
-    lines += "\n\n【差し込みタスク】";
     sashikomi.forEach(function(t) {
-      var st = t.localStatus || t.status || "open";
-      lines += "\n" + stIcon(st) + " " + (t.title || "（タイトルなし）");
+      lines += "\n" + stIcon(getStatus(t)) + " " + (t.title || "（タイトルなし）");
     });
-  }
-
-  if (!morningAll.length && !sashikomi.length) {
-    lines += "\nタスクなし";
+  } else {
+    lines += "\n・";
   }
   lines += "\n[/info]";
 
