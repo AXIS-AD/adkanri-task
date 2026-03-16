@@ -232,7 +232,12 @@ async function handleGetMyRequests(request, env) {
   const allTasks = [...tasks, ...doneTasks];
   const result = [];
 
+  const memberIds = DEFAULT_PEOPLE.map((p) => p.id);
+
   for (const t of allTasks) {
+    const assigneeId = t.account?.account_id || 0;
+    if (!memberIds.includes(assigneeId)) continue;
+
     const body = t.body || '';
     const reqName = extractRequesterName(body);
     if (!reqName) continue;
