@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309c -->
+<html lang="ja"><!-- v20260309d -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1081,7 +1081,7 @@ var FIELDS = {
   new_account: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"quantity",label:"数量",type:"number",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   fb_page: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"page_name",label:"ページ名",required:true,...SHEET_FB_PAGE },{ id:"permission",label:"権限（運用者）",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   fb_pixel: [{ id:"account",label:"紐づけ先アカウント",required:true,...SHEET_META_ACCOUNT },{ id:"pixel",label:"紐づけるピクセル",required:true,...SHEET_FB_PIXEL },{ id:"deadline",label:"期限",type:"text",required:false }],
-  fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true },{ id:"target_name",label:"ページ名 / アカウント名",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true,triggers:"target_name" },{ id:"target_name",label:"ページ名 / アカウント名",type:"dynamic-sheet-select",required:true,sourceMap:{"ページ":SHEET_FB_PAGE,"アカウント":SHEET_META_ACCOUNT} },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   account_ban: [{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",required:true,...SHEET_META_ACCOUNT },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
   link: [{ id:"asp",label:"ASP",required:true,...SHEET_ASP },{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"offer_name",label:"オファー名",type:"text",required:true },{ id:"lp",label:"LP",type:"text",required:false },{ id:"quantity",label:"本数",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   spreadsheet: [{ id:"sheet_name",label:"シート名",type:"text",required:true },{ id:"error_type",label:"エラー内容",type:"select",options:["運用中のキャンペーンが出力されていない","キャンペーンのデータが間違っている","MCV,CVが反映されていない","その他"],required:true },{ id:"media",label:"媒体",required:false,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",type:"text",required:false },{ id:"cell_url",label:"該当セルURL",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
@@ -1157,6 +1157,8 @@ function renderFormFields(fields) {
     } else if (f.type === "sheet-select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">読み込み中...</option></select>';
       loadSheetOptions(f.sheetId, f.sheetRange, "input-" + f.id, f.condRange, f.condValue, f.condReplace, f.condFilter);
+    } else if (f.type === "dynamic-sheet-select") {
+      inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" disabled><option value="">先に選択してください</option></select>';
     } else if (f.type === "textarea") {
       inputHtml = '<textarea id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" placeholder="' + f.label + 'を入力"></textarea>';
     } else {
@@ -1164,6 +1166,34 @@ function renderFormFields(fields) {
     }
     div.innerHTML = '<label for="input-' + f.id + '">' + f.label + (f.required ? '<span class="required">*</span>' : "") + '</label>' + inputHtml;
     container.appendChild(div);
+  });
+
+  fields.forEach(function(f) {
+    if (!f.triggers) return;
+    var triggerEl = document.getElementById("input-" + f.id);
+    var targetField = fields.find(function(ff) { return ff.id === f.triggers; });
+    if (!triggerEl || !targetField || !targetField.sourceMap) return;
+    triggerEl.addEventListener("change", function() {
+      var chosen = this.value;
+      var targetId = "input-" + targetField.id;
+      var oldEl = document.getElementById(targetId);
+      if (!oldEl) return;
+      var sel = document.createElement("select");
+      sel.id = targetId;
+      sel.dataset.label = targetField.label;
+      sel.dataset.required = String(targetField.required);
+      var src = targetField.sourceMap[chosen];
+      if (src) {
+        sel.disabled = false;
+        sel.innerHTML = '<option value="">読み込み中...</option>';
+        oldEl.replaceWith(sel);
+        loadSheetOptions(src.sheetId, src.sheetRange, targetId, src.condRange, src.condValue, src.condReplace, src.condFilter);
+      } else {
+        sel.disabled = true;
+        sel.innerHTML = '<option value="">先に選択してください</option>';
+        oldEl.replaceWith(sel);
+      }
+    });
   });
 }
 
