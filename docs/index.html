@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260313c -->
+<html lang="ja"><!-- v20260313d -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1635,11 +1635,11 @@ function renderAll() {
   if (selectedPersonId === "all" && !isManualGenre && selectedGenre === "all") {
     var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
     var chatworkTasks = allTasks.filter(function(t) { return !t.isManual; });
-    var totalAll = chatworkTasks.length;
-    var totalOpen = chatworkTasks.filter(function(t) { return t.localStatus === "open"; }).length;
-    var totalIp = chatworkTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
-    var totalWait = chatworkTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
-    var totalDone = chatworkTasks.filter(function(t) { return t.localStatus === "done"; }).length;
+    var activeCwTasks = chatworkTasks.filter(function(t) { return t.localStatus !== "done"; });
+    var totalAll = activeCwTasks.length;
+    var totalOpen = activeCwTasks.filter(function(t) { return t.localStatus === "open"; }).length;
+    var totalIp = activeCwTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
+    var totalWait = activeCwTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
 
     var todayDue = 0, tmrwDue = 0, weekDue = 0, overdue = 0;
     chatworkTasks.forEach(function(t) {
@@ -1659,7 +1659,6 @@ function renderAll() {
     html += '<div class="dash-stat"><div class="dash-stat-label">\u672A\u7740\u624B</div><div class="dash-stat-value gray">' + totalOpen + '</div></div>';
     html += '<div class="dash-stat"><div class="dash-stat-label">\u7740\u624B\u4E2D</div><div class="dash-stat-value orange">' + totalIp + '</div></div>';
     html += '<div class="dash-stat"><div class="dash-stat-label">\u76F8\u624B\u5F85\u3061</div><div class="dash-stat-value orange">' + totalWait + '</div></div>';
-    html += '<div class="dash-stat"><div class="dash-stat-label">\u5B8C\u4E86</div><div class="dash-stat-value green">' + totalDone + '</div></div>';
     html += '</div>';
 
     html += '<div class="dash-deadlines"><span class="dl-label">\u671F\u9650\uFF1A</span>';
@@ -1672,11 +1671,10 @@ function renderAll() {
     html += '<div class="dash-members-title">\u62C5\u5F53\u8005\u5225\u30BF\u30B9\u30AF</div>';
     html += '<div class="summary-row">';
     people.forEach(function(p) {
-      var pTasks = chatworkTasks.filter(function(t) { return String(t.assigneeId) === String(p.id); });
+      var pTasks = activeCwTasks.filter(function(t) { return String(t.assigneeId) === String(p.id); });
       var openCount = pTasks.filter(function(t) { return t.localStatus === "open"; }).length;
       var ipCount = pTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
       var waitCount = pTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
-      var doneCount = pTasks.filter(function(t) { return t.localStatus === "done"; }).length;
       var color = PERSON_COLORS[p.name] || "var(--accent)";
       html += '<div class="summary-card" onclick="setPerson(' + p.id + ')">';
       html += '<div class="summary-name">' + esc(p.name) + '</div>';
@@ -1685,7 +1683,6 @@ function renderAll() {
       html += '<span class="sd-chip open">\u672A\u7740\u624B ' + openCount + '</span>';
       html += '<span class="sd-chip ip">\u7740\u624B\u4E2D ' + ipCount + '</span>';
       html += '<span class="sd-chip wait">\u76F8\u624B\u5F85\u3061 ' + waitCount + '</span>';
-      html += '<span class="sd-chip done">\u5B8C\u4E86 ' + doneCount + '</span>';
       html += '</div>';
       html += '<div class="summary-bar" style="width:100%;background:' + color + ';"></div>';
       html += '</div>';
