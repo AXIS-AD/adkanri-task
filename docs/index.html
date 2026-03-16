@@ -2052,34 +2052,32 @@ function buildEveningReport() {
     }
   });
 
+  function stIcon(st) {
+    if (st === "done") return "\u2705";
+    if (st === "in_progress") return "\uD83D\uDD3C";
+    if (st === "waiting") return "\u23F3";
+    return "\u274C";
+  }
+
+  var morningAll = completed.concat(inProgress).concat(notStarted).concat(waiting);
+
   var lines = "[info][title]退勤報告[/title]";
 
-  if (completed.length > 0) {
-    lines += "\n【完了】";
-    completed.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
-  }
-  if (inProgress.length > 0) {
-    lines += "\n\n【着手中】";
-    inProgress.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
-  }
-  if (notStarted.length > 0) {
-    lines += "\n\n【未着手】";
-    notStarted.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
-  }
-  if (waiting.length > 0) {
-    lines += "\n\n【相手待ち】";
-    waiting.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
+  if (morningAll.length > 0) {
+    morningAll.forEach(function(t) {
+      var st = t.localStatus || t.status || "open";
+      lines += "\n" + stIcon(st) + " " + (t.title || "（タイトルなし）");
+    });
   }
   if (sashikomi.length > 0) {
     lines += "\n\n【差し込みタスク】";
     sashikomi.forEach(function(t) {
       var st = t.localStatus || t.status || "open";
-      var stLabel = st === "done" ? "完了" : st === "in_progress" ? "着手中" : st === "waiting" ? "相手待ち" : "";
-      lines += "\n・" + (t.title || "（タイトルなし）") + (stLabel ? "（" + stLabel + "）" : "");
+      lines += "\n" + stIcon(st) + " " + (t.title || "（タイトルなし）");
     });
   }
 
-  if (!completed.length && !inProgress.length && !notStarted.length && !waiting.length && !sashikomi.length) {
+  if (!morningAll.length && !sashikomi.length) {
     lines += "\nタスクなし";
   }
   lines += "\n[/info]";
