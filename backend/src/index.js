@@ -1030,8 +1030,7 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (replyMessage) {
     msg += replyMessage + '\n';
   }
-  msg += '[/info]\n';
-  msg += '[qt][qtmeta aid=' + (assignerAid || 0) + ' time=' + assignerTime + ']' + taskBody.slice(0, 500) + '[/qt]';
+  msg += '[/info]';
 
   await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
