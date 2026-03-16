@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260313f -->
+<html lang="ja"><!-- v20260309a -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -338,6 +338,61 @@
   .report-send-btn:hover { opacity: .85; }
   .report-send-btn:disabled { opacity: .4; cursor: wait; }
   .report-info { font-size: 11px; color: var(--text2); }
+
+  .help-page { padding: 24px 32px 60px; max-width: 820px; margin: 0 auto; }
+  .help-hero { text-align: center; padding: 40px 0 32px; }
+  .help-hero h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+  .help-hero p { font-size: 14px; color: var(--text2); }
+
+  .help-toc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 32px; }
+  .help-toc h3 { font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .help-toc-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .help-toc-list a { display: inline-block; padding: 6px 14px; border-radius: 8px; background: var(--surface2); color: var(--accent); font-size: 13px; font-weight: 600; text-decoration: none; transition: all .2s; border: 1px solid transparent; }
+  .help-toc-list a:hover { background: rgba(59,130,246,.12); border-color: var(--accent); }
+
+  .help-section { margin-bottom: 36px; scroll-margin-top: 60px; }
+  .help-section h2 { font-size: 20px; font-weight: 800; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block; }
+  .help-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .help-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: var(--accent); }
+  .help-card p { font-size: 13.5px; line-height: 1.7; color: var(--text); margin-bottom: 10px; }
+  .help-card ul { margin: 8px 0 10px 20px; font-size: 13.5px; line-height: 1.8; color: var(--text); }
+
+  .help-roles { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+  .help-role { flex: 1; min-width: 220px; display: flex; gap: 12px; padding: 16px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); }
+  .help-role-icon { font-size: 28px; flex-shrink: 0; }
+  .help-role strong { display: block; font-size: 14px; margin-bottom: 6px; }
+  .help-role ul { margin: 0 0 0 16px; font-size: 12.5px; line-height: 1.7; color: var(--text2); }
+
+  .help-steps { display: flex; flex-direction: column; gap: 12px; margin: 12px 0; }
+  .help-step { display: flex; gap: 14px; align-items: flex-start; }
+  .help-step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .help-step strong { display: block; font-size: 14px; margin-bottom: 2px; }
+  .help-step p { font-size: 13px; color: var(--text2); margin: 0; }
+
+  .help-note { margin-top: 16px; padding: 12px 16px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2); border-radius: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text); }
+
+  .help-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  .help-table th { text-align: left; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); font-weight: 700; color: var(--text2); font-size: 12px; }
+  .help-table td { padding: 10px 12px; border: 1px solid var(--border); line-height: 1.5; }
+  .help-table td strong { color: var(--accent); }
+
+  .help-faq { display: flex; flex-direction: column; gap: 4px; }
+  .help-faq details { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; transition: all .2s; }
+  .help-faq details[open] { border-color: var(--accent); background: rgba(59,130,246,.04); }
+  .help-faq summary { padding: 14px 16px; font-size: 14px; font-weight: 600; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .help-faq summary::before { content: "▸"; font-size: 12px; color: var(--accent); transition: transform .2s; }
+  .help-faq details[open] summary::before { transform: rotate(90deg); }
+  .help-faq summary::-webkit-details-marker { display: none; }
+  .help-faq details p { padding: 0 16px 14px; font-size: 13px; line-height: 1.7; color: var(--text2); margin: 0; }
+
+  .help-footer { text-align: center; padding: 32px 0 16px; border-top: 1px solid var(--border); margin-top: 20px; }
+  .help-footer p { font-size: 12px; color: var(--text2); }
+
+  @media (max-width: 640px) {
+    .help-page { padding: 16px; }
+    .help-hero h1 { font-size: 20px; }
+    .help-roles { flex-direction: column; }
+  }
 </style>
 </head>
 <body>
@@ -365,6 +420,7 @@
       <button class="nav-btn" data-page="mystatus" onclick="switchPage('mystatus')">📅 依頼状況</button>
       <button class="nav-btn admin-only" data-page="tasks" onclick="switchPage('tasks')">🌟 タスク管理</button>
       <button class="nav-btn admin-only" data-page="admin" onclick="switchPage('admin')">⚒️ 管理設定</button>
+      <button class="nav-btn" data-page="help" onclick="switchPage('help')">❓ 使い方</button>
     </div>
 
   </aside>
@@ -455,6 +511,258 @@
           </div>
         </div>
         <div id="app"><div class="empty-state">タスク管理を開くには左メニューから「タスク管理」を選択してください</div></div>
+      </main>
+    </div>
+
+    <div class="panel" id="panel-help">
+      <main class="help-page">
+        <div class="help-hero">
+          <h1>アド管理タスク 使い方ガイド</h1>
+          <p>広告事業部のタスク依頼・管理をスムーズに行うためのツールです</p>
+        </div>
+
+        <div class="help-toc">
+          <h3>目次</h3>
+          <div class="help-toc-list">
+            <a href="#help-sec-overview" onclick="scrollHelp(event,'help-sec-overview')">ツール概要</a>
+            <a href="#help-sec-request" onclick="scrollHelp(event,'help-sec-request')">新規依頼の出し方</a>
+            <a href="#help-sec-mystatus" onclick="scrollHelp(event,'help-sec-mystatus')">依頼状況の確認</a>
+            <a href="#help-sec-tasks" onclick="scrollHelp(event,'help-sec-tasks')">タスク管理（管理者）</a>
+            <a href="#help-sec-teiki" onclick="scrollHelp(event,'help-sec-teiki')">定期・長期タスク</a>
+            <a href="#help-sec-report" onclick="scrollHelp(event,'help-sec-report')">出退勤タスク報告</a>
+            <a href="#help-sec-admin" onclick="scrollHelp(event,'help-sec-admin')">管理設定</a>
+            <a href="#help-sec-faq" onclick="scrollHelp(event,'help-sec-faq')">よくある質問</a>
+          </div>
+        </div>
+
+        <section class="help-section" id="help-sec-overview">
+          <h2>ツール概要</h2>
+          <div class="help-card">
+            <p>このツールは、Chatworkと連携した<strong>タスク依頼・管理ツール</strong>です。依頼者はフォームからタスクを依頼し、管理者はダッシュボードでタスクの進捗を一元管理できます。</p>
+            <div class="help-roles">
+              <div class="help-role">
+                <div class="help-role-icon">👤</div>
+                <div>
+                  <strong>一般ユーザー</strong>
+                  <ul>
+                    <li>新規依頼の送信</li>
+                    <li>自分が出した依頼の進捗確認</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="help-role">
+                <div class="help-role-icon">👑</div>
+                <div>
+                  <strong>管理者（Admin）</strong>
+                  <ul>
+                    <li>全タスクの一覧・ステータス管理</li>
+                    <li>定期タスク・長期タスクの追加</li>
+                    <li>出退勤タスク報告の送信</li>
+                    <li>ユーザーの権限管理</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-request">
+          <h2>✏️ 新規依頼の出し方</h2>
+          <div class="help-card">
+            <div class="help-steps">
+              <div class="help-step">
+                <div class="help-step-num">1</div>
+                <div>
+                  <strong>依頼内容を選択</strong>
+                  <p>アカウント関連、リンク発行、スプシ関連など、該当するカテゴリカードをクリックします。</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">2</div>
+                <div>
+                  <strong>詳細カテゴリを選択</strong>
+                  <p>選んだカテゴリに応じた小分類が表示されます。該当するものを選んでください。</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">3</div>
+                <div>
+                  <strong>詳細を入力</strong>
+                  <p>案件名やアカウント名など、必要な情報をフォームに入力します。項目はカテゴリによって変わります。</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">4</div>
+                <div>
+                  <strong>送信</strong>
+                  <p>「送信する」をクリックすると、Chatworkにタスクが自動作成されます。</p>
+                </div>
+              </div>
+            </div>
+            <div class="help-note">
+              <strong>💡 ヒント：</strong>営業時間外（18:00〜翌9:00）に送信した場合、タスクは自動的に翌営業日に振り分けられます。
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-mystatus">
+          <h2>📅 依頼状況の確認</h2>
+          <div class="help-card">
+            <p>自分が送信した依頼の現在のステータスを確認できます。</p>
+            <table class="help-table">
+              <thead><tr><th>項目</th><th>説明</th></tr></thead>
+              <tbody>
+                <tr><td>内容</td><td>タスクのタイトル（管理者がタイトルを編集した場合はそちらが反映）</td></tr>
+                <tr><td>担当者</td><td>Chatwork上の実際の担当者名</td></tr>
+                <tr><td>期日</td><td>タスクの期日（クリックで変更可能）</td></tr>
+                <tr><td>ステータス</td><td>未着手 / 着手中 / 待ち / 完了</td></tr>
+              </tbody>
+            </table>
+            <div class="help-note">
+              <strong>💡 ヒント：</strong>タスクの行をクリックすると、詳細内容がポップアップで確認できます。完了済みのタスクは自動的に非表示になります。
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-tasks">
+          <h2>🌟 タスク管理（管理者のみ）</h2>
+          <div class="help-card">
+            <h3>ダッシュボード</h3>
+            <p>タスク管理を開くと、まず全体のサマリーが表示されます。</p>
+            <ul>
+              <li><strong>全体統計：</strong>全タスク数、未着手、着手中、待ちの件数</li>
+              <li><strong>期限バッジ：</strong>今日が期日 / 期限切れの件数</li>
+              <li><strong>メンバーカード：</strong>各メンバーの担当タスク数（クリックで個人タスク一覧へ）</li>
+            </ul>
+
+            <h3 style="margin-top:20px;">タスク一覧</h3>
+            <p>担当者やカテゴリを左サイドバーで絞り込み、カード or リストで表示できます。</p>
+            <table class="help-table">
+              <thead><tr><th>操作</th><th>方法</th></tr></thead>
+              <tbody>
+                <tr><td>ステータス変更</td><td>カード上のステータスバッジをクリック → ドロップダウンから選択</td></tr>
+                <tr><td>優先度変更</td><td>ポップアップ内の優先度セレクトから変更</td></tr>
+                <tr><td>メモ追加</td><td>カード上のメモ欄に直接入力（自動保存）、またはポップアップ内の保存ボタン</td></tr>
+                <tr><td>期日変更</td><td>期日をクリック → カレンダーから日付選択</td></tr>
+                <tr><td>タイトル編集</td><td>ポップアップの鉛筆アイコンをクリック → 編集 → Enter</td></tr>
+                <tr><td>完了にする</td><td>ポップアップ内の「✅ 完了にする」ボタン → コメント入力（任意）→ 確定</td></tr>
+              </tbody>
+            </table>
+            <div class="help-note">
+              <strong>💡 ヒント：</strong>タスクを完了にすると、Chatwork上のタスクも完了になり、依頼者に完了通知が送信されます。
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-teiki">
+          <h2>🔁 定期タスク・長期タスク</h2>
+          <div class="help-card">
+            <p>カテゴリサイドバーから「定期タスク」「長期タスク」を選ぶと、手動でタスクを追加できます。</p>
+
+            <h3>定期タスク</h3>
+            <div class="help-steps">
+              <div class="help-step">
+                <div class="help-step-num">+</div>
+                <div>
+                  <strong>追加方法</strong>
+                  <p>「+ 定期タスクを追加」ボタンをクリックし、タスク名・頻度・期日・時間を入力して保存します。</p>
+                </div>
+              </div>
+            </div>
+            <table class="help-table">
+              <thead><tr><th>頻度タイプ</th><th>説明</th></tr></thead>
+              <tbody>
+                <tr><td>間隔</td><td>毎日 / 毎週 / 隔週 / 毎月 から選択</td></tr>
+                <tr><td>曜日</td><td>特定の曜日を複数選択可能（例：月・水・金）</td></tr>
+                <tr><td>日付</td><td>毎月の特定日を複数選択可能（例：1日・15日）</td></tr>
+              </tbody>
+            </table>
+            <div class="help-note">
+              <strong>💡 ヒント：</strong>定期タスクのカードをクリックすると、TODO管理や詳細編集が行えます。時間を設定すると、出勤報告にも表示されます。
+            </div>
+
+            <h3 style="margin-top:20px;">長期タスク</h3>
+            <p>期限が長いプロジェクト型のタスクを管理します。追加方法は定期タスクと同様です。</p>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-report">
+          <h2>📋 出退勤タスク報告</h2>
+          <div class="help-card">
+            <p>タスク管理画面のヘッダーにある「📋 報告」ボタンから、Chatworkにタスク報告を送信できます。</p>
+
+            <h3>出勤報告（☀️）</h3>
+            <ul>
+              <li>今日の期日 + 期限切れのタスクが自動でリストアップされます</li>
+              <li>定期タスクは当日の頻度に該当するもののみ表示</li>
+              <li>カテゴリ（定期タスク / 数字合わせ / つなぎこみ / その他 / 待ち）に自動分類</li>
+            </ul>
+
+            <h3 style="margin-top:16px;">退勤報告（🌙）</h3>
+            <ul>
+              <li>出勤報告に含めたタスクの現在のステータスを表示</li>
+              <li>ステータスアイコン：✅ 完了 / ❌ 未着手 / 🔼 着手中 / ⏳ 待ち</li>
+              <li>出勤報告になかったが完了したタスクは「差し込みタスク」として表示</li>
+            </ul>
+
+            <div class="help-note">
+              <strong>💡 ヒント：</strong>送信前にテキストを編集できます。内容を確認してから「送信」ボタンを押してください。
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-admin">
+          <h2>⚒️ 管理設定（管理者のみ）</h2>
+          <div class="help-card">
+            <p>ユーザーの権限を管理します。</p>
+            <table class="help-table">
+              <thead><tr><th>権限</th><th>できること</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Admin</strong></td><td>タスク管理・管理設定の全機能にアクセス可能</td></tr>
+                <tr><td><strong>User</strong></td><td>新規依頼の送信と依頼状況の確認のみ</td></tr>
+              </tbody>
+            </table>
+            <div class="help-note">
+              <strong>💡 ヒント：</strong>初回ログインしたユーザーは自動的にUserとして登録されます。管理者が「Admin」に変更できます。
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section" id="help-sec-faq">
+          <h2>よくある質問</h2>
+          <div class="help-card">
+            <div class="help-faq">
+              <details>
+                <summary>ログインできません</summary>
+                <p>Google アカウントで <strong>@axis-hd.co.jp</strong> ドメインのみ使用可能です。個人Googleアカウントではログインできません。ブラウザのポップアップブロックを無効にしてお試しください。</p>
+              </details>
+              <details>
+                <summary>依頼を送信したのにタスクが見つかりません</summary>
+                <p>依頼はChatwork上でタスクとして作成されます。「依頼状況」タブで確認してください。反映に少し時間がかかる場合があります。</p>
+              </details>
+              <details>
+                <summary>タスクのステータスが変わりません</summary>
+                <p>ステータス変更後、左上の「更新」ボタンを押すと最新の状態が反映されます。</p>
+              </details>
+              <details>
+                <summary>担当者が違う人になっています</summary>
+                <p>Chatwork上の実際のタスク担当者が表示されます。Chatworkでタスクを完了した人のタスクは自動的にスキップされ、次の担当者が表示されます。</p>
+              </details>
+              <details>
+                <summary>期限切れのアラートはいつ届きますか？</summary>
+                <p>毎営業日の朝10時（JST）に、期日が3日以上過ぎたタスクのアラートがChatworkに通知されます。土日はアラートが送信されません。</p>
+              </details>
+              <details>
+                <summary>テーマを切り替えたい</summary>
+                <p>画面右上の 🌙 アイコンをクリックすると、ダークモード ↔ ライトモードを切り替えられます。</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <div class="help-footer">
+          <p>不明点やバグ報告は、Chatwork「広告事業部チャット」までお問い合わせください。</p>
+        </div>
       </main>
     </div>
 
@@ -726,6 +1034,12 @@ function switchPage(page) {
   if (page === "mystatus") loadMyRequests();
   if (page === "admin") loadAdminRoles();
 
+}
+
+function scrollHelp(e, id) {
+  e.preventDefault();
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================
