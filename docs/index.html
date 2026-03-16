@@ -1334,11 +1334,11 @@ function addManualTask(category) {
     bodyHtml += '<div class="freq-type-tabs"><button type="button" class="freq-tab active" data-type="interval" onclick="switchFreqType(\'interval\')">間隔</button><button type="button" class="freq-tab" data-type="weekday" onclick="switchFreqType(\'weekday\')">曜日</button><button type="button" class="freq-tab" data-type="monthday" onclick="switchFreqType(\'monthday\')">日付</button></div>';
     bodyHtml += '<div id="freqPanel_interval" class="freq-panel"><select id="addTaskFreq"><option value="daily">毎日</option><option value="weekly">毎週</option><option value="biweekly">隔週</option><option value="monthly" selected>毎月</option></select></div>';
     bodyHtml += '<div id="freqPanel_weekday" class="freq-panel hidden"><div class="weekday-btns">';
-    WEEKDAY_NAMES.forEach(function(name, i) { bodyHtml += '<button type="button" class="weekday-btn" data-day="' + i + '" onclick="selectWeekday(this,' + i + ')">' + name + '</button>'; });
+    WEEKDAY_NAMES.forEach(function(name, i) { bodyHtml += '<button type="button" class="weekday-btn" data-day="' + i + '" onclick="toggleWeekday(this)">' + name + '</button>'; });
     bodyHtml += '</div></div>';
-    bodyHtml += '<div id="freqPanel_monthday" class="freq-panel hidden"><select id="addTaskMonthday">';
-    for (var md = 1; md <= 31; md++) { bodyHtml += '<option value="' + md + '">' + md + '日</option>'; }
-    bodyHtml += '</select></div>';
+    bodyHtml += '<div id="freqPanel_monthday" class="freq-panel hidden"><div class="weekday-btns" style="flex-wrap:wrap;">';
+    for (var md = 1; md <= 31; md++) { bodyHtml += '<button type="button" class="weekday-btn" data-day="' + md + '" onclick="toggleWeekday(this)" style="width:36px;">' + md + '</button>'; }
+    bodyHtml += '</div></div>';
     bodyHtml += '<input type="hidden" id="freqType" value="interval"></div>';
   } else {
     bodyHtml += '<div class="modal-form-group"><label>期日</label><input type="date" id="addTaskDeadline"></div>';
@@ -1363,10 +1363,13 @@ async function submitAddForm(category) {
     var ft = document.getElementById("freqType");
     var freqType = ft ? ft.value : "interval";
     if (freqType === "weekday") {
-      var selDay = document.querySelector(".weekday-btn.selected");
-      data.frequency = selDay ? "weekday:" + selDay.dataset.day : "weekly";
+      var selDays = document.querySelectorAll("#freqPanel_weekday .weekday-btn.selected");
+      var dayVals = []; selDays.forEach(function(b) { dayVals.push(b.dataset.day); });
+      data.frequency = dayVals.length > 0 ? "weekday:" + dayVals.join(",") : "weekly";
     } else if (freqType === "monthday") {
-      data.frequency = "monthday:" + document.getElementById("addTaskMonthday").value;
+      var selMds = document.querySelectorAll("#freqPanel_monthday .weekday-btn.selected");
+      var mdVals = []; selMds.forEach(function(b) { mdVals.push(b.dataset.day); });
+      data.frequency = mdVals.length > 0 ? "monthday:" + mdVals.join(",") : "monthly";
     } else {
       data.frequency = document.getElementById("addTaskFreq").value;
     }
@@ -1401,26 +1404,63 @@ var WEEKDAY_NAMES = ["日","月","火","水","木","金","土"];
 
 function getFreqLabel(freq) {
   if (!freq) return "毎月";
-  if (freq.startsWith("weekday:")) return "毎週" + WEEKDAY_NAMES[parseInt(freq.split(":")[1])] + "曜日";
-  if (freq.startsWith("monthday:")) return "毎月" + freq.split(":")[1] + "日";
+  if (freq.startsWith("weekday:")) {
+    var days = freq.split(":")[1].split(",").map(function(d) { return WEEKDAY_NAMES[parseInt(d)]; });
+    return "毎週" + days.join("・") + "曜日";
+  }
+  if (freq.startsWith("monthday:")) {
+    var dates = freq.split(":")[1].split(",");
+    return "毎月" + dates.join("・") + "日";
+  }
   return FREQ_LABELS[freq] || freq;
+}
+
+function isTeikiDueToday(t) {
+  var freq = t.frequency || "monthly";
+  var d = new Date();
+  if (freq === "daily") return true;
+  if (freq.startsWith("weekday:")) {
+    var days = freq.split(":")[1].split(",").map(Number);
+    return days.indexOf(d.getDay()) >= 0;
+  }
+  if (freq.startsWith("monthday:")) {
+    var dates = freq.split(":")[1].split(",").map(Number);
+    return dates.indexOf(d.getDate()) >= 0;
+  }
+  if (freq === "weekly") return true;
+  if (freq === "biweekly") return true;
+  if (freq === "monthly") return true;
+  return false;
 }
 
 function calculateNextDue(frequency) {
   var d = new Date();
   if (frequency && frequency.startsWith("weekday:")) {
-    var targetDay = parseInt(frequency.split(":")[1]);
+    var days = frequency.split(":")[1].split(",").map(Number).sort();
     var current = d.getDay();
-    var diff = targetDay - current;
-    if (diff <= 0) diff += 7;
+    var next = null;
+    for (var i = 0; i < days.length; i++) {
+      if (days[i] > current) { next = days[i]; break; }
+    }
+    var diff = next != null ? next - current : 7 - current + days[0];
     d.setDate(d.getDate() + diff);
     return d.toISOString().slice(0, 10);
   }
   if (frequency && frequency.startsWith("monthday:")) {
-    var targetDate = parseInt(frequency.split(":")[1]);
-    d.setMonth(d.getMonth() + 1);
-    var lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(targetDate, lastDay));
+    var dates = frequency.split(":")[1].split(",").map(Number).sort(function(a,b){return a-b;});
+    var curDate = d.getDate();
+    var nextDate = null;
+    for (var j = 0; j < dates.length; j++) {
+      if (dates[j] > curDate) { nextDate = dates[j]; break; }
+    }
+    if (nextDate) {
+      var lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(nextDate, lastDay));
+    } else {
+      d.setMonth(d.getMonth() + 1);
+      var lastDay2 = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(dates[0], lastDay2));
+    }
     return d.toISOString().slice(0, 10);
   }
   switch (frequency) {
@@ -1480,14 +1520,14 @@ function openTeikiModal(id) {
   bodyHtml += '<div class="freq-type-tabs"><button type="button" class="freq-tab' + (!t.frequency || (!t.frequency.startsWith("weekday:") && !t.frequency.startsWith("monthday:")) ? ' active' : '') + '" data-type="interval" onclick="switchFreqTypeEdit(\'interval\')">間隔</button><button type="button" class="freq-tab' + (t.frequency && t.frequency.startsWith("weekday:") ? ' active' : '') + '" data-type="weekday" onclick="switchFreqTypeEdit(\'weekday\')">曜日</button><button type="button" class="freq-tab' + (t.frequency && t.frequency.startsWith("monthday:") ? ' active' : '') + '" data-type="monthday" onclick="switchFreqTypeEdit(\'monthday\')">日付</button></div>';
   var curInterval = (!t.frequency || FREQ_LABELS[t.frequency]) ? (t.frequency || "monthly") : "monthly";
   bodyHtml += '<div id="freqEditPanel_interval" class="freq-panel' + (t.frequency && (t.frequency.startsWith("weekday:") || t.frequency.startsWith("monthday:")) ? ' hidden' : '') + '"><select id="editFreqInterval"><option value="daily"' + (curInterval==="daily"?" selected":"") + '>毎日</option><option value="weekly"' + (curInterval==="weekly"?" selected":"") + '>毎週</option><option value="biweekly"' + (curInterval==="biweekly"?" selected":"") + '>隔週</option><option value="monthly"' + (curInterval==="monthly"?" selected":"") + '>毎月</option></select></div>';
-  var curWeekday = t.frequency && t.frequency.startsWith("weekday:") ? parseInt(t.frequency.split(":")[1]) : -1;
+  var curWeekdays = t.frequency && t.frequency.startsWith("weekday:") ? t.frequency.split(":")[1].split(",").map(Number) : [];
   bodyHtml += '<div id="freqEditPanel_weekday" class="freq-panel' + (t.frequency && t.frequency.startsWith("weekday:") ? '' : ' hidden') + '"><div class="weekday-btns">';
-  WEEKDAY_NAMES.forEach(function(name, i) { bodyHtml += '<button type="button" class="weekday-btn' + (curWeekday === i ? ' selected' : '') + '" data-day="' + i + '" onclick="selectWeekdayEdit(this,' + i + ')">' + name + '</button>'; });
+  WEEKDAY_NAMES.forEach(function(name, i) { bodyHtml += '<button type="button" class="weekday-btn' + (curWeekdays.indexOf(i) >= 0 ? ' selected' : '') + '" data-day="' + i + '" onclick="toggleWeekday(this)">' + name + '</button>'; });
   bodyHtml += '</div></div>';
-  var curMonthday = t.frequency && t.frequency.startsWith("monthday:") ? parseInt(t.frequency.split(":")[1]) : 1;
-  bodyHtml += '<div id="freqEditPanel_monthday" class="freq-panel' + (t.frequency && t.frequency.startsWith("monthday:") ? '' : ' hidden') + '"><select id="editFreqMonthday">';
-  for (var md = 1; md <= 31; md++) { bodyHtml += '<option value="' + md + '"' + (curMonthday === md ? ' selected' : '') + '>' + md + '日</option>'; }
-  bodyHtml += '</select></div>';
+  var curMonthdays = t.frequency && t.frequency.startsWith("monthday:") ? t.frequency.split(":")[1].split(",").map(Number) : [];
+  bodyHtml += '<div id="freqEditPanel_monthday" class="freq-panel' + (t.frequency && t.frequency.startsWith("monthday:") ? '' : ' hidden') + '"><div class="weekday-btns" style="flex-wrap:wrap;">';
+  for (var md = 1; md <= 31; md++) { bodyHtml += '<button type="button" class="weekday-btn' + (curMonthdays.indexOf(md) >= 0 ? ' selected' : '') + '" data-day="' + md + '" onclick="toggleWeekday(this)" style="width:36px;">' + md + '</button>'; }
+  bodyHtml += '</div></div>';
   bodyHtml += '<input type="hidden" id="freqTypeEdit" value="' + (t.frequency && t.frequency.startsWith("weekday:") ? "weekday" : t.frequency && t.frequency.startsWith("monthday:") ? "monthday" : "interval") + '"></div>';
 
   bodyHtml += '<div class="modal-form-group"><label>備考</label><textarea id="teikiNoteEdit" rows="4" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea></div>';
@@ -1506,10 +1546,13 @@ async function saveTeikiAll(id) {
   var freqType = ft ? ft.value : "interval";
   var newFreq;
   if (freqType === "weekday") {
-    var selDay = document.querySelector("#freqEditPanel_weekday .weekday-btn.selected");
-    newFreq = selDay ? "weekday:" + selDay.dataset.day : (t.frequency || "weekly");
+    var selDays = document.querySelectorAll("#freqEditPanel_weekday .weekday-btn.selected");
+    var dayVals = []; selDays.forEach(function(b) { dayVals.push(b.dataset.day); });
+    newFreq = dayVals.length > 0 ? "weekday:" + dayVals.join(",") : (t.frequency || "weekly");
   } else if (freqType === "monthday") {
-    newFreq = "monthday:" + document.getElementById("editFreqMonthday").value;
+    var selMds = document.querySelectorAll("#freqEditPanel_monthday .weekday-btn.selected");
+    var mdVals = []; selMds.forEach(function(b) { mdVals.push(b.dataset.day); });
+    newFreq = mdVals.length > 0 ? "monthday:" + mdVals.join(",") : (t.frequency || "monthly");
   } else {
     newFreq = document.getElementById("editFreqInterval").value;
   }
@@ -1527,9 +1570,8 @@ function switchFreqTypeEdit(type) {
     if (el) el.classList.toggle("hidden", p !== type);
   });
 }
-function selectWeekdayEdit(btn, day) {
-  btn.closest(".weekday-btns").querySelectorAll(".weekday-btn").forEach(function(b) { b.classList.remove("selected"); });
-  btn.classList.add("selected");
+function toggleWeekday(btn) {
+  btn.classList.toggle("selected");
 }
 
 async function updateTeikiFreq(id, val) {
@@ -1545,10 +1587,7 @@ function switchFreqType(type) {
     if (el) el.classList.toggle("hidden", p !== type);
   });
 }
-function selectWeekday(btn, day) {
-  document.querySelectorAll(".weekday-btn").forEach(function(b) { b.classList.remove("selected"); });
-  btn.classList.add("selected");
-}
+// toggleWeekday handles both add and edit forms
 
 // ============================
 // 長期タスク: deadline + todos
@@ -1873,8 +1912,7 @@ function getMorningTaskIds() {
   });
   var teikiToday = getMyTeikiTasks().filter(function(t) {
     if (t.status === "done") return false;
-    var due = t.nextDue || t.limit;
-    return due && due <= td;
+    return isTeikiDueToday(t);
   });
   var ids = {};
   todayOrOverdue.forEach(function(t) { ids[t.id] = true; });
@@ -1902,8 +1940,7 @@ function buildMorningReport() {
   var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
   var teikiTasks = getMyTeikiTasks().filter(function(t) {
     if (t.status === "done") return false;
-    var due = t.nextDue || t.limit;
-    return due && due <= td;
+    return isTeikiDueToday(t);
   });
 
   var catGroups = {};
