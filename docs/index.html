@@ -1293,24 +1293,24 @@ function editDueDate(id, el) {
   var input = document.createElement("input");
   input.type = "date";
   input.value = currentVal;
-  input.style.cssText = "font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text1);";
-  el.replaceWith(input);
-  input.focus();
+  input.style.cssText = "position:absolute;opacity:0;width:0;height:0;pointer-events:none;";
+  el.parentNode.style.position = "relative";
+  el.parentNode.appendChild(input);
+  var saved = false;
   function save() {
+    if (saved) return;
+    saved = true;
     var newVal = input.value;
     if (newVal !== currentVal) {
       updateTask(id, "limit", newVal);
       if (task) task.limit = newVal;
     }
-    var span = document.createElement("span");
-    span.className = "date-label";
-    span.title = "クリックで期日変更";
-    span.onclick = function(e) { e.stopPropagation(); editDueDate(id, span); };
-    span.textContent = (newVal || "期限なし") + " (" + dueLabel(newVal) + ")";
-    input.replaceWith(span);
+    el.textContent = (newVal || "期限なし") + " (" + dueLabel(newVal) + ")";
+    try { input.remove(); } catch(_) {}
   }
   input.addEventListener("change", save);
-  input.addEventListener("blur", save);
+  input.addEventListener("blur", function() { setTimeout(save, 200); });
+  try { input.showPicker(); } catch(_) { input.focus(); }
 }
 
 // ============================
