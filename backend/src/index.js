@@ -849,8 +849,18 @@ function extractRequester(body) {
 }
 
 function extractRequesterName(body) {
-  const m = (body || '').match(/依頼者[：:]\s*([^\n]+)/);
-  return m ? m[1].trim() : null;
+  const b = (body || '').replace(/\[.*?\]/g, '');
+  const patterns = [
+    /依頼者[：:]\s*([^\n]+)/,
+    /氏名[：:]\s*([^\n]+)/,
+    /名前[：:]\s*([^\n]+)/,
+    /from[：:]\s*([^\n]+)/i,
+  ];
+  for (const p of patterns) {
+    const m = b.match(p);
+    if (m && m[1].trim().length > 0) return m[1].trim();
+  }
+  return null;
 }
 
 function findPersonByName(list, name) {
