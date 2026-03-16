@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260313e -->
+<html lang="ja"><!-- v20260313f -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1106,11 +1106,18 @@ function renderManualListTable(tasks, genre) {
 function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
 function setPerson(id) { selectedPersonId = id; loadAll(); }
 
-async function updateTask(id, field, value) { await apiCall("POST", "/api/dashboard/tasks/" + id, { [field]: value }); }
+var _dashQueue = Promise.resolve();
+function dashUpdate(id, data) {
+  _dashQueue = _dashQueue.then(function() {
+    return apiCall("POST", "/api/dashboard/tasks/" + id, data);
+  }).catch(function(e) { console.error("dashUpdate error:", e); });
+  return _dashQueue;
+}
+async function updateTask(id, field, value) { await dashUpdate(id, { [field]: value }); }
 function saveNote(id, val) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (t) t.note = val;
-  updateTask(id, "note", val);
+  dashUpdate(id, { note: val });
 }
 function handleAssigneeChange(id, selectEl) {
   var t = allTasks.find(function(x) { return x.id === id; });
@@ -1120,7 +1127,7 @@ function handleAssigneeChange(id, selectEl) {
   var newName = opt.getAttribute("data-name") || opt.text;
   t.assigneeId = newId;
   t.assigneeName = newName;
-  apiCall("POST", "/api/dashboard/tasks/" + id, { assigneeId: newId, assigneeName: newName });
+  dashUpdate(id, { assigneeId: newId, assigneeName: newName });
   renderAll();
 }
 var pendingDoneTaskId = null;
@@ -1137,7 +1144,7 @@ function handleStatusChange(id, val) {
   var t = allTasks.find(function(x) { return x.id === id; });
   var payload = { localStatus: val };
   if (t && t.roomId) payload.roomId = t.roomId;
-  apiCall("POST", "/api/dashboard/tasks/" + id, payload);
+  dashUpdate(id, payload);
   if (t) { t.localStatus = val; renderAll(); }
 }
 function closeDoneModal() {
@@ -1153,7 +1160,7 @@ async function confirmDone() {
   if (t && t.roomId) payload.roomId = t.roomId;
   closeDoneModal();
   if (currentModalId) closeModal();
-  await apiCall("POST", "/api/dashboard/tasks/" + id, payload);
+  await dashUpdate(id, payload);
   if (t) { t.localStatus = "done"; renderAll(); }
 }
 function handleCategoryChange(id, val) { updateTask(id, "category", val); var t = allTasks.find(function(x) { return x.id === id; }); if (t) { t.category = val; renderAll(); } }
@@ -1234,7 +1241,7 @@ async function saveModalTask(id) {
     if (statusEl.value === "done") { handleStatusChange(id, "done"); return; }
     t.localStatus = statusEl.value; updates.localStatus = statusEl.value;
   }
-  await apiCall("POST", "/api/dashboard/tasks/" + id, updates);
+  await dashUpdate(id, updates);
   renderAll(); closeModal();
 }
 function setModalTitle(text, hidePencil) {
