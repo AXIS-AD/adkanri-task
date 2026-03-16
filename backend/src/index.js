@@ -44,6 +44,10 @@ export default {
       } else if (/^\/api\/dashboard\/manual-tasks\/[^/]+$/.test(path) && request.method === 'DELETE') {
         response = await handleDeleteManualTask(request, env);
       }
+      // ── チャットワークメッセージ送信 ──
+      else if (path === '/api/dashboard/send-message' && request.method === 'POST') {
+        response = await handleSendMessage(request, env);
+      }
       // ── スプレッドシート連携 ──
       else if (path === '/api/sheet-options' && request.method === 'GET') {
         response = await handleGetSheetOptions(request, env);
@@ -431,6 +435,23 @@ async function handleUpdateDashboardTask(request, env) {
 // ====================================================
 // ハンドラ: 手動タスク作成・削除
 // ====================================================
+
+const REPORT_ROOM_ID = '376867208';
+
+async function handleSendMessage(request, env) {
+  await verifyGoogleToken(request, env);
+  const { message, roomId } = await request.json();
+  if (!message) return jsonResponse({ error: 'message is required' }, 400);
+  const cfg = getChatworkConfig(env);
+  const targetRoom = roomId || REPORT_ROOM_ID;
+  const res = await fetch(`https://api.chatwork.com/v2/rooms/${targetRoom}/messages`, {
+    method: 'POST',
+    headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'body=' + encodeURIComponent(message),
+  });
+  if (!res.ok) return jsonResponse({ error: 'Failed to send message' }, 500);
+  return jsonResponse({ ok: true });
+}
 
 async function handleCreateManualTask(request, env) {
   await verifyGoogleToken(request, env);

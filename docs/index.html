@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260313d -->
+<html lang="ja"><!-- v20260313e -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -320,6 +320,24 @@
   .req-status.progress { background: rgba(59,130,246,.15); color: var(--accent); }
   .req-status.done { background: rgba(34,197,94,.15); color: var(--green); }
   .req-status.waiting { background: rgba(168,85,247,.15); color: #a855f7; }
+
+  .report-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .report-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .report-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); backdrop-filter: blur(4px); z-index: 600; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .report-modal-overlay.hidden { display: none; }
+  .report-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 580px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  .report-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+  .report-modal-header h2 { font-size: 17px; font-weight: 700; margin: 0; }
+  .report-modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+  .report-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .report-tab { flex: 1; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; transition: all .2s; }
+  .report-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .report-preview { width: 100%; min-height: 280px; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit; line-height: 1.6; resize: vertical; }
+  .report-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--border); }
+  .report-send-btn { padding: 10px 28px; border-radius: 10px; border: none; background: var(--accent); color: white; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .2s; }
+  .report-send-btn:hover { opacity: .85; }
+  .report-send-btn:disabled { opacity: .4; cursor: wait; }
+  .report-info { font-size: 11px; color: var(--text2); }
 </style>
 </head>
 <body>
@@ -374,6 +392,7 @@
         <div class="stats" id="headerStats" style="display:none;">
           <span class="header-meta" id="lastUpdated"></span>
           <button class="reload-btn" id="reloadBtn" onclick="loadAll()"><span class="reload-icon">&#x21bb;</span> 更新</button>
+          <button class="report-btn" id="reportBtn" onclick="openReportModal()" title="タスク報告送信">📋 報告</button>
         </div>
       </div>
       <div class="header-right">
@@ -480,6 +499,26 @@
     <div style="padding:0 24px 20px;display:flex;gap:10px;">
       <button onclick="closeDoneModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;">キャンセル</button>
       <button onclick="confirmDone()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">完了にする</button>
+    </div>
+  </div>
+</div>
+
+<div class="report-modal-overlay hidden" id="reportModal" onclick="if(event.target===this)closeReportModal()">
+  <div class="report-modal">
+    <div class="report-modal-header">
+      <h2>📋 タスク報告</h2>
+      <button onclick="closeReportModal()" style="background:transparent;border:none;color:var(--text2);font-size:20px;cursor:pointer;">&times;</button>
+    </div>
+    <div class="report-modal-body">
+      <div class="report-tabs">
+        <button class="report-tab active" data-type="morning" onclick="switchReportTab('morning')">☀️ 出勤報告</button>
+        <button class="report-tab" data-type="evening" onclick="switchReportTab('evening')">🌙 退勤報告</button>
+      </div>
+      <textarea class="report-preview" id="reportPreview"></textarea>
+    </div>
+    <div class="report-footer">
+      <span class="report-info">送信先: アラートルーム</span>
+      <button class="report-send-btn" id="reportSendBtn" onclick="sendReport()">送信</button>
     </div>
   </div>
 </div>
@@ -1776,6 +1815,165 @@ async function loadAll() {
   } catch (err) {
     document.getElementById("app").innerHTML = '<div class="empty-state" style="color:var(--red);">読み込みエラー: ' + esc(err.message) + '</div>';
   } finally { btn.disabled = false; btn.innerHTML = '<span class="reload-icon">&#x21bb;</span> 更新'; }
+}
+
+// ============================
+// Task Report
+// ============================
+var reportTabType = "morning";
+
+function openReportModal() {
+  if (!tasksLoaded) { alert("タスクを先に読み込んでください"); return; }
+  reportTabType = "morning";
+  document.querySelectorAll(".report-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === "morning"); });
+  buildReport();
+  document.getElementById("reportModal").classList.remove("hidden");
+}
+
+function closeReportModal() {
+  document.getElementById("reportModal").classList.add("hidden");
+}
+
+function switchReportTab(type) {
+  reportTabType = type;
+  document.querySelectorAll(".report-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
+  buildReport();
+}
+
+function getMyTasks() {
+  if (!myId) return allTasks.filter(function(t) { return !t.isManual; });
+  return allTasks.filter(function(t) {
+    if (t.isManual) return false;
+    return String(t.assigneeId) === String(myId);
+  });
+}
+
+function buildReport() {
+  var ta = document.getElementById("reportPreview");
+  if (reportTabType === "morning") {
+    ta.value = buildMorningReport();
+  } else {
+    ta.value = buildEveningReport();
+  }
+}
+
+function buildMorningReport() {
+  var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
+  var td = today();
+
+  var todayOrOverdue = myTasks.filter(function(t) {
+    if (!t.limit) return false;
+    return t.limit <= td;
+  });
+  var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
+
+  var catGroups = {};
+  var REPORT_CATS = [
+    { key: "teiki", label: "定期タスク" },
+    { key: "number_match", label: "数字合わせ" },
+    { key: "tsunagikomi", label: "つなぎこみ" },
+    { key: "other", label: "その他" }
+  ];
+
+  todayOrOverdue.forEach(function(t) {
+    if (t.localStatus === "waiting") return;
+    var cat = normalizeCategory(t.category);
+    var mapped = "other";
+    if (cat === "teiki") mapped = "teiki";
+    else if (cat === "number_match") mapped = "number_match";
+    else if (cat === "tsunagikomi") mapped = "tsunagikomi";
+    else mapped = "other";
+    if (!catGroups[mapped]) catGroups[mapped] = [];
+    catGroups[mapped].push(t);
+  });
+
+  var lines = "[info][title]今日やること[/title]";
+  REPORT_CATS.forEach(function(c) {
+    lines += "\n【" + c.label + "】";
+    if (catGroups[c.key] && catGroups[c.key].length > 0) {
+      catGroups[c.key].forEach(function(t) {
+        lines += "\n・" + (t.title || "（タイトルなし）");
+      });
+    }
+  });
+  lines += "\n[/info]";
+
+  lines += "\n[info][title]待ちタスク[/title]";
+  if (waitingTasks.length > 0) {
+    waitingTasks.forEach(function(t) {
+      lines += "\n・" + (t.title || "（タイトルなし）");
+    });
+  }
+  lines += "\n[/info]";
+
+  lines += "\n[info][title]差し込みタスク[/title]";
+  lines += "\n・";
+  lines += "\n[/info]";
+
+  return lines;
+}
+
+function buildEveningReport() {
+  var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
+  var td = today();
+
+  var todayOrOverdue = myTasks.filter(function(t) {
+    if (!t.limit) return false;
+    return t.limit <= td;
+  });
+
+  var STATUS_ORDER = [
+    { key: "done", label: "完了" },
+    { key: "in_progress", label: "着手中" },
+    { key: "open", label: "未着手" },
+    { key: "waiting", label: "相手待ち" }
+  ];
+
+  var doneTodayTasks = getMyTasks().filter(function(t) {
+    return t.localStatus === "done";
+  });
+
+  var groups = {};
+  todayOrOverdue.forEach(function(t) {
+    var st = t.localStatus || "open";
+    if (!groups[st]) groups[st] = [];
+    groups[st].push(t);
+  });
+  if (doneTodayTasks.length > 0) {
+    groups["done"] = doneTodayTasks;
+  }
+
+  var lines = "[info][title]退勤報告[/title]";
+  STATUS_ORDER.forEach(function(s) {
+    if (groups[s.key] && groups[s.key].length > 0) {
+      lines += "\n【" + s.label + "】";
+      groups[s.key].forEach(function(t) {
+        lines += "\n・" + (t.title || "（タイトルなし）");
+      });
+    }
+  });
+  if (Object.keys(groups).length === 0) {
+    lines += "\nタスクなし";
+  }
+  lines += "\n[/info]";
+
+  return lines;
+}
+
+async function sendReport() {
+  var btn = document.getElementById("reportSendBtn");
+  var message = document.getElementById("reportPreview").value.trim();
+  if (!message) { alert("メッセージが空です"); return; }
+  btn.disabled = true; btn.textContent = "送信中...";
+  try {
+    await apiCall("POST", "/api/dashboard/send-message", { message: message });
+    alert("送信しました！");
+    closeReportModal();
+  } catch (e) {
+    alert("送信に失敗しました: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "送信";
+  }
 }
 
 // ============================
