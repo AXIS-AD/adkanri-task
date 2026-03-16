@@ -1026,11 +1026,14 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   if (toAid) {
     msg += '[To:' + toAid + '] ' + toName + '\u3055\u3093\n';
   }
-  msg += '[info][title]\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01[/title]';
   if (replyMessage) {
+    msg += '[info][title]\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01[/title]';
     msg += replyMessage + '\n';
+    msg += '[/info]\n';
+  } else {
+    msg += '\u2705\u300C' + taskTitle + '\u300D\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F\uFF01\n';
   }
-  msg += '[/info]';
+  msg += '[qt][qtmeta aid=' + (assignerAid || 0) + ' time=' + assignerTime + ']' + taskBody.slice(0, 500) + '[/qt]';
 
   await fetch(
     `https://api.chatwork.com/v2/rooms/${roomId}/messages`,
