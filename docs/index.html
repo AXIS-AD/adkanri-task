@@ -1340,6 +1340,7 @@ function addManualTask(category) {
     for (var md = 1; md <= 31; md++) { bodyHtml += '<button type="button" class="weekday-btn" data-day="' + md + '" onclick="toggleWeekday(this)" style="width:36px;">' + md + '</button>'; }
     bodyHtml += '</div></div>';
     bodyHtml += '<input type="hidden" id="freqType" value="interval"></div>';
+    bodyHtml += '<div class="modal-form-group"><label>時間（任意）</label><input type="time" id="addTaskTime" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;"></div>';
   } else {
     bodyHtml += '<div class="modal-form-group"><label>期日</label><input type="date" id="addTaskDeadline"></div>';
   }
@@ -1373,6 +1374,8 @@ async function submitAddForm(category) {
     } else {
       data.frequency = document.getElementById("addTaskFreq").value;
     }
+    var timeEl = document.getElementById("addTaskTime");
+    data.dueTime = timeEl && timeEl.value ? timeEl.value : null;
     data.completedAt = null;
     data.nextDue = null;
   } else {
@@ -1500,7 +1503,8 @@ async function toggleTeikiComplete(id) {
 function renderTeikiCard(t) {
   checkTeikiRecurrence(t);
   var isDone = t.status === "done";
-  var freqDisplay = '<span class="freq-badge">' + getFreqLabel(t.frequency) + '</span>';
+  var freqText = getFreqLabel(t.frequency) + (t.dueTime ? ' ' + t.dueTime : '');
+  var freqDisplay = '<span class="freq-badge">' + freqText + '</span>';
   var noteHtml = t.note ? '<div class="card-body" style="margin-top:4px;font-size:12px;color:var(--text2);">' + esc(t.note) + '</div>' : '';
   var assigneeHtml = t.assigneeName ? '<div style="font-size:11px;color:var(--text2);margin-top:4px;">担当: ' + esc(t.assigneeName) + '</div>' : '';
   return '<div class="card' + (isDone ? ' teiki-done' : '') + '" onclick="openTeikiModal(\'' + t.id + '\')"><div class="card-top"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')">' + (isDone ? '✓' : '') + '</button><div class="card-title" style="margin-left:8px;">' + esc(t.title) + '</div>' + freqDisplay + '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></div>' + assigneeHtml + noteHtml + (isDone && t.nextDue ? '<div class="next-due">次回: ' + t.nextDue + '</div>' : '') + '</div>';
@@ -1530,6 +1534,7 @@ function openTeikiModal(id) {
   bodyHtml += '</div></div>';
   bodyHtml += '<input type="hidden" id="freqTypeEdit" value="' + (t.frequency && t.frequency.startsWith("weekday:") ? "weekday" : t.frequency && t.frequency.startsWith("monthday:") ? "monthday" : "interval") + '"></div>';
 
+  bodyHtml += '<div class="modal-form-group"><label>時間（任意）</label><input type="time" id="teikiTimeEdit" value="' + (t.dueTime || '') + '" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;"></div>';
   bodyHtml += '<div class="modal-form-group"><label>備考</label><textarea id="teikiNoteEdit" rows="4" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea></div>';
   bodyHtml += '<button class="modal-save-btn" onclick="saveTeikiAll(\'' + id + '\')">保存</button>';
   document.getElementById("modalBody").innerHTML = bodyHtml;
@@ -1557,7 +1562,10 @@ async function saveTeikiAll(id) {
     newFreq = document.getElementById("editFreqInterval").value;
   }
   t.frequency = newFreq;
-  await apiCall("POST", "/api/dashboard/tasks/" + id, { note: val, frequency: newFreq });
+  var timeEl = document.getElementById("teikiTimeEdit");
+  var newTime = timeEl && timeEl.value ? timeEl.value : null;
+  t.dueTime = newTime;
+  await dashUpdate(id, { note: val, frequency: newFreq, dueTime: newTime });
   renderAll();
   closeModal();
 }
@@ -1975,7 +1983,8 @@ function buildMorningReport() {
     lines += "\n【" + c.label + "】";
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
       catGroups[c.key].forEach(function(t) {
-        lines += "\n・" + (t.title || "（タイトルなし）");
+        var timeStr = t.dueTime ? "（" + t.dueTime + "）" : "";
+        lines += "\n・" + (t.title || "（タイトルなし）") + timeStr;
       });
     }
   });
