@@ -249,7 +249,7 @@ async function handleGetMyRequests(request, env) {
 
     result.push({
       taskId: t.task_id,
-      title: titleMatch ? titleMatch[1] : extractTitle(body),
+      title: meta.title || (titleMatch ? titleMatch[1] : extractTitle(body)),
       category: catMatch ? catMatch[1].trim() : '-',
       subCategory: subMatch ? subMatch[1].trim() : '',
       status: displayStatus,
