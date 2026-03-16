@@ -1871,10 +1871,14 @@ function getMorningTaskIds() {
     if (!t.limit) return false;
     return t.limit <= td;
   });
-  var teikiTasks = getMyTeikiTasks().filter(function(t) { return t.status !== "done"; });
+  var teikiToday = getMyTeikiTasks().filter(function(t) {
+    if (t.status === "done") return false;
+    var due = t.nextDue || t.limit;
+    return due && due <= td;
+  });
   var ids = {};
   todayOrOverdue.forEach(function(t) { ids[t.id] = true; });
-  teikiTasks.forEach(function(t) { ids[t.id] = true; });
+  teikiToday.forEach(function(t) { ids[t.id] = true; });
   return ids;
 }
 
@@ -1896,7 +1900,11 @@ function buildMorningReport() {
     return t.limit <= td;
   });
   var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
-  var teikiTasks = getMyTeikiTasks().filter(function(t) { return t.status !== "done"; });
+  var teikiTasks = getMyTeikiTasks().filter(function(t) {
+    if (t.status === "done") return false;
+    var due = t.nextDue || t.limit;
+    return due && due <= td;
+  });
 
   var catGroups = {};
   var REPORT_CATS = [
