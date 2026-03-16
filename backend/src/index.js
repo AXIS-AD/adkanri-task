@@ -1180,7 +1180,15 @@ function formatJST(date, pattern) {
 // 期限超過アラート（Cron Trigger）
 // ====================================================
 
+function isJSTBusinessDay() {
+  const jst = new Date(Date.now() + 9 * 3600000);
+  const day = jst.getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
 async function checkOverdueTasks(env) {
+  if (!isJSTBusinessDay()) return;
+
   const cfg = getChatworkConfig(env);
   const local = await getDashboardLocal(env);
   const manualTasks = await getManualTasks(env);
