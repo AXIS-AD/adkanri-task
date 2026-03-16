@@ -1983,7 +1983,8 @@ function buildMorningReport() {
   try { localStorage.setItem("morningTaskIds_" + td, JSON.stringify(morningIds)); } catch(_) {}
 
   var lines = "[info][title]今日やること[/title]";
-  REPORT_CATS.forEach(function(c) {
+  REPORT_CATS.forEach(function(c, idx) {
+    if (idx > 0) lines += "\n[hr]";
     lines += "\n【" + c.label + "】";
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
       catGroups[c.key].forEach(function(t) {
