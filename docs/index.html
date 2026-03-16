@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309b -->
+<html lang="ja"><!-- v20260309c -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1074,13 +1074,15 @@ var SHEET_MEDIA = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!B8:B
 var SHEET_PROJECT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!O7:O150" };
 var SHEET_ASP = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!T7:T150", condRange: "DB!S7:S150", condValue: "\u30CA\u30CF\u30C8", condReplace: "\u30CA\u30CF\u30C8" };
 var SHEET_FB_PAGE = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBページ一覧!F7:F", condRange: "FBページ一覧!D7:D", condValue: "運用中", condFilter: true };
+var SHEET_META_ACCOUNT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "【Meta】広告アカ一覧!G7:G", condRange: "【Meta】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
+var SHEET_FB_PIXEL = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBピクセル一覧!G5:G", condRange: "FBピクセル一覧!B5:B", condValue: "運用中", condFilter: true };
 
 var FIELDS = {
   new_account: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"quantity",label:"数量",type:"number",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   fb_page: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"page_name",label:"ページ名",required:true,...SHEET_FB_PAGE },{ id:"permission",label:"権限（運用者）",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
-  fb_pixel: [{ id:"account",label:"紐づけ先アカウント",type:"text",required:true },{ id:"pixel",label:"紐づけるピクセル",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false }],
+  fb_pixel: [{ id:"account",label:"紐づけ先アカウント",required:true,...SHEET_META_ACCOUNT },{ id:"pixel",label:"紐づけるピクセル",required:true,...SHEET_FB_PIXEL },{ id:"deadline",label:"期限",type:"text",required:false }],
   fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true },{ id:"target_name",label:"ページ名 / アカウント名",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
-  account_ban: [{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",type:"text",required:true },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
+  account_ban: [{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",required:true,...SHEET_META_ACCOUNT },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"note",label:"備考",type:"textarea",required:false }],
   link: [{ id:"asp",label:"ASP",required:true,...SHEET_ASP },{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"offer_name",label:"オファー名",type:"text",required:true },{ id:"lp",label:"LP",type:"text",required:false },{ id:"quantity",label:"本数",type:"text",required:true },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   spreadsheet: [{ id:"sheet_name",label:"シート名",type:"text",required:true },{ id:"error_type",label:"エラー内容",type:"select",options:["運用中のキャンペーンが出力されていない","キャンペーンのデータが間違っている","MCV,CVが反映されていない","その他"],required:true },{ id:"media",label:"媒体",required:false,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",type:"text",required:false },{ id:"cell_url",label:"該当セルURL",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   new_project: [{ id:"project",label:"案件名",type:"text",required:true },{ id:"asp",label:"ASP",required:true,...SHEET_ASP },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"lp",label:"LP",type:"text",required:false },{ id:"link_count",label:"リンク本数",type:"text",required:false },{ id:"unit_price",label:"単価",type:"text",required:false },{ id:"deadline",label:"期限",type:"text",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
