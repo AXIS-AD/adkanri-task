@@ -420,22 +420,40 @@ async function handleUpdateDashboardTask(request, env) {
     const roomId = body.roomId || local[id].roomId || DASHBOARD_ROOM_ID;
     if (roomId) local[id].roomId = roomId;
     await saveDashboardLocal(env, local);
-    try {
-      await fetch(
-        `https://api.chatwork.com/v2/rooms/${roomId}/tasks/${id}/status`,
-        {
-          method: 'PUT',
-          headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `body=${cwStatus}`,
+
+    const roomsToTry = [roomId];
+    const room2 = env.CHATWORK_ROOM_2 || '';
+    if (room2 && room2 !== roomId) roomsToTry.push(room2);
+    if (DASHBOARD_ROOM_ID !== roomId) roomsToTry.push(DASHBOARD_ROOM_ID);
+
+    let cwUpdated = false;
+    for (const tryRoom of roomsToTry) {
+      try {
+        const res = await fetch(
+          `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
+          {
+            method: 'PUT',
+            headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `body=${cwStatus}`,
+          }
+        );
+        if (res.ok) {
+          cwUpdated = true;
+          if (tryRoom !== roomId) {
+            local[id].roomId = tryRoom;
+            await saveDashboardLocal(env, local);
+          }
+          break;
         }
-      );
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     if (body.localStatus === 'done') {
+      const effectiveRoom = local[id].roomId || roomId;
       try {
         const doneToken = env.CHATWORK_DONE_TOKEN || cfg.apiToken;
         const savedTitle = local[id]?.title || null;
-        await sendDoneReplyMessage(id, roomId, body.replyMessage || '', cfg.apiToken, doneToken, savedTitle);
+        await sendDoneReplyMessage(id, effectiveRoom, body.replyMessage || '', cfg.apiToken, doneToken, savedTitle);
       } catch (_) {}
       const completedDate = formatJST(new Date(), 'yyyy/MM/dd HH:mm');
       await updateTaskLogCompletion(env, id, completedDate, body.replyMessage || '');
