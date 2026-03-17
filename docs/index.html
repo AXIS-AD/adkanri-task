@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309i -->
+<html lang="ja"><!-- v20260309j -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -211,13 +211,16 @@
   .todo-item.todo-done { opacity: .55; }
   .todo-item.todo-done .todo-text { text-decoration: line-through; }
   .todo-text { flex: 1; font-weight: 500; }
+  .todo-date-label { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--accent); background: rgba(59,130,246,.1); padding: 3px 8px; border-radius: 6px; cursor: pointer; min-width: 36px; text-align: center; transition: all .2s; }
+  .todo-date-label:hover { background: rgba(59,130,246,.2); }
   .todo-status-select { padding: 3px 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font-size: 11px; flex-shrink: 0; }
   .todo-date-input { padding: 3px 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font-size: 11px; flex-shrink: 0; width: 120px; }
   .todo-delete-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0; transition: opacity .2s; flex-shrink: 0; }
   .todo-item:hover .todo-delete-btn { opacity: 1; }
   .todo-delete-btn:hover { color: var(--red); }
   .todo-add { display: flex; gap: 6px; margin-top: 10px; }
-  .todo-add input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 13px; }
+  .todo-add input[type="text"] { flex: 1; }
+  .todo-add input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 13px; }
   .todo-add input:focus { outline: none; border-color: var(--accent); }
   .todo-add button { padding: 8px 14px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
   .modal-save-btn { width: 100%; padding: 12px; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: opacity .2s; }
@@ -1990,9 +1993,11 @@ function openLongTermModal(id) {
   }
   todos.forEach(function(item, idx) {
     var isDone = item.status === "done";
+    var d = item.date ? new Date(item.date) : null;
+    var dateLabel = d ? (d.getMonth()+1) + "/" + d.getDate() : "";
     bodyHtml += '<div class="todo-item' + (isDone ? ' todo-done' : '') + '">';
+    bodyHtml += '<span class="todo-date-label" onclick="event.stopPropagation();showTodoDatePicker(\'' + id + '\',' + idx + ',this)" title="日付変更">' + (dateLabel || "日付") + '</span>';
     bodyHtml += '<span class="todo-text">' + esc(item.text) + '</span>';
-    bodyHtml += '<input type="date" class="todo-date-input" value="' + (item.date || "") + '" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'date\',this.value)">';
     bodyHtml += '<select class="todo-status-select" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'status\',this.value)">';
     ["open","in_progress","done"].forEach(function(s) {
       bodyHtml += '<option value="' + s + '"' + ((item.status || "open") === s ? ' selected' : '') + '>' + TODO_STATUSES[s] + '</option>';
@@ -2002,7 +2007,7 @@ function openLongTermModal(id) {
     bodyHtml += '</div>';
   });
   bodyHtml += '</div>';
-  bodyHtml += '<div class="todo-add"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
+  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
   bodyHtml += '<h3 style="font-size:14px;margin:20px 0 10px;color:var(--text);">備考</h3>';
   bodyHtml += '<textarea id="longTermNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea>';
   bodyHtml += '<button class="modal-save-btn" onclick="saveLongTermTodos(\'' + id + '\')">保存</button>';
@@ -2018,13 +2023,34 @@ function updateLongTermField(id, field, val) {
 
 function addTodoItemLocal(taskId) {
   var inp = document.getElementById("todoNewText");
+  var dateInp = document.getElementById("todoNewDate");
   var text = inp.value.trim();
   if (!text) return;
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t) return;
   if (!t.todos) t.todos = [];
-  t.todos.push({ text: text, date: today(), status: "open" });
+  t.todos.push({ text: text, date: dateInp ? dateInp.value : today(), status: "open" });
   openLongTermModal(taskId);
+}
+
+function showTodoDatePicker(taskId, idx, el) {
+  var input = document.createElement("input");
+  input.type = "date";
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  input.value = t && t.todos && t.todos[idx] ? (t.todos[idx].date || "") : "";
+  input.style.cssText = "font-size:12px;padding:2px 4px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text);width:110px;";
+  el.replaceWith(input);
+  input.focus();
+  try { input.showPicker(); } catch(_) {}
+  var saved = false;
+  function save() {
+    if (saved) return;
+    saved = true;
+    changeTodoField(taskId, idx, "date", input.value);
+    openLongTermModal(taskId);
+  }
+  input.addEventListener("change", save);
+  input.addEventListener("blur", function() { setTimeout(save, 150); });
 }
 
 function changeTodoField(taskId, idx, field, val) {
