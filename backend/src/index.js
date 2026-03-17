@@ -428,27 +428,37 @@ async function handleUpdateDashboardTask(request, env) {
     roomsToTry.add(DASHBOARD_ROOM_ID);
     if (cfg.roomId) roomsToTry.add(cfg.roomId);
 
-    const cwResults = [];
-    for (const tryRoom of roomsToTry) {
-      try {
-        const res = await fetch(
-          `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
-          {
-            method: 'PUT',
-            headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `body=${cwStatus}`,
-          }
-        );
-        const resBody = await res.text();
-        cwResults.push({ room: tryRoom, status: res.status, body: resBody });
-        console.log(`[CW_TASK_UPDATE] room=${tryRoom} task=${id} status=${res.status} body=${resBody}`);
-      } catch (e) {
-        cwResults.push({ room: tryRoom, status: 'error', body: e.message });
-        console.log(`[CW_TASK_UPDATE_ERROR] room=${tryRoom} task=${id} error=${e.message}`);
-      }
-    }
+    const doneToken = env.CHATWORK_DONE_TOKEN || '';
+    const tokens = [cfg.apiToken];
+    if (doneToken && doneToken !== cfg.apiToken) tokens.push(doneToken);
 
-    const successRoom = cwResults.find((r) => r.status === 200);
+    const cwResults = [];
+    let successRoom = null;
+    for (const tryRoom of roomsToTry) {
+      for (const token of tokens) {
+        try {
+          const res = await fetch(
+            `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
+            {
+              method: 'PUT',
+              headers: { 'X-ChatWorkToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `body=${cwStatus}`,
+            }
+          );
+          const resBody = await res.text();
+          cwResults.push({ room: tryRoom, status: res.status, body: resBody, tokenIdx: tokens.indexOf(token) });
+          console.log(`[CW_TASK_UPDATE] room=${tryRoom} task=${id} token=${tokens.indexOf(token)} status=${res.status} body=${resBody}`);
+          if (res.status === 200) {
+            successRoom = { room: tryRoom };
+            break;
+          }
+        } catch (e) {
+          cwResults.push({ room: tryRoom, status: 'error', body: e.message });
+          console.log(`[CW_TASK_UPDATE_ERROR] room=${tryRoom} task=${id} error=${e.message}`);
+        }
+      }
+      if (successRoom) break;
+    }
     if (!successRoom) {
       console.log(`[CW_TASK_UPDATE_FAILED] task=${id} tried=${JSON.stringify(cwResults)}`);
     }
