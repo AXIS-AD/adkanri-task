@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309f -->
+<html lang="ja"><!-- v20260309g -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2343,7 +2343,8 @@ function buildMorningReport() {
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   try { localStorage.setItem("morningTaskIds_" + reportPid + "_" + td, JSON.stringify(morningIds)); } catch(_) {}
 
-  var lines = "[info][title]今日やること[/title]";
+  var lines = "[To:5420288]\u897F\u6751 \u77E5\u8F1D\u3055\u3093\n";
+  lines += "[info][title]今日やること[/title]";
   REPORT_CATS.forEach(function(c, idx) {
     if (idx > 0) lines += "\n[hr]";
     lines += "\n【" + c.label + "】";
@@ -2423,7 +2424,8 @@ function buildEveningReport() {
     catGroups["teiki"].push(t);
   });
 
-  var lines = "[info][title]退勤報告[/title]";
+  var lines = "[To:5420288]\u897F\u6751 \u77E5\u8F1D\u3055\u3093\n";
+  lines += "[info][title]退勤報告[/title]";
   REPORT_CATS.forEach(function(c, idx) {
     if (idx > 0) lines += "\n[hr]";
     lines += "\n【" + c.label + "】";
