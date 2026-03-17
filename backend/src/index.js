@@ -421,32 +421,24 @@ async function handleUpdateDashboardTask(request, env) {
     if (roomId) local[id].roomId = roomId;
     await saveDashboardLocal(env, local);
 
-    const roomsToTry = [roomId];
+    const roomsToTry = new Set();
+    roomsToTry.add(roomId);
     const room2 = env.CHATWORK_ROOM_2 || '';
-    if (room2 && room2 !== roomId) roomsToTry.push(room2);
-    if (DASHBOARD_ROOM_ID !== roomId) roomsToTry.push(DASHBOARD_ROOM_ID);
+    if (room2) roomsToTry.add(room2);
+    roomsToTry.add(DASHBOARD_ROOM_ID);
+    if (cfg.roomId) roomsToTry.add(cfg.roomId);
 
-    let cwUpdated = false;
-    for (const tryRoom of roomsToTry) {
-      try {
-        const res = await fetch(
-          `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
-          {
-            method: 'PUT',
-            headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `body=${cwStatus}`,
-          }
-        );
-        if (res.ok) {
-          cwUpdated = true;
-          if (tryRoom !== roomId) {
-            local[id].roomId = tryRoom;
-            await saveDashboardLocal(env, local);
-          }
-          break;
+    const updatePromises = [...roomsToTry].map((tryRoom) =>
+      fetch(
+        `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
+        {
+          method: 'PUT',
+          headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `body=${cwStatus}`,
         }
-      } catch (_) {}
-    }
+      ).catch(() => null)
+    );
+    await Promise.all(updatePromises);
 
     if (body.localStatus === 'done') {
       const effectiveRoom = local[id].roomId || roomId;
