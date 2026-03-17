@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309e -->
+<html lang="ja"><!-- v20260309f -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2078,17 +2078,24 @@ function renderAll() {
   var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
   var html = "";
 
-  if (selectedPersonId === "all" && !isManualGenre && selectedGenre === "all") {
+  if (!isManualGenre && selectedGenre === "all") {
     var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
     var chatworkTasks = allTasks.filter(function(t) { return !t.isManual; });
-    var activeCwTasks = chatworkTasks.filter(function(t) { return t.localStatus !== "done"; });
+    var dashScope = chatworkTasks;
+    var dashTitle = "\u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9";
+    if (selectedPersonId !== "all") {
+      dashScope = chatworkTasks.filter(function(t) { return String(t.assigneeId) === String(selectedPersonId); });
+      var pName = peopleData.find(function(p) { return String(p.id) === String(selectedPersonId); });
+      dashTitle = (pName ? pName.name : "") + " \u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9";
+    }
+    var activeCwTasks = dashScope.filter(function(t) { return t.localStatus !== "done"; });
     var totalAll = activeCwTasks.length;
     var totalOpen = activeCwTasks.filter(function(t) { return t.localStatus === "open"; }).length;
     var totalIp = activeCwTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
     var totalWait = activeCwTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
 
     var todayDue = 0, tmrwDue = 0, weekDue = 0, overdue = 0;
-    chatworkTasks.forEach(function(t) {
+    dashScope.forEach(function(t) {
       if (t.localStatus === "done") return;
       if (!t.limit) return;
       var diff = Math.round((new Date(t.limit) - new Date(today())) / 86400000);
@@ -2098,7 +2105,7 @@ function renderAll() {
       else if (diff <= 7) weekDue++;
     });
 
-    html += '<div class="dash-header"><h2>\u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9</h2><div class="dash-time" id="lastUpdated2">\u26F1 ' + new Date().toLocaleTimeString("ja-JP") + '</div></div>';
+    html += '<div class="dash-header"><h2>' + dashTitle + '</h2><div class="dash-time" id="lastUpdated2">\u26F1 ' + new Date().toLocaleTimeString("ja-JP") + '</div></div>';
 
     html += '<div class="dash-stats">';
     html += '<div class="dash-stat"><div class="dash-stat-label">\u5168\u30BF\u30B9\u30AF</div><div class="dash-stat-value blue">' + totalAll + '</div></div>';
@@ -2114,26 +2121,28 @@ function renderAll() {
     html += '<span class="dash-dl-badge' + (overdue > 0 ? ' overdue' : '') + '">\u671F\u9650\u5207\u308C ' + overdue + '</span>';
     html += '</div>';
 
-    html += '<div class="dash-members-title">\u62C5\u5F53\u8005\u5225\u30BF\u30B9\u30AF</div>';
-    html += '<div class="summary-row">';
-    people.forEach(function(p) {
-      var pTasks = activeCwTasks.filter(function(t) { return String(t.assigneeId) === String(p.id); });
-      var openCount = pTasks.filter(function(t) { return t.localStatus === "open"; }).length;
-      var ipCount = pTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
-      var waitCount = pTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
-      var color = PERSON_COLORS[p.name] || "var(--accent)";
-      html += '<div class="summary-card" onclick="setPerson(' + p.id + ')">';
-      html += '<div class="summary-name">' + esc(p.name) + '</div>';
-      html += '<div class="summary-count">' + pTasks.length + '<span>\u4EF6</span></div>';
-      html += '<div class="summary-detail">';
-      html += '<span class="sd-chip open">\u672A\u7740\u624B ' + openCount + '</span>';
-      html += '<span class="sd-chip ip">\u7740\u624B\u4E2D ' + ipCount + '</span>';
-      html += '<span class="sd-chip wait">\u76F8\u624B\u5F85\u3061 ' + waitCount + '</span>';
+    if (selectedPersonId === "all") {
+      html += '<div class="dash-members-title">\u62C5\u5F53\u8005\u5225\u30BF\u30B9\u30AF</div>';
+      html += '<div class="summary-row">';
+      people.forEach(function(p) {
+        var pTasks = activeCwTasks.filter(function(t) { return String(t.assigneeId) === String(p.id); });
+        var openCount = pTasks.filter(function(t) { return t.localStatus === "open"; }).length;
+        var ipCount = pTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
+        var waitCount = pTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
+        var color = PERSON_COLORS[p.name] || "var(--accent)";
+        html += '<div class="summary-card" onclick="setPerson(' + p.id + ')">';
+        html += '<div class="summary-name">' + esc(p.name) + '</div>';
+        html += '<div class="summary-count">' + pTasks.length + '<span>\u4EF6</span></div>';
+        html += '<div class="summary-detail">';
+        html += '<span class="sd-chip open">\u672A\u7740\u624B ' + openCount + '</span>';
+        html += '<span class="sd-chip ip">\u7740\u624B\u4E2D ' + ipCount + '</span>';
+        html += '<span class="sd-chip wait">\u76F8\u624B\u5F85\u3061 ' + waitCount + '</span>';
+        html += '</div>';
+        html += '<div class="summary-bar" style="width:100%;background:' + color + ';"></div>';
+        html += '</div>';
+      });
       html += '</div>';
-      html += '<div class="summary-bar" style="width:100%;background:' + color + ';"></div>';
-      html += '</div>';
-    });
-    html += '</div>';
+    }
   }
 
   if (isManualGenre) {
