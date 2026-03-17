@@ -376,6 +376,7 @@ async function handleGetDashboardTasks(request, env) {
         priority: meta.priority || 'medium',
         localStatus: meta.localStatus || 'open',
         note: meta.note || '',
+        limit: meta.limit || t.limit,
         assigneeId: t.assigneeId,
         assigneeName: t.assigneeName,
       });

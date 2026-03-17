@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309d -->
+<html lang="ja"><!-- v20260309e -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1404,7 +1404,7 @@ function setViewMode(mode) { viewMode = mode; document.querySelectorAll(".view-t
 
 function renderListTable(tasks) {
   var STATUS_LABELS = { open: "未着手", in_progress: "着手中", waiting: "相手待ち", done: "完了" };
-  var html = '<table class="task-list-table"><thead><tr><th>タスク名</th><th>期日</th><th>担当</th><th>優先度</th><th>ステータス</th><th>カテゴリ</th><th>メモ</th></tr></thead><tbody>';
+  var html = '<table class="task-list-table"><thead><tr><th>タスク名</th><th>期日</th><th>担当</th><th>優先度</th><th>ステータス</th><th>カテゴリ</th><th>メモ</th><th></th></tr></thead><tbody>';
   tasks.forEach(function(t) {
     var dl = dueLabel(t.limit), dc = dueClass(t.limit);
     var pLabel = PRIORITY_LABELS[t.priority] || "中";
@@ -1418,6 +1418,7 @@ function renderListTable(tasks) {
     html += '<td><select onclick="event.stopPropagation()" onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select></td>';
     html += '<td><select onclick="event.stopPropagation()" onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select></td>';
     html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
+    html += '<td style="width:32px;"><button class="done-report-btn" onclick="event.stopPropagation();handleStatusChange(\'' + t.id + '\',\'done\')" title="完了" style="padding:4px 8px;font-size:11px;">✅</button></td>';
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -2247,10 +2248,11 @@ function switchReportTab(type) {
 }
 
 function getMyTasks() {
-  if (!myId) return allTasks.filter(function(t) { return !t.isManual; });
+  var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+  if (!pid) return allTasks.filter(function(t) { return !t.isManual; });
   return allTasks.filter(function(t) {
     if (t.isManual) return false;
-    return String(t.assigneeId) === String(myId);
+    return String(t.assigneeId) === String(pid);
   });
 }
 
@@ -2281,11 +2283,12 @@ function getMorningTaskIds() {
 }
 
 function getMyTeikiTasks() {
+  var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   var teiki = allTasks.filter(function(t) { return t.isManual && normalizeCategory(t.category) === "teiki"; });
-  if (!myId) return teiki;
+  if (!pid) return teiki;
   return teiki.filter(function(t) {
     if (!t.assigneeId) return true;
-    return String(t.assigneeId) === String(myId);
+    return String(t.assigneeId) === String(pid);
   });
 }
 
@@ -2328,7 +2331,8 @@ function buildMorningReport() {
   });
 
   var morningIds = getMorningTaskIds();
-  try { localStorage.setItem("morningTaskIds_" + td, JSON.stringify(morningIds)); } catch(_) {}
+  var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+  try { localStorage.setItem("morningTaskIds_" + reportPid + "_" + td, JSON.stringify(morningIds)); } catch(_) {}
 
   var lines = "[info][title]今日やること[/title]";
   REPORT_CATS.forEach(function(c, idx) {
@@ -2360,8 +2364,9 @@ function buildMorningReport() {
 
 function buildEveningReport() {
   var td = today();
+  var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   var morningIds = {};
-  try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + td) || "{}"); } catch(_) {}
+  try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
 
   function stIcon(st) {
     if (st === "done") return "\u2705";
