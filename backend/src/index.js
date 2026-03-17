@@ -1046,7 +1046,11 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   }
   const toAid = requesterAid || assignerAid;
 
-  const toName = requesterName || '';
+  let toName = requesterName || '';
+  if (!toName && assignerAid) {
+    const assignerName = task.assigned_by_account?.name || '';
+    toName = assignerName;
+  }
   let msg = '';
   if (toAid) {
     msg += '[To:' + toAid + '] ' + toName + '\u3055\u3093\n';
