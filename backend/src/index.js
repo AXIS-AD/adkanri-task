@@ -375,6 +375,7 @@ async function handleGetDashboardTasks(request, env) {
         category: meta.category || autoCategory(t.body),
         priority: meta.priority || 'medium',
         localStatus: meta.localStatus || 'open',
+        doneDate: meta.doneDate || null,
         note: meta.note || '',
         limit: meta.limit || t.limit,
         assigneeId: t.assigneeId,

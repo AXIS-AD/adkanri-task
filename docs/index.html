@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja"><!-- v20260309g -->
+<html lang="ja"><!-- v20260309h -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1505,12 +1505,12 @@ async function confirmDone() {
   if (!id) return;
   var t = allTasks.find(function(x) { return x.id === id; });
   var reply = document.getElementById("doneReplyText").value.trim();
-  var payload = { localStatus: "done", replyMessage: reply };
+  var payload = { localStatus: "done", replyMessage: reply, doneDate: today() };
   if (t && t.roomId) payload.roomId = t.roomId;
   closeDoneModal();
   if (currentModalId) closeModal();
   await dashUpdate(id, payload);
-  if (t) { t.localStatus = "done"; renderAll(); }
+  if (t) { t.localStatus = "done"; t.doneDate = today(); renderAll(); }
 }
 function handleCategoryChange(id, val) { updateTask(id, "category", val); var t = allTasks.find(function(x) { return x.id === id; }); if (t) { t.category = val; renderAll(); } }
 
@@ -2165,7 +2165,8 @@ function renderAll() {
     }
   } else {
     var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
-    var done = tasksToShow.filter(function(t) { return t.localStatus === "done"; });
+    var td = today();
+    var done = tasksToShow.filter(function(t) { return t.localStatus === "done" && t.doneDate === td; });
     if (displayMode === "priority") {
       var hi = active.filter(function(t) { return t.priority === "high"; });
       var md = active.filter(function(t) { return t.priority === "medium" || !t.priority; });
