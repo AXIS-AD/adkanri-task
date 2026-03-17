@@ -428,20 +428,37 @@ async function handleUpdateDashboardTask(request, env) {
     roomsToTry.add(DASHBOARD_ROOM_ID);
     if (cfg.roomId) roomsToTry.add(cfg.roomId);
 
-    const updatePromises = [...roomsToTry].map((tryRoom) =>
-      fetch(
-        `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
-        {
-          method: 'PUT',
-          headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `body=${cwStatus}`,
-        }
-      ).catch(() => null)
-    );
-    await Promise.all(updatePromises);
+    const cwResults = [];
+    for (const tryRoom of roomsToTry) {
+      try {
+        const res = await fetch(
+          `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
+          {
+            method: 'PUT',
+            headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `body=${cwStatus}`,
+          }
+        );
+        const resBody = await res.text();
+        cwResults.push({ room: tryRoom, status: res.status, body: resBody });
+        console.log(`[CW_TASK_UPDATE] room=${tryRoom} task=${id} status=${res.status} body=${resBody}`);
+      } catch (e) {
+        cwResults.push({ room: tryRoom, status: 'error', body: e.message });
+        console.log(`[CW_TASK_UPDATE_ERROR] room=${tryRoom} task=${id} error=${e.message}`);
+      }
+    }
+
+    const successRoom = cwResults.find((r) => r.status === 200);
+    if (!successRoom) {
+      console.log(`[CW_TASK_UPDATE_FAILED] task=${id} tried=${JSON.stringify(cwResults)}`);
+    }
 
     if (body.localStatus === 'done') {
-      const effectiveRoom = local[id].roomId || roomId;
+      const effectiveRoom = successRoom ? successRoom.room : (local[id].roomId || roomId);
+      if (successRoom && successRoom.room !== local[id].roomId) {
+        local[id].roomId = successRoom.room;
+        await saveDashboardLocal(env, local);
+      }
       try {
         const doneToken = env.CHATWORK_DONE_TOKEN || cfg.apiToken;
         const savedTitle = local[id]?.title || null;
