@@ -451,7 +451,7 @@ async function handleUpdateDashboardTask(request, env) {
     if (env.CHATWORK_TOKEN_NISHIMURA) tokens.add(env.CHATWORK_TOKEN_NISHIMURA);
     if (env.CHATWORK_TOKEN_ISHIDA) tokens.add(env.CHATWORK_TOKEN_ISHIDA);
     const tokenList = [...tokens];
-    console.log(`[DEBUG] task=${id} assigneeId=${assigneeId} tokenCount=${tokenList.length}`);
+    console.log(`[DEBUG] task=${id} assigneeId=${assigneeId} rooms=${[...roomsToTry].join(',')} tokens=${tokenList.length}`);
 
     const cwResults = [];
     let successRoom = null;
@@ -463,8 +463,8 @@ async function handleUpdateDashboardTask(request, env) {
             `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
             {
               method: 'PUT',
-              headers: { 'X-ChatWorkToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: `body=${cwStatus}`,
+              headers: { 'X-ChatWorkToken': token },
+              body: new URLSearchParams({ body: cwStatus }),
             }
           );
           const resBody = await res.text();
