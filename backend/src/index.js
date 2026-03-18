@@ -440,17 +440,24 @@ async function handleUpdateDashboardTask(request, env) {
     if (cfg.roomId) roomsToTry.add(cfg.roomId);
 
     const assigneeId = body.assigneeId || local[id]?.assigneeId || null;
-    const assigneeToken = assigneeId ? getTokenForAssignee(env, Number(assigneeId)) : null;
-    const tokens = [];
-    if (assigneeToken) tokens.push(assigneeToken);
-    if (!tokens.includes(cfg.apiToken)) tokens.push(cfg.apiToken);
-    const doneToken2 = env.CHATWORK_DONE_TOKEN || '';
-    if (doneToken2 && !tokens.includes(doneToken2)) tokens.push(doneToken2);
+    const tokens = new Set();
+    if (assigneeId) {
+      const at = getTokenForAssignee(env, Number(assigneeId));
+      if (at) tokens.add(at);
+    }
+    tokens.add(cfg.apiToken);
+    if (env.CHATWORK_DONE_TOKEN) tokens.add(env.CHATWORK_DONE_TOKEN);
+    if (env.CHATWORK_TOKEN_TSUTSUI) tokens.add(env.CHATWORK_TOKEN_TSUTSUI);
+    if (env.CHATWORK_TOKEN_NISHIMURA) tokens.add(env.CHATWORK_TOKEN_NISHIMURA);
+    if (env.CHATWORK_TOKEN_ISHIDA) tokens.add(env.CHATWORK_TOKEN_ISHIDA);
+    const tokenList = [...tokens];
+    console.log(`[DEBUG] task=${id} assigneeId=${assigneeId} tokenCount=${tokenList.length}`);
 
     const cwResults = [];
     let successRoom = null;
     for (const tryRoom of roomsToTry) {
-      for (const token of tokens) {
+      for (let ti = 0; ti < tokenList.length; ti++) {
+        const token = tokenList[ti];
         try {
           const res = await fetch(
             `https://api.chatwork.com/v2/rooms/${tryRoom}/tasks/${id}/status`,
@@ -461,8 +468,8 @@ async function handleUpdateDashboardTask(request, env) {
             }
           );
           const resBody = await res.text();
-          cwResults.push({ room: tryRoom, status: res.status, body: resBody, tokenIdx: tokens.indexOf(token) });
-          console.log(`[CW_TASK_UPDATE] room=${tryRoom} task=${id} token=${tokens.indexOf(token)} status=${res.status} body=${resBody}`);
+          cwResults.push({ room: tryRoom, status: res.status, body: resBody, tokenIdx: ti });
+          console.log(`[CW_TASK_UPDATE] room=${tryRoom} task=${id} token=${ti} status=${res.status} body=${resBody}`);
           if (res.status === 200) {
             successRoom = { room: tryRoom };
             break;
