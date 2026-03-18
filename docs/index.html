@@ -2461,6 +2461,12 @@ function buildMorningReport() {
   var morningIds = getMorningTaskIds();
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   try { localStorage.setItem("morningTaskIds_" + reportPid + "_" + td, JSON.stringify(morningIds)); } catch(_) {}
+  var morningSnapshot = {};
+  var allSnap = todayOrOverdue.concat(teikiTasks).concat(waitingTasks);
+  allSnap.forEach(function(t) {
+    morningSnapshot[t.id] = { id: t.id, title: t.title, category: normalizeCategory(t.category), dueTime: t.dueTime || "", localStatus: t.localStatus || t.status || "open", isTeiki: !!t.isManual && normalizeCategory(t.category) === "teiki" };
+  });
+  try { localStorage.setItem("morningSnapshot_" + reportPid + "_" + td, JSON.stringify(morningSnapshot)); } catch(_) {}
   var pObj = peopleData.find(function(p) { return String(p.id) === String(reportPid); });
   var pName = pObj ? pObj.name : "";
   var dateStr = td.replace(/-/g, "/");
@@ -2499,6 +2505,8 @@ function buildEveningReport() {
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   var morningIds = {};
   try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
+  var morningSnapshot = {};
+  try { morningSnapshot = JSON.parse(localStorage.getItem("morningSnapshot_" + reportPid + "_" + td) || "{}"); } catch(_) {}
 
   function stIcon(st) {
     if (st === "done") return "\u2705";
@@ -2506,22 +2514,11 @@ function buildEveningReport() {
     if (st === "waiting") return "\u23F3";
     return "\u274C";
   }
-  function getStatus(t) { return t.localStatus || t.status || "open"; }
-
-  var cwTasks = getMyTasks();
-  var teikiTasks = getMyTeikiTasks();
-
-  var morningCw = cwTasks.filter(function(t) { return morningIds[t.id]; });
-  var morningTeiki = teikiTasks.filter(function(t) { return morningIds[t.id]; });
-  var waitingTasks = morningCw.filter(function(t) { return getStatus(t) === "waiting"; });
-
-  var sashikomi = [];
-  cwTasks.forEach(function(t) {
-    if (!morningIds[t.id] && getStatus(t) === "done" && t.doneDate === td) sashikomi.push(t);
-  });
-  teikiTasks.forEach(function(t) {
-    if (!morningIds[t.id] && (t.status === "done") && t.doneDate === td) sashikomi.push(t);
-  });
+  function getCurrentStatus(taskId) {
+    var t = allTasks.find(function(x) { return x.id === taskId; });
+    if (t) return t.localStatus || t.status || "open";
+    return "done";
+  }
 
   var REPORT_CATS = [
     { key: "teiki", label: "定期タスク" },
@@ -2531,19 +2528,32 @@ function buildEveningReport() {
   ];
 
   var catGroups = {};
-  morningCw.forEach(function(t) {
-    if (getStatus(t) === "waiting") return;
-    var cat = normalizeCategory(t.category);
+  var waitingTasks = [];
+  var snapIds = Object.keys(morningSnapshot);
+  snapIds.forEach(function(sid) {
+    var snap = morningSnapshot[sid];
+    var curSt = getCurrentStatus(sid);
+    var entry = { id: sid, title: snap.title, dueTime: snap.dueTime, currentStatus: curSt };
+    if (snap.localStatus === "waiting") {
+      waitingTasks.push(entry);
+      return;
+    }
     var mapped = "other";
-    if (cat === "number_match") mapped = "number_match";
-    else if (cat === "tsunagikomi") mapped = "tsunagikomi";
-    else mapped = "other";
+    if (snap.isTeiki) mapped = "teiki";
+    else if (snap.category === "number_match") mapped = "number_match";
+    else if (snap.category === "tsunagikomi") mapped = "tsunagikomi";
     if (!catGroups[mapped]) catGroups[mapped] = [];
-    catGroups[mapped].push(t);
+    catGroups[mapped].push(entry);
   });
-  morningTeiki.forEach(function(t) {
-    if (!catGroups["teiki"]) catGroups["teiki"] = [];
-    catGroups["teiki"].push(t);
+
+  var sashikomi = [];
+  var cwTasks = getMyTasks();
+  var teikiTasks = getMyTeikiTasks();
+  cwTasks.forEach(function(t) {
+    if (!morningSnapshot[t.id] && (t.localStatus === "done") && t.doneDate === td) sashikomi.push(t);
+  });
+  teikiTasks.forEach(function(t) {
+    if (!morningSnapshot[t.id] && (t.status === "done") && t.doneDate === td) sashikomi.push(t);
   });
 
   var pObj2 = peopleData.find(function(p) { return String(p.id) === String(reportPid); });
@@ -2556,9 +2566,9 @@ function buildEveningReport() {
     if (idx > 0) lines += "\n[hr]";
     lines += "\n\u3010" + c.label + "\u3011";
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
-      catGroups[c.key].forEach(function(t) {
-        var timeStr = t.dueTime ? "\uFF08" + t.dueTime + "\uFF09" : "";
-        lines += "\n" + stIcon(getStatus(t)) + " " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09") + timeStr;
+      catGroups[c.key].forEach(function(e) {
+        var timeStr = e.dueTime ? "\uFF08" + e.dueTime + "\uFF09" : "";
+        lines += "\n" + stIcon(e.currentStatus) + " " + (e.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09") + timeStr;
       });
     }
   });
@@ -2566,8 +2576,8 @@ function buildEveningReport() {
 
   lines += "\n[info][title]\u5F85\u3061\u30BF\u30B9\u30AF[/title]";
   if (waitingTasks.length > 0) {
-    waitingTasks.forEach(function(t) {
-      lines += "\n\u23F3 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
+    waitingTasks.forEach(function(e) {
+      lines += "\n\u23F3 " + (e.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
     });
   }
   lines += "\n[/info]";
