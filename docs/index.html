@@ -1836,22 +1836,28 @@ function checkTeikiRecurrence(t) {
     t.status = "open";
     t.completedAt = null;
     t.nextDue = null;
-    updateTask(t.id, "status", "open");
-    updateTask(t.id, "completedAt", null);
-    updateTask(t.id, "nextDue", null);
+    t.doneDate = null;
+    dashUpdate(t.id, { status: "open", completedAt: null, nextDue: null, doneDate: null });
   }
+}
+function checkAllTeikiRecurrence() {
+  allTasks.forEach(function(t) {
+    if (t.isManual && normalizeCategory(t.category) === "teiki") {
+      checkTeikiRecurrence(t);
+    }
+  });
 }
 
 async function toggleTeikiComplete(id) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (!t) return;
   if (t.status === "done") {
-    t.status = "open"; t.completedAt = null; t.nextDue = null;
-    await apiCall("POST", "/api/dashboard/tasks/" + id, { status: "open", completedAt: null, nextDue: null });
+    t.status = "open"; t.completedAt = null; t.nextDue = null; t.doneDate = null;
+    await dashUpdate(id, { status: "open", completedAt: null, nextDue: null, doneDate: null });
   } else {
     var nd = calculateNextDue(t.frequency || "monthly");
-    t.status = "done"; t.completedAt = today(); t.nextDue = nd;
-    await apiCall("POST", "/api/dashboard/tasks/" + id, { status: "done", completedAt: today(), nextDue: nd });
+    t.status = "done"; t.completedAt = today(); t.nextDue = nd; t.doneDate = today();
+    await dashUpdate(id, { status: "done", completedAt: today(), nextDue: nd, doneDate: today() });
   }
   renderAll();
 }
@@ -2251,6 +2257,7 @@ async function loadAll() {
     peopleData = Array.isArray(peopleJson.people) ? peopleJson.people : [];
     myId = peopleJson.myId != null ? peopleJson.myId : null;
     if (selectedPersonId == null && peopleData.length > 0) selectedPersonId = myId != null ? myId : (peopleData[0] ? peopleData[0].id : null);
+    checkAllTeikiRecurrence();
     renderPersonButtons(); renderAll(); tasksLoaded = true;
     document.getElementById("lastUpdated").textContent = "最終更新: " + new Date().toLocaleTimeString("ja-JP");
     var sel = peopleData.find(function(p) { return p.id === selectedPersonId; });
