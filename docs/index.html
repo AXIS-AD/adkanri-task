@@ -2503,10 +2503,10 @@ function buildMorningReport() {
 function buildEveningReport() {
   var td = today();
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
-  var morningIds = {};
-  try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
-  var morningSnapshot = {};
-  try { morningSnapshot = JSON.parse(localStorage.getItem("morningSnapshot_" + reportPid + "_" + td) || "{}"); } catch(_) {}
+  var morningSent = "";
+  try { morningSent = localStorage.getItem("morningSent_" + reportPid + "_" + td) || ""; } catch(_) {}
+
+  if (!morningSent) return "（出勤報告が保存されていません。先に出勤報告を送信してください）";
 
   function stIcon(st) {
     if (st === "done") return "\u2705";
@@ -2514,85 +2514,66 @@ function buildEveningReport() {
     if (st === "waiting") return "\u23F3";
     return "\u274C";
   }
-  function getCurrentStatus(taskId) {
-    var t = allTasks.find(function(x) { return x.id === taskId; });
+
+  function findTaskStatus(title) {
+    var clean = title.replace(/^・/, "").replace(/（.*?）$/, "").trim();
+    var t = allTasks.find(function(x) {
+      return x.title === clean || (x.title && x.title.indexOf(clean) === 0);
+    });
     if (t) return t.localStatus || t.status || "open";
     return "done";
   }
 
-  var REPORT_CATS = [
-    { key: "teiki", label: "定期タスク" },
-    { key: "number_match", label: "数字合わせ" },
-    { key: "tsunagikomi", label: "つなぎこみ" },
-    { key: "other", label: "その他" }
-  ];
-
-  var catGroups = {};
-  var waitingTasks = [];
-  var snapIds = Object.keys(morningSnapshot);
-  snapIds.forEach(function(sid) {
-    var snap = morningSnapshot[sid];
-    var curSt = getCurrentStatus(sid);
-    var entry = { id: sid, title: snap.title, dueTime: snap.dueTime, currentStatus: curSt };
-    if (snap.localStatus === "waiting") {
-      waitingTasks.push(entry);
-      return;
+  var morningTitles = [];
+  var sentLines = morningSent.split("\n");
+  sentLines.forEach(function(line) {
+    if (line.match(/^・/)) {
+      morningTitles.push(line.replace(/^・/, "").trim());
     }
-    var mapped = "other";
-    if (snap.isTeiki) mapped = "teiki";
-    else if (snap.category === "number_match") mapped = "number_match";
-    else if (snap.category === "tsunagikomi") mapped = "tsunagikomi";
-    if (!catGroups[mapped]) catGroups[mapped] = [];
-    catGroups[mapped].push(entry);
   });
+
+  var outputLines = [];
+  var titleChanged = false;
+  sentLines.forEach(function(line) {
+    if (!titleChanged && line.match(/\[title\].*\[\/title\]/)) {
+      outputLines.push(line.replace(/\[\/title\]/, "\uFF08\u9000\u52E4\uFF09[/title]"));
+      titleChanged = true;
+    } else if (line.match(/^・/)) {
+      var taskText = line.replace(/^・/, "").trim();
+      var st = findTaskStatus(taskText);
+      outputLines.push(stIcon(st) + " " + taskText);
+    } else {
+      outputLines.push(line);
+    }
+  });
+
+  var result = outputLines.join("\n");
 
   var sashikomi = [];
   var cwTasks = getMyTasks();
   var teikiTasks = getMyTeikiTasks();
   cwTasks.forEach(function(t) {
-    if (!morningSnapshot[t.id] && (t.localStatus === "done") && t.doneDate === td) sashikomi.push(t);
+    var inMorning = morningTitles.some(function(mt) { return mt === t.title || mt.indexOf(t.title) === 0 || t.title.indexOf(mt) === 0; });
+    if (!inMorning && t.localStatus === "done" && t.doneDate === td) sashikomi.push(t);
   });
   teikiTasks.forEach(function(t) {
-    if (!morningSnapshot[t.id] && (t.status === "done") && t.doneDate === td) sashikomi.push(t);
+    var inMorning = morningTitles.some(function(mt) { return mt === t.title || mt.indexOf(t.title) === 0 || t.title.indexOf(mt) === 0; });
+    if (!inMorning && t.status === "done" && t.doneDate === td) sashikomi.push(t);
   });
 
-  var pObj2 = peopleData.find(function(p) { return String(p.id) === String(reportPid); });
-  var pName2 = pObj2 ? pObj2.name : "";
-  var dateStr2 = td.replace(/-/g, "/");
-
-  var lines = "[To:5420288]\u897F\u6751 \u77E5\u8F1D\u3055\u3093\n";
-  lines += "[info][title]" + dateStr2 + " " + pName2 + "\u306E\u30BF\u30B9\u30AF\uFF08\u9000\u52E4\uFF09[/title]";
-  REPORT_CATS.forEach(function(c, idx) {
-    if (idx > 0) lines += "\n[hr]";
-    lines += "\n\u3010" + c.label + "\u3011";
-    if (catGroups[c.key] && catGroups[c.key].length > 0) {
-      catGroups[c.key].forEach(function(e) {
-        var timeStr = e.dueTime ? "\uFF08" + e.dueTime + "\uFF09" : "";
-        lines += "\n" + stIcon(e.currentStatus) + " " + (e.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09") + timeStr;
-      });
-    }
-  });
-  lines += "\n[/info]";
-
-  lines += "\n[info][title]\u5F85\u3061\u30BF\u30B9\u30AF[/title]";
-  if (waitingTasks.length > 0) {
-    waitingTasks.forEach(function(e) {
-      lines += "\n\u23F3 " + (e.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
-    });
-  }
-  lines += "\n[/info]";
-
-  lines += "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
   if (sashikomi.length > 0) {
-    sashikomi.forEach(function(t) {
-      lines += "\n\u2705 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
-    });
-  } else {
-    lines += "\n\u30FB";
+    var sashiSection = result.match(/\[info\]\[title\]差し込みタスク\[\/title\][\s\S]*?\[\/info\]/);
+    if (sashiSection) {
+      var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
+      sashikomi.forEach(function(t) {
+        sashiLines += "\n\u2705 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
+      });
+      sashiLines += "\n[/info]";
+      result = result.replace(sashiSection[0], sashiLines.trim());
+    }
   }
-  lines += "\n[/info]";
 
-  return lines;
+  return result;
 }
 
 async function sendReport() {
@@ -2602,6 +2583,11 @@ async function sendReport() {
   btn.disabled = true; btn.textContent = "送信中...";
   try {
     await apiCall("POST", "/api/dashboard/send-message", { message: message });
+    if (reportTabType === "morning") {
+      var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+      var td = today();
+      try { localStorage.setItem("morningSent_" + reportPid + "_" + td, message); } catch(_) {}
+    }
     alert("送信しました！");
     closeReportModal();
   } catch (e) {
