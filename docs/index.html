@@ -2425,10 +2425,10 @@ function buildEveningReport() {
 
   var sashikomi = [];
   cwTasks.forEach(function(t) {
-    if (!morningIds[t.id]) sashikomi.push(t);
+    if (!morningIds[t.id] && getStatus(t) === "done" && t.doneDate === td) sashikomi.push(t);
   });
   teikiTasks.forEach(function(t) {
-    if (!morningIds[t.id] && (t.status === "done" || getStatus(t) !== "open")) sashikomi.push(t);
+    if (!morningIds[t.id] && (t.status === "done") && t.doneDate === td) sashikomi.push(t);
   });
 
   var REPORT_CATS = [
@@ -2462,30 +2462,31 @@ function buildEveningReport() {
   lines += "[info][title]" + dateStr2 + " " + pName2 + "\u306E\u30BF\u30B9\u30AF\uFF08\u9000\u52E4\uFF09[/title]";
   REPORT_CATS.forEach(function(c, idx) {
     if (idx > 0) lines += "\n[hr]";
-    lines += "\n【" + c.label + "】";
+    lines += "\n\u3010" + c.label + "\u3011";
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
       catGroups[c.key].forEach(function(t) {
-        lines += "\n" + stIcon(getStatus(t)) + " " + (t.title || "（タイトルなし）");
+        var timeStr = t.dueTime ? "\uFF08" + t.dueTime + "\uFF09" : "";
+        lines += "\n" + stIcon(getStatus(t)) + " " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09") + timeStr;
       });
     }
   });
   lines += "\n[/info]";
 
-  lines += "\n[info][title]待ちタスク[/title]";
+  lines += "\n[info][title]\u5F85\u3061\u30BF\u30B9\u30AF[/title]";
   if (waitingTasks.length > 0) {
     waitingTasks.forEach(function(t) {
-      lines += "\n\u23F3 " + (t.title || "（タイトルなし）");
+      lines += "\n\u23F3 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
     });
   }
   lines += "\n[/info]";
 
-  lines += "\n[info][title]差し込みタスク[/title]";
+  lines += "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
   if (sashikomi.length > 0) {
     sashikomi.forEach(function(t) {
-      lines += "\n" + stIcon(getStatus(t)) + " " + (t.title || "（タイトルなし）");
+      lines += "\n\u2705 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
     });
   } else {
-    lines += "\n・";
+    lines += "\n\u30FB";
   }
   lines += "\n[/info]";
 
