@@ -378,6 +378,7 @@ async function handleGetDashboardTasks(request, env) {
         doneDate: meta.doneDate || null,
         note: meta.note || '',
         limit: meta.limit || t.limit,
+        scheduledDate: meta.scheduledDate || null,
         assigneeId: t.assigneeId,
         assigneeName: t.assigneeName,
       });
