@@ -313,6 +313,16 @@ const DEFAULT_PEOPLE = [
   { name: '\u897F\u6751', id: 5420288 },
 ];
 
+function getTokenForAssignee(env, assigneeId) {
+  const TOKEN_MAP = {
+    9797164: env.CHATWORK_TOKEN_TSUTSUI,
+    5420288: env.CHATWORK_TOKEN_NISHIMURA,
+    10696465: env.CHATWORK_TOKEN_ISHIDA,
+    10034061: env.CHATWORK_API_TOKEN,
+  };
+  return TOKEN_MAP[assigneeId] || null;
+}
+
 function resolvePersonName(account) {
   if (!account) return '';
   const match = DEFAULT_PEOPLE.find((p) => p.id === account.account_id);
@@ -429,9 +439,13 @@ async function handleUpdateDashboardTask(request, env) {
     roomsToTry.add(DASHBOARD_ROOM_ID);
     if (cfg.roomId) roomsToTry.add(cfg.roomId);
 
-    const doneToken = env.CHATWORK_DONE_TOKEN || '';
-    const tokens = [cfg.apiToken];
-    if (doneToken && doneToken !== cfg.apiToken) tokens.push(doneToken);
+    const assigneeId = body.assigneeId || local[id]?.assigneeId || null;
+    const assigneeToken = assigneeId ? getTokenForAssignee(env, Number(assigneeId)) : null;
+    const tokens = [];
+    if (assigneeToken) tokens.push(assigneeToken);
+    if (!tokens.includes(cfg.apiToken)) tokens.push(cfg.apiToken);
+    const doneToken2 = env.CHATWORK_DONE_TOKEN || '';
+    if (doneToken2 && !tokens.includes(doneToken2)) tokens.push(doneToken2);
 
     const cwResults = [];
     let successRoom = null;

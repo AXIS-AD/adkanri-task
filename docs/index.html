@@ -1544,6 +1544,7 @@ function handleStatusChange(id, val) {
   var t = allTasks.find(function(x) { return x.id === id; });
   var payload = { localStatus: val };
   if (t && t.roomId) payload.roomId = t.roomId;
+  if (t && t.assigneeId) payload.assigneeId = t.assigneeId;
   dashUpdate(id, payload);
   if (t) { t.localStatus = val; renderAll(); }
 }
@@ -1558,6 +1559,7 @@ async function confirmDone() {
   var reply = document.getElementById("doneReplyText").value.trim();
   var payload = { localStatus: "done", replyMessage: reply, doneDate: today() };
   if (t && t.roomId) payload.roomId = t.roomId;
+  if (t && t.assigneeId) payload.assigneeId = t.assigneeId;
   closeDoneModal();
   if (currentModalId) closeModal();
   await dashUpdate(id, payload);
