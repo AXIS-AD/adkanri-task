@@ -318,7 +318,7 @@ function getTokenForAssignee(env, assigneeId) {
     9797164: env.CHATWORK_TOKEN_TSUTSUI,
     5420288: env.CHATWORK_TOKEN_NISHIMURA,
     10696465: env.CHATWORK_TOKEN_ISHIDA,
-    10034061: env.CHATWORK_API_TOKEN,
+    10034061: env.CHATWORK_TOKEN_TOMORI,
   };
   return TOKEN_MAP[assigneeId] || null;
 }
@@ -447,6 +447,7 @@ async function handleUpdateDashboardTask(request, env) {
     }
     tokens.add(cfg.apiToken);
     if (env.CHATWORK_DONE_TOKEN) tokens.add(env.CHATWORK_DONE_TOKEN);
+    if (env.CHATWORK_TOKEN_TOMORI) tokens.add(env.CHATWORK_TOKEN_TOMORI);
     if (env.CHATWORK_TOKEN_TSUTSUI) tokens.add(env.CHATWORK_TOKEN_TSUTSUI);
     if (env.CHATWORK_TOKEN_NISHIMURA) tokens.add(env.CHATWORK_TOKEN_NISHIMURA);
     if (env.CHATWORK_TOKEN_ISHIDA) tokens.add(env.CHATWORK_TOKEN_ISHIDA);
