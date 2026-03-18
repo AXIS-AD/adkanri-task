@@ -140,6 +140,8 @@
   .date-label:hover { color: var(--accent); border-color: var(--accent); }
   .scheduled-label { cursor: pointer; border-bottom: 1px dashed var(--green); color: var(--green); font-size: 11px; }
   .scheduled-label:hover { opacity: 0.8; }
+  .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+  .sortable-th:hover { color: var(--accent); }
   .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; margin-bottom: 10px; }
   .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .card-actions select, .card-actions input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
@@ -1407,9 +1409,52 @@ function cleanBody(body) { return (body || "").replace(/\[.*?\]/g, "").replace(/
 function setDisplayMode(mode) { displayMode = mode; document.querySelectorAll(".display-toggle button[data-mode]").forEach(function(b) { b.classList.toggle("active", b.dataset.mode === mode); }); renderAll(); }
 function setViewMode(mode) { viewMode = mode; document.querySelectorAll(".view-toggle button[data-view]").forEach(function(b) { b.classList.toggle("active", b.dataset.view === mode); }); renderAll(); }
 
+var listSortKey = null;
+var listSortAsc = true;
+function toggleListSort(key) {
+  if (listSortKey === key) { listSortAsc = !listSortAsc; }
+  else { listSortKey = key; listSortAsc = true; }
+  renderAll();
+}
+function sortedTasks(tasks) {
+  if (!listSortKey) return tasks;
+  var PRIO_ORDER = { high: 0, medium: 1, low: 2 };
+  var STATUS_ORDER = { open: 0, in_progress: 1, waiting: 2, done: 3 };
+  var sorted = tasks.slice();
+  sorted.sort(function(a, b) {
+    var va, vb;
+    switch (listSortKey) {
+      case "title": va = (a.title || "").toLowerCase(); vb = (b.title || "").toLowerCase(); break;
+      case "limit": va = a.limit || "9999"; vb = b.limit || "9999"; break;
+      case "scheduled": va = a.scheduledDate || "9999"; vb = b.scheduledDate || "9999"; break;
+      case "assignee": va = a.assigneeName || ""; vb = b.assigneeName || ""; break;
+      case "priority": va = PRIO_ORDER[a.priority] != null ? PRIO_ORDER[a.priority] : 1; vb = PRIO_ORDER[b.priority] != null ? PRIO_ORDER[b.priority] : 1; break;
+      case "status": va = STATUS_ORDER[a.localStatus] != null ? STATUS_ORDER[a.localStatus] : 0; vb = STATUS_ORDER[b.localStatus] != null ? STATUS_ORDER[b.localStatus] : 0; break;
+      case "category": va = normalizeCategory(a.category); vb = normalizeCategory(b.category); break;
+      default: return 0;
+    }
+    if (va < vb) return listSortAsc ? -1 : 1;
+    if (va > vb) return listSortAsc ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+function sortArrow(key) {
+  if (listSortKey !== key) return ' <span style="opacity:0.3">\u21C5</span>';
+  return listSortAsc ? ' \u25B2' : ' \u25BC';
+}
 function renderListTable(tasks) {
+  tasks = sortedTasks(tasks);
   var STATUS_LABELS = { open: "未着手", in_progress: "着手中", waiting: "相手待ち", done: "完了" };
-  var html = '<table class="task-list-table"><thead><tr><th>タスク名</th><th>期日</th><th>\uD83D\uDCC5\u4E88\u5B9A</th><th>担当</th><th>優先度</th><th>ステータス</th><th>カテゴリ</th><th>メモ</th><th></th></tr></thead><tbody>';
+  var html = '<table class="task-list-table"><thead><tr>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'title\')">\u30BF\u30B9\u30AF\u540D' + sortArrow("title") + '</th>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'limit\')">\u671F\u65E5' + sortArrow("limit") + '</th>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'scheduled\')">\uD83D\uDCC5\u4E88\u5B9A' + sortArrow("scheduled") + '</th>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'assignee\')">\u62C5\u5F53' + sortArrow("assignee") + '</th>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'priority\')">\u512A\u5148\u5EA6' + sortArrow("priority") + '</th>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'status\')">\u30B9\u30C6\u30FC\u30BF\u30B9' + sortArrow("status") + '</th>';
+  html += '<th class="sortable-th" onclick="toggleListSort(\'category\')">\u30AB\u30C6\u30B4\u30EA' + sortArrow("category") + '</th>';
+  html += '<th>\u30E1\u30E2</th><th></th></tr></thead><tbody>';
   tasks.forEach(function(t) {
     var dl = dueLabel(t.limit), dc = dueClass(t.limit);
     var pLabel = PRIORITY_LABELS[t.priority] || "中";
