@@ -930,16 +930,20 @@ function showLogin() {
 
 function scheduleTokenRefresh() {
   if (_refreshTimer) clearTimeout(_refreshTimer);
+  _refreshTimer = null;
   if (!authToken) return;
   try {
     var payload = decodeJwt(authToken);
-    var refreshAt = (payload.exp - 24 * 60 * 60) * 1000 - Date.now();
-    if (refreshAt < 60000) refreshAt = 60000;
+    var msUntilExpiry = payload.exp * 1000 - Date.now();
+    var refreshAt = msUntilExpiry - 24 * 60 * 60 * 1000;
+    if (refreshAt < 3600000) refreshAt = 3600000;
+    if (refreshAt > 2147483647) refreshAt = 2147483647;
     _refreshTimer = setTimeout(doTokenRefresh, refreshAt);
   } catch (_) {}
 }
 
 function doTokenRefresh() {
+  _refreshTimer = null;
   if (!authToken) return;
   fetch(API_BASE + "/api/auth/refresh", {
     method: "POST",
@@ -1004,7 +1008,6 @@ function applyUserUI(user) {
 
 function handleCredentialResponse(response) {
   if (_sessionRestored && authToken && !isTokenExpired()) {
-    console.log("[Auth] Already authenticated, ignoring Google callback");
     return;
   }
   var btn = document.querySelector(".auth-signin-wrap");
@@ -1023,8 +1026,7 @@ function handleCredentialResponse(response) {
       localStorage.setItem("sessionToken", data.token);
       localStorage.setItem("userInfo", JSON.stringify(data.user));
       applyUserUI(data.user);
-      scheduleTokenRefresh();
-      checkRole();
+      setTimeout(function() { checkRole(); }, 500);
     } else {
       alert(data.error || "ログインに失敗しました");
       showLogin();
@@ -1047,8 +1049,12 @@ function handleCredentialResponse(response) {
         var userInfo = localStorage.getItem("userInfo");
         var user = userInfo ? JSON.parse(userInfo) : { email: payload.email, name: payload.name, picture: payload.picture };
         applyUserUI(user);
-        scheduleTokenRefresh();
-        checkRole();
+        var cachedRole = localStorage.getItem("userRole");
+        if (cachedRole) {
+          userRole = cachedRole;
+          applyRole();
+        }
+        setTimeout(function() { checkRole(); }, 300);
         return;
       }
     } catch (_) {}
@@ -1065,16 +1071,16 @@ async function checkRole(retries) {
     var data = await apiCall("POST", "/api/role", {});
     if (mySeq !== _checkRoleSeq) return;
     userRole = data.role;
-    console.log("[Auth] role=" + data.role);
+    localStorage.setItem("userRole", data.role);
     applyRole();
     if (data.firstSetup) switchPage("admin");
   } catch (e) {
     if (mySeq !== _checkRoleSeq) return;
-    console.warn("[Auth] checkRole failed (attempt " + (retries + 1) + "):", e.message);
-    if (retries < 2) {
-      setTimeout(function() { if (mySeq === _checkRoleSeq) checkRole(retries + 1); }, 1500);
+    if (retries < 3) {
+      setTimeout(function() { if (mySeq === _checkRoleSeq) checkRole(retries + 1); }, 2000 * (retries + 1));
     } else {
-      userRole = "user";
+      var cached = localStorage.getItem("userRole");
+      if (cached) { userRole = cached; }
       applyRole();
     }
   }
