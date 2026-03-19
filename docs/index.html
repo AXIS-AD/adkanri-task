@@ -2619,19 +2619,45 @@ function buildMorningReport() {
 
 var _eveningKvLoaded = false;
 
+function findMorningSentLocal(reportPid, td) {
+  var tdUTC = new Date().toISOString().slice(0, 10);
+  var pids = [reportPid];
+  if (String(myId) !== String(reportPid)) pids.push(myId);
+  var dates = [td];
+  if (tdUTC !== td) dates.push(tdUTC);
+  for (var p = 0; p < pids.length; p++) {
+    for (var d = 0; d < dates.length; d++) {
+      var val = "";
+      try { val = localStorage.getItem("morningSent_" + pids[p] + "_" + dates[d]) || ""; } catch(_) {}
+      if (val) return val;
+    }
+  }
+  return "";
+}
+
 function buildEveningReport() {
   var td = today();
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
-  var morningSent = "";
-  try { morningSent = localStorage.getItem("morningSent_" + reportPid + "_" + td) || ""; } catch(_) {}
+  var morningSent = findMorningSentLocal(reportPid, td);
 
   if (!morningSent && !_eveningKvLoaded) {
     _eveningKvLoaded = true;
+    var tdUTC = new Date().toISOString().slice(0, 10);
+    var kvDate = td;
     apiCall("GET", "/api/dashboard/morning-sent?personId=" + reportPid + "&date=" + td).then(function(res) {
       if (res && res.message) {
         try { localStorage.setItem("morningSent_" + reportPid + "_" + td, res.message); } catch(_) {}
+        buildReport();
+      } else if (tdUTC !== td) {
+        return apiCall("GET", "/api/dashboard/morning-sent?personId=" + reportPid + "&date=" + tdUTC).then(function(res2) {
+          if (res2 && res2.message) {
+            try { localStorage.setItem("morningSent_" + reportPid + "_" + td, res2.message); } catch(_) {}
+          }
+          buildReport();
+        });
+      } else {
+        buildReport();
       }
-      buildReport();
     }).catch(function() { buildReport(); });
     return "（出勤報告を読み込み中...）";
   }
