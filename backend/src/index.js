@@ -49,6 +49,12 @@ export default {
       else if (path === '/api/dashboard/send-message' && request.method === 'POST') {
         response = await handleSendMessage(request, env);
       }
+      // ── 出勤報告保存・取得 ──
+      else if (path === '/api/dashboard/morning-sent' && request.method === 'POST') {
+        response = await handleSaveMorningSent(request, env);
+      } else if (path === '/api/dashboard/morning-sent' && request.method === 'GET') {
+        response = await handleGetMorningSent(request, env);
+      }
       // ── スプレッドシート連携 ──
       else if (path === '/api/sheet-options' && request.method === 'GET') {
         response = await handleGetSheetOptions(request, env);
@@ -529,6 +535,26 @@ async function handleSendMessage(request, env) {
   });
   if (!res.ok) return jsonResponse({ error: 'Failed to send message' }, 500);
   return jsonResponse({ ok: true });
+}
+
+async function handleSaveMorningSent(request, env) {
+  await verifyGoogleToken(request, env);
+  const { personId, date, message } = await request.json();
+  if (!personId || !date || !message) return jsonResponse({ error: 'missing params' }, 400);
+  const key = `morningSent_${personId}_${date}`;
+  await env.TASK_STORE.put(key, message, { expirationTtl: 86400 * 3 });
+  return jsonResponse({ ok: true });
+}
+
+async function handleGetMorningSent(request, env) {
+  await verifyGoogleToken(request, env);
+  const url = new URL(request.url);
+  const personId = url.searchParams.get('personId');
+  const date = url.searchParams.get('date');
+  if (!personId || !date) return jsonResponse({ error: 'missing params' }, 400);
+  const key = `morningSent_${personId}_${date}`;
+  const message = await env.TASK_STORE.get(key);
+  return jsonResponse({ message: message || '' });
 }
 
 async function handleCreateManualTask(request, env) {

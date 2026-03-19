@@ -1517,7 +1517,7 @@ var tasksLoaded = false;
 
 function normalizeCategory(cat) { return cat && CATEGORY_LABELS[cat] ? cat : "other"; }
 function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { var d = new Date(); d.setHours(d.getHours() + 9); return d.toISOString().slice(0, 10); }
 function dueClass(l) { if (!l) return ""; var diff = (new Date(l) - new Date(today())) / 86400000; return diff < 0 ? "overdue" : diff === 0 ? "due-today" : diff <= 2 ? "due-soon" : ""; }
 function dueLabel(l) { if (!l) return "期限なし"; var diff = Math.round((new Date(l) - new Date(today())) / 86400000); return diff < 0 ? Math.abs(diff) + "日超過" : diff === 0 ? "今日" : diff === 1 ? "明日" : diff + "日後"; }
 function cleanBody(body) { return (body || "").replace(/\[.*?\]/g, "").replace(/依頼がきました。対応お願いします！/g, "").replace(/【.*?】/g, "").trim().split("\n").filter(function(l) { return l.trim(); }).slice(0, 3).join("\n"); }
@@ -2485,6 +2485,7 @@ function closeReportModal() {
 
 function switchReportTab(type) {
   reportTabType = type;
+  _eveningReportCache = null;
   document.querySelectorAll(".report-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
   buildReport();
 }
@@ -2616,12 +2617,38 @@ function buildMorningReport() {
   return lines;
 }
 
+var _eveningReportCache = null;
+
+async function loadMorningSent(reportPid, td) {
+  var local = "";
+  try { local = localStorage.getItem("morningSent_" + reportPid + "_" + td) || ""; } catch(_) {}
+  if (local) return local;
+  try {
+    var res = await apiCall("GET", "/api/dashboard/morning-sent?personId=" + reportPid + "&date=" + td);
+    if (res && res.message) {
+      try { localStorage.setItem("morningSent_" + reportPid + "_" + td, res.message); } catch(_) {}
+      return res.message;
+    }
+  } catch(_) {}
+  return "";
+}
+
 function buildEveningReport() {
   var td = today();
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   var morningSent = "";
   try { morningSent = localStorage.getItem("morningSent_" + reportPid + "_" + td) || ""; } catch(_) {}
 
+  if (!morningSent && !_eveningReportCache) {
+    loadMorningSent(reportPid, td).then(function(msg) {
+      if (msg) {
+        _eveningReportCache = msg;
+        buildReport();
+      }
+    });
+    return "（出勤報告を読み込み中...）";
+  }
+  if (!morningSent) morningSent = _eveningReportCache || "";
   if (!morningSent) return "（出勤報告が保存されていません。先に出勤報告を送信してください）";
 
   function stIcon(st) {
@@ -2633,6 +2660,7 @@ function buildEveningReport() {
 
   function findTaskStatus(title) {
     var clean = title.replace(/^・/, "").replace(/（.*?）$/, "").trim();
+    if (!clean) return "open";
     var t = allTasks.find(function(x) {
       return x.title === clean || (x.title && x.title.indexOf(clean) === 0);
     });
@@ -2656,8 +2684,11 @@ function buildEveningReport() {
       titleChanged = true;
     } else if (line.match(/^・/)) {
       var taskText = line.replace(/^・/, "").trim();
-      var st = findTaskStatus(taskText);
-      outputLines.push(stIcon(st) + " " + taskText);
+      if (!taskText) { outputLines.push("・"); }
+      else {
+        var st = findTaskStatus(taskText);
+        outputLines.push(stIcon(st) + " " + taskText);
+      }
     } else {
       outputLines.push(line);
     }
@@ -2703,6 +2734,7 @@ async function sendReport() {
       var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
       var td = today();
       try { localStorage.setItem("morningSent_" + reportPid + "_" + td, message); } catch(_) {}
+      try { await apiCall("POST", "/api/dashboard/morning-sent", { personId: reportPid, date: td, message: message }); } catch(_) {}
     }
     alert("送信しました！");
     closeReportModal();
