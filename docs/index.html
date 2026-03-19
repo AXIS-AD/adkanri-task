@@ -911,6 +911,8 @@ var authToken = null;
 var currentUser = null;
 var userRole = "user";
 var _refreshTimer = null;
+var _checkRoleSeq = 0;
+var _sessionRestored = false;
 
 function decodeJwt(token) {
   var payload = token.split(".")[1];
@@ -966,6 +968,7 @@ function apiCall(method, path, body) {
     if (res.status === 401) {
       localStorage.removeItem("sessionToken");
       authToken = null;
+      _sessionRestored = false;
       showLogin();
       return res.json().catch(function() { return {}; }).then(function(data) {
         throw new Error(data.error || "ログインが必要です");
@@ -992,6 +995,10 @@ function applyUserUI(user) {
 }
 
 function handleCredentialResponse(response) {
+  if (_sessionRestored && authToken && !isTokenExpired()) {
+    console.log("[Auth] Already authenticated, ignoring Google callback");
+    return;
+  }
   var btn = document.querySelector(".auth-signin-wrap");
   if (btn) btn.innerHTML = '<div style="color:var(--text2);font-size:13px;">認証中...</div>';
   fetch(API_BASE + "/api/auth/login", {
@@ -1004,22 +1011,20 @@ function handleCredentialResponse(response) {
   }).then(function(data) {
     if (data.token) {
       authToken = data.token;
+      _sessionRestored = true;
       localStorage.setItem("sessionToken", data.token);
       localStorage.setItem("userInfo", JSON.stringify(data.user));
       applyUserUI(data.user);
       scheduleTokenRefresh();
       checkRole();
     } else {
-      console.error("[Auth] login response missing token:", data);
       alert(data.error || "ログインに失敗しました");
       showLogin();
-      initGoogleSignIn();
     }
   }).catch(function(e) {
-    console.error("[Auth] login exchange failed:", e);
+    console.error("[Auth] login failed:", e);
     alert("ログインに失敗しました: " + e.message);
     showLogin();
-    initGoogleSignIn();
   });
 }
 
@@ -1030,6 +1035,7 @@ function handleCredentialResponse(response) {
       var payload = decodeJwt(saved);
       if (payload.iss === "adkanri" && Date.now() / 1000 < payload.exp - 300) {
         authToken = saved;
+        _sessionRestored = true;
         var userInfo = localStorage.getItem("userInfo");
         var user = userInfo ? JSON.parse(userInfo) : { email: payload.email, name: payload.name, picture: payload.picture };
         applyUserUI(user);
@@ -1040,34 +1046,25 @@ function handleCredentialResponse(response) {
     } catch (_) {}
     localStorage.removeItem("sessionToken");
   }
-  // Legacy: try old Google token
-  var oldToken = localStorage.getItem("authToken");
-  if (oldToken) {
-    try {
-      var p = decodeJwt(oldToken);
-      if (Date.now() / 1000 < p.exp - 60) {
-        handleCredentialResponse({ credential: oldToken });
-        localStorage.removeItem("authToken");
-        return;
-      }
-    } catch (_) {}
-    localStorage.removeItem("authToken");
-  }
+  localStorage.removeItem("authToken");
   showLogin();
 })();
 
 async function checkRole(retries) {
+  var mySeq = ++_checkRoleSeq;
   retries = retries || 0;
   try {
     var data = await apiCall("POST", "/api/role", {});
+    if (mySeq !== _checkRoleSeq) return;
     userRole = data.role;
     console.log("[Auth] role=" + data.role);
     applyRole();
     if (data.firstSetup) switchPage("admin");
   } catch (e) {
+    if (mySeq !== _checkRoleSeq) return;
     console.warn("[Auth] checkRole failed (attempt " + (retries + 1) + "):", e.message);
     if (retries < 2) {
-      setTimeout(function() { checkRole(retries + 1); }, 1500);
+      setTimeout(function() { if (mySeq === _checkRoleSeq) checkRole(retries + 1); }, 1500);
     } else {
       userRole = "user";
       applyRole();
@@ -1090,7 +1087,9 @@ function initGoogleSignIn() {
       auto_select: true,
     });
     google.accounts.id.renderButton(document.getElementById("googleSignInLarge"), { theme: "filled_blue", size: "large", shape: "pill", text: "signin_with", locale: "ja" });
-    google.accounts.id.prompt();
+    if (!_sessionRestored) {
+      google.accounts.id.prompt();
+    }
   }
   tryInit();
 }
