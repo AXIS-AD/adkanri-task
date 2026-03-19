@@ -4,6 +4,7 @@
 
 const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com'];
 const ALLOWED_ORIGINS = ['https://axis-ad.github.io', 'http://localhost:3000', 'http://localhost:3456'];
+const PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.adkanri-task\.pages\.dev$/;
 const REQ_PREFIX = 'REQ-ID:';
 
 const OVERDUE_ALERT_ROOM_ID = '376867208';
@@ -76,9 +77,13 @@ export default {
 // CORS
 // ====================================================
 
+function isAllowedOrigin(origin) {
+  return ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin) || PREVIEW_ORIGIN_RE.test(origin);
+}
+
 function corsPreflightResponse(request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
+  const allowed = isAllowedOrigin(origin);
   return new Response(null, {
     status: 204,
     headers: {
@@ -92,7 +97,7 @@ function corsPreflightResponse(request) {
 
 function addCorsHeaders(response, request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
+  const allowed = isAllowedOrigin(origin);
   const headers = new Headers(response.headers);
   if (allowed) {
     headers.set('Access-Control-Allow-Origin', origin);

@@ -12,6 +12,10 @@ crons = ["0 1 * * *"]
 binding = "TASK_STORE"
 id = "d8d1d95bd7484f65bbf0ed6f597a7dc3"
 
+# プレビュー環境（ブランチテスト用）
+[env.preview]
+name = "adkanri-api-preview"
+
 # 環境変数（シークレット）は wrangler secret put で設定:
 #
 # 既存（依頼フォーム用）:
