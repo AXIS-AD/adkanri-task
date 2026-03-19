@@ -147,6 +147,15 @@
   .list-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,.2); }
   .list-memo-input { font-size: 12px; width: 120px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); }
   .list-memo-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,.2); }
+  .req-filters { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; padding: 12px 16px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border); flex-wrap: wrap; }
+  .req-filter-group { display: flex; align-items: center; gap: 6px; }
+  .req-filter-label { font-size: 12px; color: var(--text2); font-weight: 600; white-space: nowrap; }
+  .req-filter-select { font-size: 13px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); cursor: pointer; min-width: 100px; }
+  .req-filter-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,.2); }
+  .req-filter-reset { font-size: 12px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text2); cursor: pointer; }
+  .req-filter-reset:hover { background: var(--border); color: var(--text); }
+  .req-table th.req-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  .req-table th.req-sortable:hover { color: var(--accent); }
   .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; margin-bottom: 10px; }
   .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .card-actions select, .card-actions input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
@@ -501,6 +510,27 @@
     <div class="panel" id="panel-mystatus">
       <main>
         <h2 style="margin-bottom:16px;">依頼状況</h2>
+        <div class="req-filters" id="reqFilters">
+          <div class="req-filter-group">
+            <label class="req-filter-label">担当</label>
+            <select id="reqFilterAssignee" class="req-filter-select" onchange="renderMyRequests()"><option value="">すべて</option></select>
+          </div>
+          <div class="req-filter-group">
+            <label class="req-filter-label">進捗</label>
+            <select id="reqFilterStatus" class="req-filter-select" onchange="renderMyRequests()">
+              <option value="">すべて</option>
+              <option value="未着手">未着手</option>
+              <option value="着手中">着手中</option>
+              <option value="相手待ち">相手待ち</option>
+              <option value="完了">完了</option>
+            </select>
+          </div>
+          <div class="req-filter-group">
+            <label class="req-filter-label">依頼者</label>
+            <select id="reqFilterRequester" class="req-filter-select" onchange="renderMyRequests()"><option value="">すべて</option></select>
+          </div>
+          <button class="req-filter-reset" onclick="resetReqFilters()">リセット</button>
+        </div>
         <div id="myRequestsArea"><div class="empty-state">読み込み中...</div></div>
       </main>
     </div>
@@ -1283,6 +1313,8 @@ function resetRequestForm() {
 // My Requests
 // ============================
 var myRequestsData = [];
+var reqSortKey = "date";
+var reqSortAsc = false;
 
 async function loadMyRequests() {
   var area = document.getElementById("myRequestsArea");
@@ -1290,14 +1322,94 @@ async function loadMyRequests() {
   try {
     var tasks = await apiCall("GET", "/api/my-requests");
     myRequestsData = Array.isArray(tasks) ? tasks : [];
-    if (myRequestsData.length === 0) {
-      area.innerHTML = '<div class="empty-state">依頼はまだありません</div>';
-      return;
+    buildReqFilterOptions();
+    renderMyRequests();
+  } catch (err) {
+    area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(err.message) + "</div>";
+  }
+}
+
+function buildReqFilterOptions() {
+  var assignees = {}, requesters = {};
+  myRequestsData.forEach(function(t) {
+    if (t.assignee) assignees[t.assignee] = true;
+    if (t.requester) requesters[t.requester] = true;
+  });
+  var aSelect = document.getElementById("reqFilterAssignee");
+  var rSelect = document.getElementById("reqFilterRequester");
+  var aVal = aSelect.value, rVal = rSelect.value;
+  aSelect.innerHTML = '<option value="">すべて</option>';
+  rSelect.innerHTML = '<option value="">すべて</option>';
+  Object.keys(assignees).sort().forEach(function(n) { aSelect.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  Object.keys(requesters).sort().forEach(function(n) { rSelect.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  aSelect.value = aVal; rSelect.value = rVal;
+}
+
+function resetReqFilters() {
+  document.getElementById("reqFilterAssignee").value = "";
+  document.getElementById("reqFilterStatus").value = "";
+  document.getElementById("reqFilterRequester").value = "";
+  renderMyRequests();
+}
+
+function toggleReqSort(key) {
+  if (reqSortKey === key) { reqSortAsc = !reqSortAsc; }
+  else { reqSortKey = key; reqSortAsc = key === "title" || key === "requester" || key === "assignee"; }
+  renderMyRequests();
+}
+
+function reqSortArrow(key) {
+  if (reqSortKey !== key) return ' <small style="opacity:.3">⇅</small>';
+  return reqSortAsc ? ' <small>↑</small>' : ' <small>↓</small>';
+}
+
+function renderMyRequests() {
+  var area = document.getElementById("myRequestsArea");
+  if (myRequestsData.length === 0) {
+    area.innerHTML = '<div class="empty-state">依頼はまだありません</div>';
+    return;
+  }
+  var fAssignee = document.getElementById("reqFilterAssignee").value;
+  var fStatus = document.getElementById("reqFilterStatus").value;
+  var fRequester = document.getElementById("reqFilterRequester").value;
+
+  var filtered = myRequestsData.filter(function(t) {
+    if (fAssignee && (t.assignee || "") !== fAssignee) return false;
+    if (fStatus && (t.status || "未着手") !== fStatus) return false;
+    if (fRequester && (t.requester || "") !== fRequester) return false;
+    return true;
+  });
+
+  filtered.sort(function(a, b) {
+    var va, vb;
+    var STATUS_ORDER = { "未着手": 0, "着手中": 1, "相手待ち": 2, "完了": 3 };
+    switch (reqSortKey) {
+      case "title": va = (a.title || "").toLowerCase(); vb = (b.title || "").toLowerCase(); break;
+      case "requester": va = (a.requester || ""); vb = (b.requester || ""); break;
+      case "assignee": va = (a.assignee || ""); vb = (b.assignee || ""); break;
+      case "date": va = a.createdAt || ""; vb = b.createdAt || ""; break;
+      case "status": va = STATUS_ORDER[a.status] != null ? STATUS_ORDER[a.status] : 0; vb = STATUS_ORDER[b.status] != null ? STATUS_ORDER[b.status] : 0; break;
+      default: return 0;
     }
-    function statusClass(s) { return s === "完了" ? "done" : s === "着手中" ? "progress" : s === "相手待ち" ? "waiting" : "pending"; }
-    var html = '<table class="req-table"><thead><tr><th>内容</th><th>依頼者</th><th>担当</th><th>日付</th><th>進捗</th></tr></thead><tbody>';
-    myRequestsData.forEach(function(t, idx) {
-      html += '<tr style="cursor:pointer;" onclick="openRequestModal(' + idx + ')">';
+    if (va < vb) return reqSortAsc ? -1 : 1;
+    if (va > vb) return reqSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  function statusClass(s) { return s === "完了" ? "done" : s === "着手中" ? "progress" : s === "相手待ち" ? "waiting" : "pending"; }
+  var html = '<table class="req-table"><thead><tr>';
+  html += '<th class="req-sortable" onclick="toggleReqSort(\'title\')">内容' + reqSortArrow("title") + '</th>';
+  html += '<th class="req-sortable" onclick="toggleReqSort(\'requester\')">依頼者' + reqSortArrow("requester") + '</th>';
+  html += '<th class="req-sortable" onclick="toggleReqSort(\'assignee\')">担当' + reqSortArrow("assignee") + '</th>';
+  html += '<th class="req-sortable" onclick="toggleReqSort(\'date\')">日付' + reqSortArrow("date") + '</th>';
+  html += '<th class="req-sortable" onclick="toggleReqSort(\'status\')">進捗' + reqSortArrow("status") + '</th>';
+  html += '</tr></thead><tbody>';
+  if (filtered.length === 0) {
+    html += '<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:24px;">該当する依頼がありません</td></tr>';
+  } else {
+    filtered.forEach(function(t) {
+      var origIdx = myRequestsData.indexOf(t);
+      html += '<tr style="cursor:pointer;" onclick="openRequestModal(' + origIdx + ')">';
       html += '<td>' + esc(t.title || "-") + '</td>';
       html += '<td>' + esc(t.requester || "-") + '</td>';
       html += '<td>' + esc(t.assignee || "-") + '</td>';
@@ -1305,11 +1417,10 @@ async function loadMyRequests() {
       html += '<td><span class="req-status ' + statusClass(t.status) + '">' + esc(t.status || "未着手") + '</span></td>';
       html += '</tr>';
     });
-    html += "</tbody></table>";
-    area.innerHTML = html;
-  } catch (err) {
-    area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(err.message) + "</div>";
   }
+  html += "</tbody></table>";
+  html += '<div style="margin-top:8px;font-size:12px;color:var(--text2);">' + filtered.length + ' / ' + myRequestsData.length + ' 件表示</div>';
+  area.innerHTML = html;
 }
 
 function openRequestModal(idx) {
