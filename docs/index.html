@@ -910,112 +910,143 @@ function toggleSidebar() {
 var authToken = null;
 var currentUser = null;
 var userRole = "user";
+var _refreshTimer = null;
 
 function decodeJwt(token) {
   var payload = token.split(".")[1];
   return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
 }
 
-var silentRefreshInProgress = false;
-
 function isTokenExpired() {
   if (!authToken) return true;
-  try { return Date.now() / 1000 > decodeJwt(authToken).exp - 60; } catch(e) { return true; }
+  try { return Date.now() / 1000 > decodeJwt(authToken).exp - 300; } catch(e) { return true; }
 }
 
-function reAuthenticate() {
+function showLogin() {
   document.getElementById("authOverlay").classList.remove("hidden");
-  if (typeof google !== "undefined" && google.accounts) google.accounts.id.prompt();
 }
 
-function trySilentRefresh() {
-  if (silentRefreshInProgress) return;
-  silentRefreshInProgress = true;
-  if (typeof google !== "undefined" && google.accounts && google.accounts.id) {
-    google.accounts.id.prompt(function(notification) {
-      silentRefreshInProgress = false;
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        reAuthenticate();
+function scheduleTokenRefresh() {
+  if (_refreshTimer) clearTimeout(_refreshTimer);
+  if (!authToken) return;
+  try {
+    var payload = decodeJwt(authToken);
+    var refreshAt = (payload.exp - 24 * 60 * 60) * 1000 - Date.now();
+    if (refreshAt < 60000) refreshAt = 60000;
+    _refreshTimer = setTimeout(doTokenRefresh, refreshAt);
+  } catch (_) {}
+}
+
+function doTokenRefresh() {
+  if (!authToken) return;
+  fetch(API_BASE + "/api/auth/refresh", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + authToken, "Content-Type": "application/json" }
+  }).then(function(res) { return res.json(); }).then(function(data) {
+    if (data.token) {
+      authToken = data.token;
+      localStorage.setItem("sessionToken", data.token);
+      if (data.user) {
+        currentUser = data.user;
+        localStorage.setItem("userInfo", JSON.stringify(data.user));
       }
-    });
-  } else {
-    silentRefreshInProgress = false;
-    reAuthenticate();
-  }
+      scheduleTokenRefresh();
+    }
+  }).catch(function(_) {});
 }
 
 function apiCall(method, path, body) {
   if (isTokenExpired()) {
-    var savedUser = localStorage.getItem("userInfo");
-    if (savedUser) {
-      trySilentRefresh();
-      return Promise.reject(new Error("トークン更新中"));
-    }
-    reAuthenticate();
+    showLogin();
     return Promise.reject(new Error("ログインが必要です"));
   }
   var opts = { method: method, headers: { "Authorization": "Bearer " + authToken, "Content-Type": "application/json" } };
   if (body && method !== "GET" && method !== "DELETE") opts.body = JSON.stringify(body);
   return fetch(API_BASE + path, opts).then(function(res) {
     return res.json().then(function(data) {
-      if (res.status === 401) { trySilentRefresh(); throw new Error(data.error || "ログインが必要です"); }
+      if (res.status === 401) {
+        localStorage.removeItem("sessionToken");
+        authToken = null;
+        showLogin();
+        throw new Error(data.error || "ログインが必要です");
+      }
       if (!res.ok) throw new Error(data.error || "エラーが発生しました");
       return data;
     });
   });
 }
 
-function applyAuth(token) {
-  authToken = token;
-  var payload = decodeJwt(authToken);
-  currentUser = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
-  localStorage.setItem("userInfo", JSON.stringify(currentUser));
-  document.getElementById("sidebarUser").textContent = currentUser.email;
+function applyUserUI(user) {
+  currentUser = user;
+  document.getElementById("sidebarUser").textContent = user.email;
   var avatar = document.getElementById("userAvatar");
-  if (currentUser.picture) {
-    avatar.innerHTML = '<img src="' + currentUser.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+  if (user.picture) {
+    avatar.innerHTML = '<img src="' + user.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
   } else {
-    avatar.textContent = (currentUser.name || "?").charAt(0).toUpperCase();
+    avatar.textContent = (user.name || "?").charAt(0).toUpperCase();
   }
-  avatar.title = currentUser.name;
+  avatar.title = user.name;
   document.getElementById("authOverlay").classList.add("hidden");
 }
 
 function handleCredentialResponse(response) {
-  localStorage.setItem("authToken", response.credential);
-  applyAuth(response.credential);
-  checkRole();
+  var btn = document.querySelector(".auth-signin-wrap");
+  if (btn) btn.innerHTML = '<div style="color:var(--text2);font-size:13px;">認証中...</div>';
+  fetch(API_BASE + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential: response.credential })
+  }).then(function(res) { return res.json(); }).then(function(data) {
+    if (data.token) {
+      authToken = data.token;
+      localStorage.setItem("sessionToken", data.token);
+      localStorage.setItem("userInfo", JSON.stringify(data.user));
+      applyUserUI(data.user);
+      scheduleTokenRefresh();
+      checkRole();
+    } else {
+      alert(data.error || "ログインに失敗しました");
+      showLogin();
+      initGoogleSignIn();
+    }
+  }).catch(function(e) {
+    alert("ログインに失敗しました: " + e.message);
+    showLogin();
+    initGoogleSignIn();
+  });
 }
 
 (function restoreSession() {
-  var saved = localStorage.getItem("authToken");
+  var saved = localStorage.getItem("sessionToken");
   if (saved) {
     try {
       var payload = decodeJwt(saved);
-      if (Date.now() / 1000 < payload.exp - 60) {
-        applyAuth(saved);
+      if (payload.iss === "adkanri" && Date.now() / 1000 < payload.exp - 300) {
+        authToken = saved;
+        var userInfo = localStorage.getItem("userInfo");
+        var user = userInfo ? JSON.parse(userInfo) : { email: payload.email, name: payload.name, picture: payload.picture };
+        applyUserUI(user);
+        scheduleTokenRefresh();
         checkRole();
         return;
       }
     } catch (_) {}
+    localStorage.removeItem("sessionToken");
   }
-  var savedUser = localStorage.getItem("userInfo");
-  if (savedUser) {
+  // Legacy: try old Google token
+  var oldToken = localStorage.getItem("authToken");
+  if (oldToken) {
     try {
-      currentUser = JSON.parse(savedUser);
-      document.getElementById("sidebarUser").textContent = currentUser.email;
-      var avatar = document.getElementById("userAvatar");
-      if (currentUser.picture) {
-        avatar.innerHTML = '<img src="' + currentUser.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
-      } else {
-        avatar.textContent = (currentUser.name || "?").charAt(0).toUpperCase();
+      var p = decodeJwt(oldToken);
+      if (Date.now() / 1000 < p.exp - 60) {
+        handleCredentialResponse({ credential: oldToken });
+        localStorage.removeItem("authToken");
+        return;
       }
-      avatar.title = currentUser.name;
     } catch (_) {}
-    trySilentRefresh();
-    return;
+    localStorage.removeItem("authToken");
   }
-  reAuthenticate();
+  showLogin();
 })();
 
 async function checkRole() {
