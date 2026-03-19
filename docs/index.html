@@ -873,7 +873,7 @@
   </div>
 </div>
 
-<script src="config.js"></script>
+<script src="config.js?v=20260319"></script>
 <script>
 // ============================
 // Config
@@ -957,12 +957,14 @@ function doTokenRefresh() {
   }).catch(function(_) {});
 }
 
-function apiCall(method, path, body) {
+function apiCall(method, path, body, _retry) {
+  _retry = _retry || 0;
   if (!authToken || isTokenExpired()) {
     showLogin();
     return Promise.reject(new Error("ログインが必要です"));
   }
-  var opts = { method: method, headers: { "Authorization": "Bearer " + authToken, "Content-Type": "application/json" } };
+  var token = authToken;
+  var opts = { method: method, headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" } };
   if (body && method !== "GET" && method !== "DELETE") opts.body = JSON.stringify(body);
   return fetch(API_BASE + path, opts).then(function(res) {
     if (res.status === 401) {
@@ -978,6 +980,12 @@ function apiCall(method, path, body) {
       if (!res.ok) throw new Error(data.error || "エラーが発生しました");
       return data;
     });
+  }).catch(function(err) {
+    if (err.message === "Failed to fetch" && _retry < 2) {
+      return new Promise(function(resolve) { setTimeout(resolve, 1000 * (_retry + 1)); })
+        .then(function() { return apiCall(method, path, body, _retry + 1); });
+    }
+    throw err;
   });
 }
 
