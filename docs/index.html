@@ -2485,7 +2485,7 @@ function closeReportModal() {
 
 function switchReportTab(type) {
   reportTabType = type;
-  _eveningReportCache = null;
+  _eveningKvLoaded = false;
   document.querySelectorAll(".report-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
   buildReport();
 }
@@ -2617,21 +2617,7 @@ function buildMorningReport() {
   return lines;
 }
 
-var _eveningReportCache = null;
-
-async function loadMorningSent(reportPid, td) {
-  var local = "";
-  try { local = localStorage.getItem("morningSent_" + reportPid + "_" + td) || ""; } catch(_) {}
-  if (local) return local;
-  try {
-    var res = await apiCall("GET", "/api/dashboard/morning-sent?personId=" + reportPid + "&date=" + td);
-    if (res && res.message) {
-      try { localStorage.setItem("morningSent_" + reportPid + "_" + td, res.message); } catch(_) {}
-      return res.message;
-    }
-  } catch(_) {}
-  return "";
-}
+var _eveningKvLoaded = false;
 
 function buildEveningReport() {
   var td = today();
@@ -2639,16 +2625,16 @@ function buildEveningReport() {
   var morningSent = "";
   try { morningSent = localStorage.getItem("morningSent_" + reportPid + "_" + td) || ""; } catch(_) {}
 
-  if (!morningSent && !_eveningReportCache) {
-    loadMorningSent(reportPid, td).then(function(msg) {
-      if (msg) {
-        _eveningReportCache = msg;
-        buildReport();
+  if (!morningSent && !_eveningKvLoaded) {
+    _eveningKvLoaded = true;
+    apiCall("GET", "/api/dashboard/morning-sent?personId=" + reportPid + "&date=" + td).then(function(res) {
+      if (res && res.message) {
+        try { localStorage.setItem("morningSent_" + reportPid + "_" + td, res.message); } catch(_) {}
       }
-    });
+      buildReport();
+    }).catch(function() { buildReport(); });
     return "（出勤報告を読み込み中...）";
   }
-  if (!morningSent) morningSent = _eveningReportCache || "";
   if (!morningSent) return "（出勤報告が保存されていません。先に出勤報告を送信してください）";
 
   function stIcon(st) {
