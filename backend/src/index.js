@@ -22,14 +22,8 @@ export default {
     let response;
 
     try {
-      // ── 認証 ──
-      if (path === '/api/auth/login' && request.method === 'POST') {
-        response = await handleAuthLogin(request, env);
-      } else if (path === '/api/auth/refresh' && request.method === 'POST') {
-        response = await handleAuthRefresh(request, env);
-      }
       // ── 依頼フォーム ──
-      else if (path === '/api/submit' && request.method === 'POST') {
+      if (path === '/api/submit' && request.method === 'POST') {
         response = await handleSubmit(request, env);
       } else if (path === '/api/tasks' && request.method === 'GET') {
         response = await handleGetTasks(request, env);
@@ -124,70 +118,6 @@ class AuthError extends Error {
   }
 }
 
-const SESSION_TOKEN_EXPIRY = 30 * 24 * 60 * 60; // 30 days
-
-async function createSessionJwt(payload, env) {
-  const secret = env.JWT_SECRET || env.GOOGLE_CLIENT_ID;
-  const now = Math.floor(Date.now() / 1000);
-  const tokenPayload = { email: payload.email, name: payload.name, picture: payload.picture || '', iat: now, exp: now + SESSION_TOKEN_EXPIRY, iss: 'adkanri' };
-  const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
-  const body = base64url(new TextEncoder().encode(JSON.stringify(tokenPayload)));
-  const signingInput = `${header}.${body}`;
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
-  return `${signingInput}.${base64url(sig)}`;
-}
-
-async function verifySessionJwt(token, env) {
-  const secret = env.JWT_SECRET || env.GOOGLE_CLIENT_ID;
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid token format');
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-  const sigBuf = Uint8Array.from(atob(parts[2].replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-  const valid = await crypto.subtle.verify('HMAC', key, sigBuf, new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
-  if (!valid) throw new Error('Invalid signature');
-  const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-  if (payload.exp && Date.now() / 1000 > payload.exp) throw new Error('Token expired');
-  return payload;
-}
-
-async function verifyGoogleIdToken(token, env) {
-  const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + token);
-  if (!res.ok) throw new Error('Google token invalid');
-  const payload = await res.json();
-  if (payload.aud !== env.GOOGLE_CLIENT_ID) throw new Error('Invalid audience');
-  const email = (payload.email || '').toLowerCase();
-  const domain = email.includes('@') ? email.split('@')[1] : '';
-  if (!ALLOWED_EMAIL_DOMAINS.some((d) => domain === d)) throw new Error('Domain not allowed');
-  return { email, name: payload.name || email, picture: payload.picture || '' };
-}
-
-async function handleAuthLogin(request, env) {
-  const { credential } = await request.json();
-  if (!credential) return jsonResponse({ error: 'credential is required' }, 400);
-  let user;
-  try {
-    user = await verifyGoogleIdToken(credential, env);
-  } catch (e) {
-    return jsonResponse({ error: 'Google認証に失敗しました: ' + e.message }, 401);
-  }
-  const sessionToken = await createSessionJwt(user, env);
-  return jsonResponse({ token: sessionToken, user });
-}
-
-async function handleAuthRefresh(request, env) {
-  const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) return jsonResponse({ error: 'Token required' }, 401);
-  let payload;
-  try {
-    payload = await verifySessionJwt(auth.slice(7), env);
-  } catch (e) {
-    return jsonResponse({ error: 'Invalid or expired token' }, 401);
-  }
-  const newToken = await createSessionJwt({ email: payload.email, name: payload.name, picture: payload.picture }, env);
-  return jsonResponse({ token: newToken, user: { email: payload.email, name: payload.name, picture: payload.picture } });
-}
-
 async function verifyGoogleToken(request, env) {
   const auth = request.headers.get('Authorization') || '';
   if (!auth.startsWith('Bearer ')) {
@@ -195,22 +125,23 @@ async function verifyGoogleToken(request, env) {
   }
 
   const token = auth.slice(7);
-
-  // Try session JWT first
-  try {
-    const payload = await verifySessionJwt(token, env);
-    if (payload.iss === 'adkanri') {
-      const email = (payload.email || '').toLowerCase();
-      return { email, name: payload.name || email };
-    }
-  } catch (_) {}
-
-  // Fall back to Google ID token
-  try {
-    return await verifyGoogleIdToken(token, env);
-  } catch (e) {
+  const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + token);
+  if (!res.ok) {
     throw new AuthError('セッションが切れました。再度ログインしてください');
   }
+
+  const payload = await res.json();
+  if (payload.aud !== env.GOOGLE_CLIENT_ID) {
+    throw new AuthError('認証情報が不正です');
+  }
+
+  const email = (payload.email || '').toLowerCase();
+  const domain = email.includes('@') ? email.split('@')[1] : '';
+  if (!ALLOWED_EMAIL_DOMAINS.some((d) => domain === d)) {
+    throw new AuthError('AXIS・shibuya-ad.com のアドレスのみ利用可能です');
+  }
+
+  return { email, name: payload.name || email };
 }
 
 // ====================================================
