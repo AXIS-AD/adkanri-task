@@ -956,20 +956,22 @@ function doTokenRefresh() {
 }
 
 function apiCall(method, path, body) {
-  if (isTokenExpired()) {
+  if (!authToken || isTokenExpired()) {
     showLogin();
     return Promise.reject(new Error("ログインが必要です"));
   }
   var opts = { method: method, headers: { "Authorization": "Bearer " + authToken, "Content-Type": "application/json" } };
   if (body && method !== "GET" && method !== "DELETE") opts.body = JSON.stringify(body);
   return fetch(API_BASE + path, opts).then(function(res) {
-    return res.json().then(function(data) {
-      if (res.status === 401) {
-        localStorage.removeItem("sessionToken");
-        authToken = null;
-        showLogin();
+    if (res.status === 401) {
+      localStorage.removeItem("sessionToken");
+      authToken = null;
+      showLogin();
+      return res.json().catch(function() { return {}; }).then(function(data) {
         throw new Error(data.error || "ログインが必要です");
-      }
+      });
+    }
+    return res.json().then(function(data) {
       if (!res.ok) throw new Error(data.error || "エラーが発生しました");
       return data;
     });
@@ -996,7 +998,10 @@ function handleCredentialResponse(response) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ credential: response.credential })
-  }).then(function(res) { return res.json(); }).then(function(data) {
+  }).then(function(res) {
+    if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || "HTTP " + res.status); });
+    return res.json();
+  }).then(function(data) {
     if (data.token) {
       authToken = data.token;
       localStorage.setItem("sessionToken", data.token);
@@ -1005,11 +1010,13 @@ function handleCredentialResponse(response) {
       scheduleTokenRefresh();
       checkRole();
     } else {
+      console.error("[Auth] login response missing token:", data);
       alert(data.error || "ログインに失敗しました");
       showLogin();
       initGoogleSignIn();
     }
   }).catch(function(e) {
+    console.error("[Auth] login exchange failed:", e);
     alert("ログインに失敗しました: " + e.message);
     showLogin();
     initGoogleSignIn();
@@ -1049,15 +1056,22 @@ function handleCredentialResponse(response) {
   showLogin();
 })();
 
-async function checkRole() {
+async function checkRole(retries) {
+  retries = retries || 0;
   try {
     var data = await apiCall("POST", "/api/role", {});
     userRole = data.role;
+    console.log("[Auth] role=" + data.role);
     applyRole();
     if (data.firstSetup) switchPage("admin");
   } catch (e) {
-    userRole = "user";
-    applyRole();
+    console.warn("[Auth] checkRole failed (attempt " + (retries + 1) + "):", e.message);
+    if (retries < 2) {
+      setTimeout(function() { checkRole(retries + 1); }, 1500);
+    } else {
+      userRole = "user";
+      applyRole();
+    }
   }
 }
 
