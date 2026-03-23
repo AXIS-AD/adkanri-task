@@ -19,31 +19,24 @@ jobs:
         run: |
           COMMITS=$(git log --oneline -5 --pretty=format:"・%s")
           TIMESTAMP=$(TZ=Asia/Tokyo date '+%Y/%m/%d %H:%M')
-          export CW_MSG="[info][title]update ${TIMESTAMP}[/title]${COMMITS}[/info]"
+          export CW_MSG="[info][title]🔄 アド管理ツール アップデート ${TIMESTAMP}[/title]${COMMITS}[/info]"
 
           python3 << 'PYEOF'
-          import json, os, urllib.request, urllib.error
+          import json, os, urllib.request
 
           msg = os.environ.get("CW_MSG", "")
           key = os.environ.get("DEPLOY_NOTIFY_KEY", "")
 
-          print(f"msg length: {len(msg)}")
-          print(f"key length: {len(key)}")
-
           payload = json.dumps({"key": key, "message": msg}).encode("utf-8")
-          print(f"payload: {payload[:200]}")
-
           req = urllib.request.Request(
               "https://adkanri-api.adkanri.workers.dev/api/deploy-notify",
               data=payload,
-              headers={"Content-Type": "application/json"},
+              headers={
+                  "Content-Type": "application/json",
+                  "User-Agent": "adkanri-deploy-notify/1.0",
+              },
               method="POST",
           )
-          try:
-              resp = urllib.request.urlopen(req)
-              print("OK:", resp.read().decode())
-          except urllib.error.HTTPError as e:
-              print(f"HTTP Error: {e.code}")
-              print(f"Response body: {e.read().decode()}")
-              raise
+          resp = urllib.request.urlopen(req)
+          print("OK:", resp.read().decode())
           PYEOF
