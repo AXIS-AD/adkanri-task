@@ -587,6 +587,55 @@ async function handleCreateManualTask(request, env) {
   await verifyGoogleToken(request, env);
 
   const body = await request.json();
+  const cfg = getChatworkConfig(env);
+  const isNormalCategory = body.category && !['teiki', 'long_term'].includes(body.category);
+
+  let cwTaskId = null;
+
+  if (isNormalCategory) {
+    const assigneeId = body.assigneeId ? Number(body.assigneeId) : null;
+    const toId = assigneeId || Number(env.MY_ACCOUNT_ID || 10034061);
+    const taskBody = body.title + (body.note ? '\n' + body.note : '');
+
+    let limitTs = '';
+    if (body.limit) {
+      limitTs = String(Math.floor(new Date(body.limit + 'T23:59:59+09:00').getTime() / 1000));
+    }
+
+    const params = new URLSearchParams({ body: taskBody, to_ids: String(toId) });
+    if (limitTs) params.append('limit', limitTs);
+    params.append('limit_type', 'date');
+
+    try {
+      const res = await fetch(`https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/tasks`, {
+        method: 'POST',
+        headers: { 'X-ChatWorkToken': cfg.apiToken },
+        body: params,
+      });
+      const result = await res.json();
+      if (result.task_ids && result.task_ids[0]) {
+        cwTaskId = result.task_ids[0];
+      }
+    } catch (e) {
+      console.error('[createManualTask] Chatwork task creation failed:', e);
+    }
+  }
+
+  if (cwTaskId && isNormalCategory) {
+    const local = await getDashboardLocal(env);
+    local[cwTaskId] = {
+      title: body.title,
+      category: body.category,
+      priority: body.priority || 'medium',
+      localStatus: body.localStatus || 'open',
+      note: body.note || '',
+      limit: body.limit || null,
+      scheduledDate: body.scheduledDate || null,
+    };
+    await saveDashboardLocal(env, local);
+    return jsonResponse({ ok: true, id: cwTaskId, chatworkTaskId: cwTaskId });
+  }
+
   const tasks = await getManualTasks(env);
   const id = 'manual-' + Date.now();
   tasks.push({ id, isManual: true, ...body });
