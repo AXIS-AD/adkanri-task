@@ -1,9 +1,9 @@
-name: Update Notification
+name: デイリーアップデート通知
 
 on:
-  push:
-    branches:
-      - master
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
 
 jobs:
   notify:
@@ -11,15 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 10
+          fetch-depth: 50
 
-      - name: Send update notification
+      - name: 本日の変更を確認して通知
         env:
           DEPLOY_NOTIFY_KEY: ${{ secrets.DEPLOY_NOTIFY_KEY }}
         run: |
-          COMMITS=$(git log --oneline -5 --pretty=format:"・%s")
-          TIMESTAMP=$(TZ=Asia/Tokyo date '+%Y/%m/%d %H:%M')
-          export CW_MSG="[info][title]🔄 アド管理ツール アップデート ${TIMESTAMP}[/title]${COMMITS}[/info]"
+          TODAY=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
+          COMMITS=$(git log --oneline --after="${TODAY}T00:00:00+09:00" --pretty=format:"・%s")
+
+          if [ -z "$COMMITS" ]; then
+            echo "本日の変更なし。通知スキップ。"
+            exit 0
+          fi
+
+          TIMESTAMP=$(TZ=Asia/Tokyo date '+%Y/%m/%d')
+          export CW_MSG="[To:5420288]西村さん
+          [To:9797164]筒井さん
+          [To:10034061]友利さん
+          [To:10696465]石田さん
+          [info][title]🔄 アド管理ツール 本日のアップデート（${TIMESTAMP}）[/title]${COMMITS}[/info]"
 
           python3 << 'PYEOF'
           import json, os, urllib.request
