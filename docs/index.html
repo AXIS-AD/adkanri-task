@@ -353,6 +353,11 @@
   .report-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .report-tab { flex: 1; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; transition: all .2s; }
   .report-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .report-filters { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .report-filter-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  .report-filter-row:last-child { margin-bottom: 0; }
+  .report-filter-row label { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+  .report-filter-row input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
   .report-preview { width: 100%; min-height: 280px; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit; line-height: 1.6; resize: vertical; }
   .report-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--border); }
   .report-send-btn { padding: 10px 28px; border-radius: 10px; border: none; background: var(--accent); color: white; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .2s; }
@@ -863,6 +868,22 @@
       <div class="report-tabs">
         <button class="report-tab active" data-type="morning" onclick="switchReportTab('morning')">☀️ 出勤報告</button>
         <button class="report-tab" data-type="evening" onclick="switchReportTab('evening')">🌙 退勤報告</button>
+      </div>
+      <div class="report-filters" id="reportFilters">
+        <div class="report-filter-row">
+          <label><input type="checkbox" id="rfDueToday" checked onchange="buildReport()"> 期日が今日＋超過</label>
+          <label><input type="checkbox" id="rfScheduled" checked onchange="buildReport()"> 対応予定日が今日</label>
+          <label><input type="checkbox" id="rfWaiting" checked onchange="buildReport()"> 待ちタスク</label>
+          <label><input type="checkbox" id="rfTeiki" checked onchange="buildReport()"> 定期タスク</label>
+        </div>
+        <div class="report-filter-row">
+          <label>優先度: </label>
+          <select id="rfPriority" onchange="buildReport()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">
+            <option value="all">すべて</option>
+            <option value="high">高のみ</option>
+            <option value="high_medium">高＋中</option>
+          </select>
+        </div>
       </div>
       <textarea class="report-preview" id="reportPreview"></textarea>
     </div>
@@ -1586,6 +1607,9 @@ function renderListTable(tasks) {
     html += '<td onclick="event.stopPropagation()"><select class="list-select" onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select></td>';
     html += '<td onclick="event.stopPropagation()"><input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)" class="list-memo-input"></td>';
     html += '<td onclick="event.stopPropagation()" style="width:32px;"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')" title="完了" style="padding:4px 8px;font-size:11px;">✅</button></td>';
+    if (t.isManual) {
+      html += '<td onclick="event.stopPropagation()" style="width:32px;"><button class="delete-task-btn" onclick="deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></td>';
+    }
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -1879,12 +1903,26 @@ function addManualTask(category) {
   document.getElementById("modalActions").innerHTML = '';
 
   var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
+  var defaultPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   var bodyHtml = '';
   bodyHtml += '<div class="modal-form-group"><label>タスク名</label><input type="text" id="addTaskTitle" placeholder="タスク名を入力"></div>';
   bodyHtml += '<div class="modal-form-group"><label>担当者</label><select id="addTaskAssignee">';
-  people.forEach(function(p) { bodyHtml += '<option value="' + p.id + '" data-name="' + esc(p.name) + '">' + esc(p.name) + '</option>'; });
+  people.forEach(function(p) {
+    var sel = String(p.id) === String(defaultPid) ? ' selected' : '';
+    bodyHtml += '<option value="' + p.id + '" data-name="' + esc(p.name) + '"' + sel + '>' + esc(p.name) + '</option>';
+  });
   bodyHtml += '</select></div>';
-  if (category === 'teiki') {
+  if (category !== 'teiki' && category !== 'long_term') {
+    bodyHtml += '<div class="modal-form-group"><label>カテゴリ</label><select id="addTaskCategory">';
+    ["tsunagikomi","number_match","other"].forEach(function(c) {
+      var sel = c === category ? ' selected' : '';
+      bodyHtml += '<option value="' + c + '"' + sel + '>' + esc(CATEGORY_LABELS[c]) + '</option>';
+    });
+    bodyHtml += '</select></div>';
+    bodyHtml += '<div class="modal-form-group"><label>優先度</label><select id="addTaskPriority"><option value="medium">中</option><option value="high">高</option><option value="low">低</option></select></div>';
+    bodyHtml += '<div class="modal-form-group"><label>期日</label><input type="date" id="addTaskDeadline"></div>';
+    bodyHtml += '<div class="modal-form-group"><label>対応予定日（任意）</label><input type="date" id="addTaskScheduled"></div>';
+  } else if (category === 'teiki') {
     bodyHtml += '<div class="modal-form-group"><label>頻度タイプ</label>';
     bodyHtml += '<div class="freq-type-tabs"><button type="button" class="freq-tab active" data-type="interval" onclick="switchFreqType(\'interval\')">間隔</button><button type="button" class="freq-tab" data-type="weekday" onclick="switchFreqType(\'weekday\')">曜日</button><button type="button" class="freq-tab" data-type="monthday" onclick="switchFreqType(\'monthday\')">日付</button></div>';
     bodyHtml += '<div id="freqPanel_interval" class="freq-panel"><select id="addTaskFreq"><option value="daily">毎日</option><option value="weekly">毎週</option><option value="biweekly">隔週</option><option value="monthly" selected>毎月</option></select></div>';
@@ -1913,8 +1951,18 @@ async function submitAddForm(category) {
   var noteEl = document.getElementById("addTaskNote");
   var assigneeEl = document.getElementById("addTaskAssignee");
   var selOpt = assigneeEl.options[assigneeEl.selectedIndex];
-  var data = { title: title, category: category, status: "open", note: noteEl ? noteEl.value.trim() : "",
+  var actualCategory = category;
+  var catEl = document.getElementById("addTaskCategory");
+  if (catEl) actualCategory = catEl.value;
+  var isNormalCat = category !== "teiki" && category !== "long_term";
+  var data = { title: title, category: actualCategory, note: noteEl ? noteEl.value.trim() : "",
     assigneeId: assigneeEl.value, assigneeName: selOpt.getAttribute("data-name") || selOpt.text };
+  if (isNormalCat) {
+    data.status = "open";
+    data.localStatus = "open";
+  } else {
+    data.status = "open";
+  }
   if (category === "teiki") {
     var ft = document.getElementById("freqType");
     var freqType = ft ? ft.value : "interval";
@@ -1934,9 +1982,17 @@ async function submitAddForm(category) {
     data.completedAt = null;
     data.nextDue = null;
   } else {
-    var dl = document.getElementById("addTaskDeadline").value;
-    data.deadline = dl || null;
+    var dl = document.getElementById("addTaskDeadline");
+    if (isNormalCat) {
+      data.limit = dl ? dl.value || null : null;
+    } else {
+      data.deadline = dl ? dl.value || null : null;
+    }
     data.todos = [];
+    var prEl = document.getElementById("addTaskPriority");
+    if (prEl) data.priority = prEl.value;
+    var schEl = document.getElementById("addTaskScheduled");
+    if (schEl && schEl.value) data.scheduledDate = schEl.value;
   }
   try {
     await apiCall("POST", "/api/dashboard/manual-tasks", data);
@@ -2285,7 +2341,7 @@ async function saveLongTermTodos(taskId) {
 
 function renderSection(title, tasks, dotColor, categoryKey) {
   if (!tasks.length && categoryKey !== "teiki" && categoryKey !== "long_term") return "";
-  var addBtn = (categoryKey === "teiki" || categoryKey === "long_term") ? '<button class="add-task-btn" onclick="addManualTask(\'' + categoryKey + '\')">＋ 追加</button>' : '';
+  var addBtn = '<button class="add-task-btn" onclick="addManualTask(\'' + categoryKey + '\')">＋ 追加</button>';
   var body = viewMode === "list" && categoryKey !== "teiki" && categoryKey !== "long_term"
     ? renderListTable(tasks)
     : '<div class="cards">' + tasks.map(renderCard).join("") + '</div>';
@@ -2311,7 +2367,11 @@ function renderAll() {
 
   if (!isManualGenre && selectedGenre === "all") {
     var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
-    var chatworkTasks = allTasks.filter(function(t) { return !t.isManual; });
+    var manualExclude = ["teiki", "long_term"];
+    var chatworkTasks = allTasks.filter(function(t) {
+      if (t.isManual && manualExclude.indexOf(normalizeCategory(t.category)) !== -1) return false;
+      return true;
+    });
     var dashScope = chatworkTasks;
     var dashTitle = "\u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9";
     if (selectedPersonId !== "all") {
@@ -2487,14 +2547,20 @@ function switchReportTab(type) {
   reportTabType = type;
   _eveningKvLoaded = false;
   document.querySelectorAll(".report-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
+  var filtersEl = document.getElementById("reportFilters");
+  if (filtersEl) filtersEl.style.display = type === "morning" ? "" : "none";
   buildReport();
 }
 
 function getMyTasks() {
   var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
-  if (!pid) return allTasks.filter(function(t) { return !t.isManual; });
+  var manualExclude = ["teiki", "long_term"];
+  if (!pid) return allTasks.filter(function(t) {
+    if (t.isManual && manualExclude.indexOf(normalizeCategory(t.category)) !== -1) return false;
+    return true;
+  });
   return allTasks.filter(function(t) {
-    if (t.isManual) return false;
+    if (t.isManual && manualExclude.indexOf(normalizeCategory(t.category)) !== -1) return false;
     return String(t.assigneeId) === String(pid);
   });
 }
@@ -2536,20 +2602,58 @@ function getMyTeikiTasks() {
   });
 }
 
+function getReportFilters() {
+  var dueEl = document.getElementById("rfDueToday");
+  var schEl = document.getElementById("rfScheduled");
+  var waitEl = document.getElementById("rfWaiting");
+  var teikiEl = document.getElementById("rfTeiki");
+  var priEl = document.getElementById("rfPriority");
+  return {
+    dueToday: dueEl ? dueEl.checked : true,
+    scheduled: schEl ? schEl.checked : true,
+    waiting: waitEl ? waitEl.checked : true,
+    teiki: teikiEl ? teikiEl.checked : true,
+    priority: priEl ? priEl.value : "all"
+  };
+}
+
+function priorityFilter(tasks, priSetting) {
+  if (priSetting === "all") return tasks;
+  return tasks.filter(function(t) {
+    var p = (t.priority || "medium").toLowerCase();
+    if (priSetting === "high") return p === "high";
+    if (priSetting === "high_medium") return p === "high" || p === "medium";
+    return true;
+  });
+}
+
 function buildMorningReport() {
+  var rf = getReportFilters();
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var td = today();
 
-  var todayOrOverdue = myTasks.filter(function(t) {
-    var byLimit = t.limit && t.limit <= td;
-    var bySchedule = t.scheduledDate && t.scheduledDate === td;
-    return byLimit || bySchedule;
-  });
-  var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
-  var teikiTasks = getMyTeikiTasks().filter(function(t) {
+  var todayOrOverdue = [];
+  if (rf.dueToday) {
+    todayOrOverdue = myTasks.filter(function(t) {
+      return t.limit && t.limit <= td;
+    });
+  }
+  if (rf.scheduled) {
+    myTasks.forEach(function(t) {
+      if (t.scheduledDate && t.scheduledDate === td && todayOrOverdue.indexOf(t) === -1) {
+        todayOrOverdue.push(t);
+      }
+    });
+  }
+  todayOrOverdue = priorityFilter(todayOrOverdue, rf.priority);
+
+  var waitingTasks = rf.waiting ? myTasks.filter(function(t) { return t.localStatus === "waiting"; }) : [];
+  waitingTasks = priorityFilter(waitingTasks, rf.priority);
+
+  var teikiTasks = rf.teiki ? getMyTeikiTasks().filter(function(t) {
     if (t.status === "done") return false;
     return isTeikiDueToday(t);
-  });
+  }) : [];
 
   var catGroups = {};
   var REPORT_CATS = [
