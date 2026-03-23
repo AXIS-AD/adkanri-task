@@ -13,21 +13,26 @@ jobs:
         with:
           fetch-depth: 10
 
-      - name: Build update message
-        id: msg
+      - name: Send update notification
+        env:
+          DEPLOY_NOTIFY_KEY: ${{ secrets.DEPLOY_NOTIFY_KEY }}
         run: |
-          COMMITS=$(git log --oneline -5 --pretty=format:"・%s" | head -5)
+          COMMITS=$(git log --oneline -5 --pretty=format:"・%s")
           TIMESTAMP=$(TZ=Asia/Tokyo date '+%Y/%m/%d %H:%M')
           
-          MSG="[info][title]🔄 アド管理ツール アップデート (${TIMESTAMP})[/title]${COMMITS}[/info]"
+          export CW_MSG="[info][title]🔄 アド管理ツール アップデート ${TIMESTAMP}[/title]${COMMITS}[/info]"
           
-          # Escape for JSON
-          MSG_JSON=$(echo "$MSG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read().strip()))')
-          echo "message=${MSG_JSON}" >> $GITHUB_OUTPUT
-
-      - name: Send Chatwork notification
-        run: |
-          curl -s -X POST \
-            "https://adkanri-api.adkanri.workers.dev/api/deploy-notify" \
-            -H "Content-Type: application/json" \
-            -d "{\"key\": \"${{ secrets.DEPLOY_NOTIFY_KEY }}\", \"message\": ${{ steps.msg.outputs.message }}}"
+          python3 -c "
+          import json, os, urllib.request
+          msg = os.environ['CW_MSG']
+          key = os.environ['DEPLOY_NOTIFY_KEY']
+          data = json.dumps({'key': key, 'message': msg}).encode()
+          req = urllib.request.Request(
+              'https://adkanri-api.adkanri.workers.dev/api/deploy-notify',
+              data=data,
+              headers={'Content-Type': 'application/json'},
+              method='POST'
+          )
+          resp = urllib.request.urlopen(req)
+          print(resp.read().decode())
+          "
