@@ -2741,9 +2741,9 @@ async function sendReport() {
   if (!message) { alert("メッセージが空です"); return; }
   btn.disabled = true; btn.textContent = "送信中...";
   try {
-    await apiCall("POST", "/api/dashboard/send-message", { message: message });
+    var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+    await apiCall("POST", "/api/dashboard/send-message", { message: message, personId: reportPid });
     if (reportTabType === "morning") {
-      var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
       var td = today();
       try { localStorage.setItem("morningSent_" + reportPid + "_" + td, message); } catch(_) {}
       try { await apiCall("POST", "/api/dashboard/morning-sent", { personId: reportPid, date: td, message: message }); } catch(_) {}

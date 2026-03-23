@@ -504,9 +504,10 @@ async function handleUpdateDashboardTask(request, env) {
         await saveDashboardLocal(env, local);
       }
       try {
-        const doneToken = env.CHATWORK_DONE_TOKEN || cfg.apiToken;
+        const assigneeToken = assigneeId ? getTokenForAssignee(env, Number(assigneeId)) : null;
+        const sendAsToken = assigneeToken || env.CHATWORK_DONE_TOKEN || cfg.apiToken;
         const savedTitle = local[id]?.title || null;
-        await sendDoneReplyMessage(id, effectiveRoom, body.replyMessage || '', cfg.apiToken, doneToken, savedTitle);
+        await sendDoneReplyMessage(id, effectiveRoom, body.replyMessage || '', cfg.apiToken, sendAsToken, savedTitle);
       } catch (_) {}
       const completedDate = formatJST(new Date(), 'yyyy/MM/dd HH:mm');
       await updateTaskLogCompletion(env, id, completedDate, body.replyMessage || '');
@@ -524,13 +525,18 @@ const REPORT_ROOM_ID = '376867208';
 
 async function handleSendMessage(request, env) {
   await verifyGoogleToken(request, env);
-  const { message, roomId } = await request.json();
+  const { message, roomId, personId } = await request.json();
   if (!message) return jsonResponse({ error: 'message is required' }, 400);
   const cfg = getChatworkConfig(env);
   const targetRoom = roomId || REPORT_ROOM_ID;
+  let token = cfg.apiToken;
+  if (personId) {
+    const personalToken = getTokenForAssignee(env, Number(personId));
+    if (personalToken) token = personalToken;
+  }
   const res = await fetch(`https://api.chatwork.com/v2/rooms/${targetRoom}/messages`, {
     method: 'POST',
-    headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'X-ChatWorkToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'body=' + encodeURIComponent(message),
   });
   if (!res.ok) return jsonResponse({ error: 'Failed to send message' }, 500);
