@@ -19,20 +19,21 @@ jobs:
         run: |
           COMMITS=$(git log --oneline -5 --pretty=format:"・%s")
           TIMESTAMP=$(TZ=Asia/Tokyo date '+%Y/%m/%d %H:%M')
-          
           export CW_MSG="[info][title]🔄 アド管理ツール アップデート ${TIMESTAMP}[/title]${COMMITS}[/info]"
-          
-          python3 -c "
+
+          python3 << 'PYEOF'
           import json, os, urllib.request
-          msg = os.environ['CW_MSG']
-          key = os.environ['DEPLOY_NOTIFY_KEY']
-          data = json.dumps({'key': key, 'message': msg}).encode()
+
+          msg = os.environ.get("CW_MSG", "")
+          key = os.environ.get("DEPLOY_NOTIFY_KEY", "")
+
+          payload = json.dumps({"key": key, "message": msg}).encode("utf-8")
           req = urllib.request.Request(
-              'https://adkanri-api.adkanri.workers.dev/api/deploy-notify',
-              data=data,
-              headers={'Content-Type': 'application/json'},
-              method='POST'
+              "https://adkanri-api.adkanri.workers.dev/api/deploy-notify",
+              data=payload,
+              headers={"Content-Type": "application/json"},
+              method="POST",
           )
           resp = urllib.request.urlopen(req)
-          print(resp.read().decode())
-          "
+          print("OK:", resp.read().decode())
+          PYEOF
