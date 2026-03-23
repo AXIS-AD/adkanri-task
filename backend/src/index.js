@@ -401,9 +401,9 @@ async function handleGetDashboardTasks(request, env) {
         priority: meta.priority || 'medium',
         localStatus: meta.localStatus || 'open',
         doneDate: meta.doneDate || null,
-        note: meta.note || '',
-        limit: meta.limit || t.limit,
-        scheduledDate: meta.scheduledDate || null,
+        note: 'note' in meta ? meta.note : '',
+        limit: 'limit' in meta ? (meta.limit || null) : t.limit,
+        scheduledDate: 'scheduledDate' in meta ? (meta.scheduledDate || null) : null,
         assigneeId: t.assigneeId,
         assigneeName: t.assigneeName,
       });

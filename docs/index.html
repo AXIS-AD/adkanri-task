@@ -1836,47 +1836,60 @@ function renderCard(t) {
 function editDueDate(id, el) {
   var task = allTasks.find(function(t) { return t.id === id; });
   var currentVal = task ? (task.limit || "") : "";
+  var wrap = document.createElement("span");
+  wrap.style.cssText = "display:inline-flex;align-items:center;gap:4px;";
   var input = document.createElement("input");
   input.type = "date";
   input.value = currentVal;
-  input.style.cssText = "font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:6px;background:var(--surface2);color:var(--text);width:" + Math.max(el.offsetWidth, 130) + "px;";
-  el.replaceWith(input);
+  input.style.cssText = "font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:6px;background:var(--surface2);color:var(--text);width:130px;";
+  var clearBtn = document.createElement("button");
+  clearBtn.textContent = "期限なし";
+  clearBtn.style.cssText = "font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--red);cursor:pointer;white-space:nowrap;";
+  wrap.appendChild(input);
+  wrap.appendChild(clearBtn);
+  el.replaceWith(wrap);
   input.focus();
   try { input.showPicker(); } catch(_) {}
   var saved = false;
-  function save() {
+  function save(newVal) {
     if (saved) return;
     saved = true;
-    var newVal = input.value;
     if (newVal !== currentVal) {
-      updateTask(id, "limit", newVal);
-      if (task) task.limit = newVal;
+      updateTask(id, "limit", newVal || null);
+      if (task) task.limit = newVal || null;
     }
     var span = document.createElement("span");
     span.className = "date-label";
     span.title = "クリックで期日変更";
     span.setAttribute("onclick", "event.stopPropagation();editDueDate('" + id + "',this)");
     span.textContent = (newVal || "期限なし") + " (" + dueLabel(newVal) + ")";
-    input.replaceWith(span);
+    wrap.replaceWith(span);
   }
-  input.addEventListener("change", save);
-  input.addEventListener("blur", function() { setTimeout(save, 150); });
+  input.addEventListener("change", function() { save(input.value); });
+  input.addEventListener("blur", function() { setTimeout(function() { save(input.value); }, 150); });
+  clearBtn.addEventListener("click", function(e) { e.stopPropagation(); save(""); });
 }
 function editScheduledDate(id, el) {
   var task = allTasks.find(function(t) { return t.id === id; });
   var currentVal = task ? (task.scheduledDate || "") : "";
+  var wrap = document.createElement("span");
+  wrap.style.cssText = "display:inline-flex;align-items:center;gap:4px;";
   var input = document.createElement("input");
   input.type = "date";
   input.value = currentVal;
-  input.style.cssText = "font-size:12px;padding:2px 6px;border:1px solid var(--green);border-radius:6px;background:var(--surface2);color:var(--text);width:" + Math.max(el.offsetWidth, 130) + "px;";
-  el.replaceWith(input);
+  input.style.cssText = "font-size:12px;padding:2px 6px;border:1px solid var(--green);border-radius:6px;background:var(--surface2);color:var(--text);width:130px;";
+  var clearBtn = document.createElement("button");
+  clearBtn.textContent = "予定なし";
+  clearBtn.style.cssText = "font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--red);cursor:pointer;white-space:nowrap;";
+  wrap.appendChild(input);
+  wrap.appendChild(clearBtn);
+  el.replaceWith(wrap);
   input.focus();
   try { input.showPicker(); } catch(_) {}
   var saved = false;
-  function save() {
+  function save(newVal) {
     if (saved) return;
     saved = true;
-    var newVal = input.value;
     if (newVal !== currentVal) {
       updateTask(id, "scheduledDate", newVal || null);
       if (task) task.scheduledDate = newVal || null;
@@ -1886,10 +1899,11 @@ function editScheduledDate(id, el) {
     span.title = "クリックで対応予定日変更";
     span.setAttribute("onclick", "event.stopPropagation();editScheduledDate('" + id + "',this)");
     span.textContent = newVal ? "\uD83D\uDCC5" + newVal : "\uD83D\uDCC5\u4E88\u5B9A\u306A\u3057";
-    input.replaceWith(span);
+    wrap.replaceWith(span);
   }
-  input.addEventListener("change", save);
-  input.addEventListener("blur", function() { setTimeout(save, 150); });
+  input.addEventListener("change", function() { save(input.value); });
+  input.addEventListener("blur", function() { setTimeout(function() { save(input.value); }, 150); });
+  clearBtn.addEventListener("click", function(e) { e.stopPropagation(); save(""); });
 }
 
 // ============================
