@@ -20,7 +20,10 @@ jobs:
           DEPLOY_NOTIFY_KEY: ${{ secrets.DEPLOY_NOTIFY_KEY }}
         run: |
           TODAY=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
-          COMMITS=$(git log --oneline --after="${TODAY}T00:00:00+09:00" --pretty=format:"・%s")
+          COMMITS=$(git log --oneline --after="${TODAY}T00:00:00+09:00" --pretty=format:"%s" | \
+            grep -P '[^\x00-\x7F]' | \
+            sed 's/^[a-z]*: //' | \
+            sed 's/^/・/')
 
           if [ -z "$COMMITS" ]; then
             echo "本日の変更なし。通知スキップ。"
