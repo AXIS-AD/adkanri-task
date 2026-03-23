@@ -1,0 +1,33 @@
+name: Update Notification
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Build update message
+        id: msg
+        run: |
+          COMMITS=$(git log --oneline -5 --pretty=format:"・%s" | head -5)
+          TIMESTAMP=$(TZ=Asia/Tokyo date '+%Y/%m/%d %H:%M')
+          
+          MSG="[info][title]🔄 アド管理ツール アップデート (${TIMESTAMP})[/title]${COMMITS}[/info]"
+          
+          # Escape for JSON
+          MSG_JSON=$(echo "$MSG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read().strip()))')
+          echo "message=${MSG_JSON}" >> $GITHUB_OUTPUT
+
+      - name: Send Chatwork notification
+        run: |
+          curl -s -X POST \
+            "https://adkanri-api.adkanri.workers.dev/api/deploy-notify" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\": \"${{ secrets.DEPLOY_NOTIFY_KEY }}\", \"message\": ${{ steps.msg.outputs.message }}}"

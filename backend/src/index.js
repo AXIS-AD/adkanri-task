@@ -67,6 +67,10 @@ export default {
       } else if (path === '/api/admin/roles' && request.method === 'POST') {
         response = await handleUpdateAdminRoles(request, env);
       }
+      // ── デプロイ通知 ──
+      else if (path === '/api/deploy-notify' && request.method === 'POST') {
+        response = await handleDeployNotify(request, env);
+      }
       else {
         response = jsonResponse({ error: 'Not Found' }, 404);
       }
@@ -549,6 +553,22 @@ async function handleSaveMorningSent(request, env) {
   if (!personId || !date || !message) return jsonResponse({ error: 'missing params' }, 400);
   const key = `morningSent_${personId}_${date}`;
   await env.TASK_STORE.put(key, message, { expirationTtl: 86400 * 3 });
+  return jsonResponse({ ok: true });
+}
+
+async function handleDeployNotify(request, env) {
+  const { key, message } = await request.json();
+  if (!key || key !== env.DEPLOY_NOTIFY_KEY) {
+    return jsonResponse({ error: 'Unauthorized' }, 401);
+  }
+  if (!message) return jsonResponse({ error: 'message is required' }, 400);
+  const cfg = getChatworkConfig(env);
+  const res = await fetch(`https://api.chatwork.com/v2/rooms/${REPORT_ROOM_ID}/messages`, {
+    method: 'POST',
+    headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'body=' + encodeURIComponent(message),
+  });
+  if (!res.ok) return jsonResponse({ error: 'Failed to send' }, 500);
   return jsonResponse({ ok: true });
 }
 
