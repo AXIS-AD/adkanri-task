@@ -2894,14 +2894,25 @@ function buildReportHInputs() {
   var el = document.getElementById("reportHInputs");
   if (!el) return;
   var rf = getReportFilters();
+  var data = collectReportTasks();
 
-  var cats = [{ key: "teiki", label: "定期タスク" }];
+  // 担当者が持つカテゴリのみ
+  var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+  var personAllTasks = allTasks.filter(function(t) {
+    if (t.isManual && (normalizeCategory(t.category) === "teiki" || normalizeCategory(t.category) === "long_term")) return false;
+    return pid ? String(t.assigneeId) === String(pid) : true;
+  });
+  var personCats = {};
+  personAllTasks.forEach(function(t) { personCats[normalizeCategory(t.category)] = true; });
+
+  var cats = [];
+  if (data.teikiTasks.length > 0) cats.push({ key: "teiki", label: "定期タスク" });
   CATEGORY_ORDER.forEach(function(k) {
     if (k === "teiki" || k === "long_term" || k === "other") return;
-    cats.push({ key: k, label: CATEGORY_LABELS[k] });
+    if (personCats[k]) cats.push({ key: k, label: CATEGORY_LABELS[k] });
   });
-  cats.push({ key: "other", label: "その他" });
-  if (rf.longTerm) cats.push({ key: "long_term", label: "長期タスク" });
+  if (personCats["other"]) cats.push({ key: "other", label: "その他" });
+  if (rf.longTerm && data.ltTodos.length > 0) cats.push({ key: "long_term", label: "長期タスク" });
 
   var html = '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">カテゴリ別 所要時間(H)</div>';
   cats.forEach(function(c) {
@@ -2929,13 +2940,31 @@ function buildMorningReport(skipHInputs) {
 
   if (!skipHInputs) buildReportHInputs();
 
+  // 担当者が持つ全タスクからカテゴリを収集
+  var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+  var personAllTasks = allTasks.filter(function(t) {
+    if (t.isManual && (normalizeCategory(t.category) === "teiki" || normalizeCategory(t.category) === "long_term")) return false;
+    return pid ? String(t.assigneeId) === String(pid) : true;
+  });
+  var personCats = {};
+  personAllTasks.forEach(function(t) {
+    var cat = normalizeCategory(t.category);
+    personCats[cat] = true;
+  });
+
   var catGroups = {};
-  var REPORT_CATS = [{ key: "teiki", label: "定期タスク" }];
+  var ALL_CATS = [{ key: "teiki", label: "定期タスク" }];
   CATEGORY_ORDER.forEach(function(k) {
     if (k === "teiki" || k === "long_term" || k === "other") return;
-    REPORT_CATS.push({ key: k, label: CATEGORY_LABELS[k] });
+    ALL_CATS.push({ key: k, label: CATEGORY_LABELS[k] });
   });
-  REPORT_CATS.push({ key: "other", label: "その他" });
+  ALL_CATS.push({ key: "other", label: "その他" });
+
+  // 担当者が持つカテゴリのみに絞り込み（定期は定期タスクがあれば表示）
+  var REPORT_CATS = ALL_CATS.filter(function(c) {
+    if (c.key === "teiki") return data.teikiTasks.length > 0;
+    return personCats[c.key];
+  });
 
   data.todayOrOverdue.forEach(function(t) {
     if (t.localStatus === "waiting") return;
