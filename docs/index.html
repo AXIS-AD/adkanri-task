@@ -2997,10 +2997,26 @@ function buildMorningReport(skipHInputs) {
   var bufferH = bufferEl ? parseFloat(bufferEl.value) || 0 : 1;
   var totalH = 0;
 
+  // 先にtotalHを計算
+  REPORT_CATS.forEach(function(c) {
+    var catH = _reportCatH[c.key] ? parseFloat(_reportCatH[c.key]) : 0;
+    totalH += catH;
+  });
+  if (rf.longTerm && data.ltTodos.length > 0) {
+    var ltH = _reportCatH["long_term"] ? parseFloat(_reportCatH["long_term"]) : 0;
+    totalH += ltH;
+  }
+
   var lines = "[To:5420288]\u897F\u6751 \u77E5\u8F1D\u3055\u3093\n";
   lines += "[info][title]" + dateStr + " " + pName + "\u306E\u30BF\u30B9\u30AF[/title]";
+
+  // TTLをタイトル直下に表示
+  lines += "\nタスク合計: " + totalH + "H";
+  lines += "\n差し込みバッファ: " + bufferH + "H";
+  lines += "\n合計: " + (totalH + bufferH) + "H";
+
   REPORT_CATS.forEach(function(c, idx) {
-    if (idx > 0) lines += "\n[hr]";
+    lines += "\n[hr]";
     var catH = _reportCatH[c.key] ? parseFloat(_reportCatH[c.key]) : 0;
     lines += "\n【" + c.label + "】" + (catH > 0 ? catH + "H" : "");
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
@@ -3009,16 +3025,14 @@ function buildMorningReport(skipHInputs) {
         lines += "\n・" + (t.title || "（タイトルなし）") + timeStr;
       });
     }
-    totalH += catH;
   });
 
   if (rf.longTerm && data.ltTodos.length > 0) {
-    var ltH = _reportCatH["long_term"] ? parseFloat(_reportCatH["long_term"]) : 0;
-    lines += "\n[hr]\n【長期タスク】" + (ltH > 0 ? ltH + "H" : "");
+    var ltH2 = _reportCatH["long_term"] ? parseFloat(_reportCatH["long_term"]) : 0;
+    lines += "\n[hr]\n【長期タスク】" + (ltH2 > 0 ? ltH2 + "H" : "");
     data.ltTodos.forEach(function(lt) {
       lines += "\n・" + (lt.parentTitle || "（タイトルなし）") + "┗" + lt.text;
     });
-    totalH += ltH;
   }
   lines += "\n[/info]";
 
@@ -3033,12 +3047,6 @@ function buildMorningReport(skipHInputs) {
   lines += "\n[info][title]差し込みタスク[/title]";
   lines += "\n・";
   lines += "\n差し込みバッファ: " + bufferH + "H";
-  lines += "\n[/info]";
-
-  lines += "\n[info][title]TTL[/title]";
-  lines += "\nタスク合計: " + totalH + "H";
-  lines += "\n差し込みバッファ: " + bufferH + "H";
-  lines += "\n合計: " + (totalH + bufferH) + "H";
   lines += "\n[/info]";
 
   return lines;
