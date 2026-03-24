@@ -454,16 +454,8 @@
   <aside class="sub-sidebar hidden" id="subSidebar">
     <div class="sub-sidebar-title">担当</div>
     <div class="person-row" id="personRow"></div>
-    <div class="sub-sidebar-title" style="margin-top:4px;">カテゴリ</div>
-    <nav class="genre-list">
-      <button class="genre-btn active" data-genre="all" onclick="setGenre('all')">すべて</button>
-      <button class="genre-btn" data-genre="tsunagikomi" onclick="setGenre('tsunagikomi')">つなぎこみ</button>
-      <button class="genre-btn" data-genre="sheet" onclick="setGenre('sheet')">スプシ</button>
-      <button class="genre-btn" data-genre="number_match" onclick="setGenre('number_match')">数字合わせ</button>
-      <button class="genre-btn" data-genre="asp" onclick="setGenre('asp')">ASP</button>
-      <button class="genre-btn" data-genre="other" onclick="setGenre('other')">その他</button>
-      <button class="genre-btn" data-genre="teiki" onclick="setGenre('teiki')">定期タスク</button>
-      <button class="genre-btn" data-genre="long_term" onclick="setGenre('long_term')">長期タスク</button>
+    <div class="sub-sidebar-title" style="margin-top:4px;">カテゴリ <button onclick="showAddCategoryModal()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;padding:0 4px;" title="カテゴリ追加">＋</button></div>
+    <nav class="genre-list" id="genreList">
     </nav>
   </aside>
 
@@ -926,7 +918,7 @@ function toggleSidebar() {
 }
 
 // ============================
-// Auth
+// Auth（セッションJWT対応）
 // ============================
 var authToken = null;
 var currentUser = null;
@@ -934,10 +926,12 @@ var userRole = "user";
 
 function decodeJwt(token) {
   var payload = token.split(".")[1];
-  return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+  var binary = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+  // UTF-8マルチバイト文字（日本語名など）を正しくデコード
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
-
-var silentRefreshInProgress = false;
 
 function isTokenExpired() {
   if (!authToken) return true;
@@ -949,29 +943,8 @@ function reAuthenticate() {
   if (typeof google !== "undefined" && google.accounts) google.accounts.id.prompt();
 }
 
-function trySilentRefresh() {
-  if (silentRefreshInProgress) return;
-  silentRefreshInProgress = true;
-  if (typeof google !== "undefined" && google.accounts && google.accounts.id) {
-    google.accounts.id.prompt(function(notification) {
-      silentRefreshInProgress = false;
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        reAuthenticate();
-      }
-    });
-  } else {
-    silentRefreshInProgress = false;
-    reAuthenticate();
-  }
-}
-
 function apiCall(method, path, body) {
   if (isTokenExpired()) {
-    var savedUser = localStorage.getItem("userInfo");
-    if (savedUser) {
-      trySilentRefresh();
-      return Promise.reject(new Error("トークン更新中"));
-    }
     reAuthenticate();
     return Promise.reject(new Error("ログインが必要です"));
   }
@@ -979,18 +952,25 @@ function apiCall(method, path, body) {
   if (body && method !== "GET" && method !== "DELETE") opts.body = JSON.stringify(body);
   return fetch(API_BASE + path, opts).then(function(res) {
     return res.json().then(function(data) {
-      if (res.status === 401) { trySilentRefresh(); throw new Error(data.error || "ログインが必要です"); }
+      if (res.status === 401) {
+        // セッション無効 → localStorage クリアして再ログイン
+        localStorage.removeItem("sessionToken");
+        localStorage.removeItem("userInfo");
+        authToken = null;
+        reAuthenticate();
+        throw new Error(data.error || "ログインが必要です");
+      }
       if (!res.ok) throw new Error(data.error || "エラーが発生しました");
       return data;
     });
   });
 }
 
-function applyAuth(token) {
+function applySession(token, user) {
   authToken = token;
-  var payload = decodeJwt(authToken);
-  currentUser = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
-  localStorage.setItem("userInfo", JSON.stringify(currentUser));
+  currentUser = user;
+  localStorage.setItem("sessionToken", token);
+  localStorage.setItem("userInfo", JSON.stringify(user));
   document.getElementById("sidebarUser").textContent = currentUser.email;
   var avatar = document.getElementById("userAvatar");
   if (currentUser.picture) {
@@ -1003,39 +983,99 @@ function applyAuth(token) {
 }
 
 function handleCredentialResponse(response) {
-  localStorage.setItem("authToken", response.credential);
-  applyAuth(response.credential);
-  checkRole();
+  // Google ID Token をバックエンドに送り、セッションJWTを取得
+  var googleToken = response.credential;
+  fetch(API_BASE + "/api/auth/login", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + googleToken, "Content-Type": "application/json" }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.sessionToken) {
+      var user = { email: data.email, name: data.name, picture: data.picture || null };
+      applySession(data.sessionToken, user);
+      checkRole();
+    } else {
+      // セッションJWT発行失敗 → Google Token で直接動作（後方互換）
+      authToken = googleToken;
+      var payload = decodeJwt(googleToken);
+      var user = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
+      localStorage.setItem("userInfo", JSON.stringify(user));
+      currentUser = user;
+      document.getElementById("sidebarUser").textContent = currentUser.email;
+      document.getElementById("authOverlay").classList.add("hidden");
+      checkRole();
+    }
+  })
+  .catch(function() {
+    // ネットワークエラー等 → Google Token で直接動作（後方互換）
+    authToken = googleToken;
+    try {
+      var payload = decodeJwt(googleToken);
+      var user = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
+      localStorage.setItem("userInfo", JSON.stringify(user));
+      currentUser = user;
+      document.getElementById("sidebarUser").textContent = currentUser.email;
+    } catch(_) {}
+    document.getElementById("authOverlay").classList.add("hidden");
+    checkRole();
+  });
 }
 
 (function restoreSession() {
-  var saved = localStorage.getItem("authToken");
-  if (saved) {
+  // セッションJWTがあればそれを復元
+  var sessionToken = localStorage.getItem("sessionToken");
+  if (sessionToken) {
     try {
-      var payload = decodeJwt(saved);
+      var payload = decodeJwt(sessionToken);
       if (Date.now() / 1000 < payload.exp - 60) {
-        applyAuth(saved);
+        var savedUser = localStorage.getItem("userInfo");
+        var user = savedUser ? JSON.parse(savedUser) : { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
+        applySession(sessionToken, user);
+        checkRole();
+        return;
+      }
+    } catch (_) {}
+    // 期限切れ → クリア
+    localStorage.removeItem("sessionToken");
+  }
+
+  // 旧形式のauthTokenがあれば移行を試みる（後方互換）
+  var oldToken = localStorage.getItem("authToken");
+  if (oldToken) {
+    localStorage.removeItem("authToken"); // 旧キーを削除
+    try {
+      var payload = decodeJwt(oldToken);
+      if (Date.now() / 1000 < payload.exp - 60) {
+        // まだ有効なGoogle Token → セッションJWT取得を試みる
+        authToken = oldToken;
+        var user = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
+        currentUser = user;
+        document.getElementById("sidebarUser").textContent = user.email;
+        var avatar = document.getElementById("userAvatar");
+        if (user.picture) {
+          avatar.innerHTML = '<img src="' + user.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+        } else {
+          avatar.textContent = (user.name || "?").charAt(0).toUpperCase();
+        }
+        avatar.title = user.name;
+        document.getElementById("authOverlay").classList.add("hidden");
+        // バックグラウンドでセッションJWTに移行
+        fetch(API_BASE + "/api/auth/login", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + oldToken, "Content-Type": "application/json" }
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.sessionToken) {
+            applySession(data.sessionToken, { email: data.email, name: data.name, picture: data.picture || null });
+          }
+        }).catch(function() {});
         checkRole();
         return;
       }
     } catch (_) {}
   }
-  var savedUser = localStorage.getItem("userInfo");
-  if (savedUser) {
-    try {
-      currentUser = JSON.parse(savedUser);
-      document.getElementById("sidebarUser").textContent = currentUser.email;
-      var avatar = document.getElementById("userAvatar");
-      if (currentUser.picture) {
-        avatar.innerHTML = '<img src="' + currentUser.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
-      } else {
-        avatar.textContent = (currentUser.name || "?").charAt(0).toUpperCase();
-      }
-      avatar.title = currentUser.name;
-    } catch (_) {}
-    trySilentRefresh();
-    return;
-  }
+
+  // 保存されたユーザー情報だけある場合 → 再ログイン
   reAuthenticate();
 })();
 
@@ -1527,16 +1567,39 @@ async function toggleAdminRole(email, makeAdmin) {
 // Task management (admin)
 // ============================
 var PRIORITY_LABELS = { high: "高", medium: "中", low: "低" };
-var CATEGORY_LABELS = { tsunagikomi: "つなぎこみ", sheet: "スプシ", number_match: "数字合わせ", asp: "ASP", other: "その他", teiki: "定期タスク", long_term: "長期タスク" };
-var CATEGORY_ORDER = ["tsunagikomi", "sheet", "number_match", "asp", "other", "teiki", "long_term"];
-var CATEGORY_COLORS = { tsunagikomi: "var(--accent)", sheet: "var(--green)", number_match: "var(--yellow)", asp: "var(--purple)", other: "var(--text2)", teiki: "var(--cyan)", long_term: "var(--orange)" };
-var GENRE_MAP = { all: null, tsunagikomi: "tsunagikomi", sheet: "sheet", number_match: "number_match", asp: "asp", other: "other", teiki: "teiki", long_term: "long_term" };
+var DEFAULT_CATEGORY_LABELS = { tsunagikomi: "つなぎこみ", sheet: "スプシ", number_match: "数字合わせ", asp: "ASP", other: "その他", teiki: "定期タスク", long_term: "長期タスク" };
+var DEFAULT_CATEGORY_ORDER = ["tsunagikomi", "sheet", "number_match", "asp", "other", "teiki", "long_term"];
+var DEFAULT_CATEGORY_COLORS = { tsunagikomi: "var(--accent)", sheet: "var(--green)", number_match: "var(--yellow)", asp: "var(--purple)", other: "var(--text2)", teiki: "var(--cyan)", long_term: "var(--orange)" };
+var CUSTOM_CATEGORY_COLORS = ["var(--accent)", "var(--green)", "var(--yellow)", "var(--purple)", "var(--cyan)", "var(--orange)", "var(--text2)"];
+var customCategories = [];
+var CATEGORY_LABELS = Object.assign({}, DEFAULT_CATEGORY_LABELS);
+var CATEGORY_ORDER = DEFAULT_CATEGORY_ORDER.slice();
+var CATEGORY_COLORS = Object.assign({}, DEFAULT_CATEGORY_COLORS);
+var GENRE_MAP = { all: null };
+DEFAULT_CATEGORY_ORDER.forEach(function(k) { GENRE_MAP[k] = k; });
+
+function rebuildCategoryMaps() {
+  CATEGORY_LABELS = Object.assign({}, DEFAULT_CATEGORY_LABELS);
+  CATEGORY_ORDER = DEFAULT_CATEGORY_ORDER.slice();
+  CATEGORY_COLORS = Object.assign({}, DEFAULT_CATEGORY_COLORS);
+  GENRE_MAP = { all: null };
+  DEFAULT_CATEGORY_ORDER.forEach(function(k) { GENRE_MAP[k] = k; });
+  customCategories.forEach(function(c, i) {
+    CATEGORY_LABELS[c.id] = c.label;
+    // その他の前に挿入
+    var otherIdx = CATEGORY_ORDER.indexOf("other");
+    if (otherIdx === -1) otherIdx = CATEGORY_ORDER.length;
+    if (CATEGORY_ORDER.indexOf(c.id) === -1) CATEGORY_ORDER.splice(otherIdx, 0, c.id);
+    CATEGORY_COLORS[c.id] = c.color || CUSTOM_CATEGORY_COLORS[i % CUSTOM_CATEGORY_COLORS.length];
+    GENRE_MAP[c.id] = c.id;
+  });
+}
 
 var allTasks = [], peopleData = [], myId = null, apiError = null;
 var displayMode = "status", selectedPersonId = "all", selectedGenre = "all", viewMode = "card";
 var tasksLoaded = false;
 
-function normalizeCategory(cat) { return cat && CATEGORY_LABELS[cat] ? cat : "other"; }
+function normalizeCategory(cat) { return cat && (CATEGORY_LABELS[cat] || cat === "other") ? cat : "other"; }
 function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
 function today() { var d = new Date(); d.setHours(d.getHours() + 9); return d.toISOString().slice(0, 10); }
 function dueClass(l) { if (!l) return ""; var diff = (new Date(l) - new Date(today())) / 86400000; return diff < 0 ? "overdue" : diff === 0 ? "due-today" : diff <= 2 ? "due-soon" : ""; }
@@ -1646,6 +1709,81 @@ function renderManualListTable(tasks, genre) {
 function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
 function setPerson(id) { selectedPersonId = id; loadAll(); }
 
+// サイドバーのカテゴリリストを動的生成（担当者が持つカテゴリのみ表示）
+function renderGenreList() {
+  var nav = document.getElementById("genreList");
+  if (!nav) return;
+  // 選択中の担当者のタスクからカテゴリを収集
+  var personCats = {};
+  allTasks.forEach(function(t) {
+    if (selectedPersonId !== "all" && String(t.assigneeId) !== String(selectedPersonId)) return;
+    var cat = normalizeCategory(t.category);
+    personCats[cat] = true;
+  });
+  var html = '<button class="genre-btn' + (selectedGenre === "all" ? " active" : "") + '" data-genre="all" onclick="setGenre(\'all\')">すべて</button>';
+  CATEGORY_ORDER.forEach(function(k) {
+    // 「すべて」以外は担当者が持つカテゴリ + 定期・長期（常時表示）のみ
+    var alwaysShow = k === "teiki" || k === "long_term" || k === "other";
+    if (selectedPersonId === "all" || alwaysShow || personCats[k]) {
+      html += '<button class="genre-btn' + (selectedGenre === k ? " active" : "") + '" data-genre="' + k + '" onclick="setGenre(\'' + k + '\')">' + esc(CATEGORY_LABELS[k]) + '</button>';
+    }
+  });
+  nav.innerHTML = html;
+}
+
+// カスタムカテゴリ追加モーダル
+function showAddCategoryModal() {
+  var bodyHtml = '<div style="padding:16px;">';
+  bodyHtml += '<div class="modal-form-group"><label>カテゴリ名</label><input type="text" id="newCatLabel" placeholder="例: 入稿" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;width:100%;box-sizing:border-box;"></div>';
+  bodyHtml += '<button class="modal-submit-btn" onclick="submitAddCategory()">追加する</button>';
+  if (customCategories.length > 0) {
+    bodyHtml += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;"><div style="font-size:12px;color:var(--text2);margin-bottom:8px;">追加済みカテゴリ</div>';
+    customCategories.forEach(function(c) {
+      bodyHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;">' + esc(c.label) + '</span><button onclick="removeCustomCategory(\'' + c.id + '\')" style="background:none;border:none;color:var(--danger,#f87171);cursor:pointer;font-size:12px;">削除</button></div>';
+    });
+    bodyHtml += '</div>';
+  }
+  bodyHtml += '</div>';
+  setModalTitle("カテゴリを追加", true);
+  document.getElementById("modalBody").innerHTML = bodyHtml;
+  document.getElementById("modalActions").innerHTML = '';
+  document.getElementById("taskModal").classList.remove("hidden");
+  setTimeout(function() { var inp = document.getElementById("newCatLabel"); if (inp) inp.focus(); }, 100);
+}
+
+async function submitAddCategory() {
+  var label = (document.getElementById("newCatLabel").value || "").trim();
+  if (!label) { alert("カテゴリ名を入力してください"); return; }
+  var id = "custom_" + label.replace(/\s+/g, "_").toLowerCase() + "_" + Date.now();
+  customCategories.push({ id: id, label: label });
+  rebuildCategoryMaps();
+  try {
+    await apiCall("POST", "/api/categories", { categories: customCategories });
+  } catch(e) { /* ローカルでは保存されなくてもUIは更新 */ }
+  renderGenreList();
+  closeModal();
+}
+
+async function removeCustomCategory(id) {
+  customCategories = customCategories.filter(function(c) { return c.id !== id; });
+  rebuildCategoryMaps();
+  try {
+    await apiCall("POST", "/api/categories", { categories: customCategories });
+  } catch(e) {}
+  renderGenreList();
+  showAddCategoryModal();
+}
+
+async function loadCustomCategories() {
+  try {
+    var data = await apiCall("GET", "/api/categories");
+    if (data.categories && data.categories.length) {
+      customCategories = data.categories;
+      rebuildCategoryMaps();
+    }
+  } catch(e) {}
+}
+
 var _dashQueue = Promise.resolve();
 function dashUpdate(id, data) {
   _dashQueue = _dashQueue.then(function() {
@@ -1748,7 +1886,13 @@ function openModal(id) {
   bodyHtml += '<div class="modal-field-row">';
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">カテゴリ</div><select id="modalCategory">' + CATEGORY_ORDER.map(function(k) { return '<option value="' + k + '"' + (normalizeCategory(task.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select></div>';
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">期日</div><input type="date" id="modalDueDate" value="' + (task.limit || '') + '" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
-  bodyHtml += '<div class="modal-field"><div class="modal-field-label">\uD83D\uDCC5 \u5BFE\u5FDC\u4E88\u5B9A\u65E5</div><input type="date" id="modalScheduledDate" value="' + (task.scheduledDate || '') + '" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
+  var schedOpts = [{v:"",l:"未設定"},{v:"today",l:"今日（"+calcScheduleDate("today")+"）"},{v:"tomorrow",l:"明日（"+calcScheduleDate("tomorrow")+"）"},{v:"this_week",l:"今週（"+calcScheduleDate("this_week")+"）"},{v:"next_week",l:"来週（"+calcScheduleDate("next_week")+"）"},{v:"this_month",l:"今月（"+calcScheduleDate("this_month")+"）"},{v:"asap",l:"なるはや"},{v:"custom",l:"日付を指定..."}];
+  var curSched = task.scheduledDate || "";
+  var schedMatchesPreset = false;
+  bodyHtml += '<div class="modal-field"><div class="modal-field-label">\uD83D\uDCC5 \u5BFE\u5FDC\u4E88\u5B9A\u65E5</div><select id="modalScheduledDate" onchange="onModalSchedChange()" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">';
+  schedOpts.forEach(function(o) { var calcVal = (o.v && o.v !== "asap" && o.v !== "custom") ? calcScheduleDate(o.v) : o.v === "asap" ? "なるはや" : o.v; var sel = curSched === calcVal; if (sel) schedMatchesPreset = true; bodyHtml += '<option value="' + o.v + '"' + (sel ? ' selected' : '') + '>' + o.l + '</option>'; });
+  if (curSched && !schedMatchesPreset) bodyHtml += '<option value="current" selected>' + curSched + '</option>';
+  bodyHtml += '</select><input type="date" id="modalScheduledCustom" style="display:none;width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;margin-top:8px;"></div>';
   bodyHtml += '</div>';
 
   bodyHtml += '<div class="modal-field" style="margin-bottom:20px;"><div class="modal-field-label">メモ</div><textarea id="modalNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(task.note || '') + '</textarea></div>';
@@ -1774,7 +1918,18 @@ async function saveModalTask(id) {
   if (noteEl) { t.note = noteEl.value.trim(); updates.note = t.note; }
   if (dueEl) { t.limit = dueEl.value || null; updates.limit = t.limit; }
   var schedEl = document.getElementById("modalScheduledDate");
-  if (schedEl) { t.scheduledDate = schedEl.value || null; updates.scheduledDate = t.scheduledDate; }
+  var schedCustom = document.getElementById("modalScheduledCustom");
+  if (schedEl) {
+    var sv = schedEl.value;
+    if (sv === "custom") {
+      t.scheduledDate = schedCustom && schedCustom.value ? schedCustom.value : null;
+    } else if (sv === "current") {
+      // 既存値のまま変更なし
+    } else {
+      t.scheduledDate = sv ? calcScheduleDate(sv) : null;
+    }
+    updates.scheduledDate = t.scheduledDate;
+  }
   if (catEl && catEl.value !== normalizeCategory(t.category)) { t.category = catEl.value; updates.category = catEl.value; }
   if (assignEl) {
     var opt = assignEl.options[assignEl.selectedIndex];
@@ -1788,6 +1943,17 @@ async function saveModalTask(id) {
   }
   await dashUpdate(id, updates);
   renderAll(); closeModal();
+}
+function onModalSchedChange() {
+  var sel = document.getElementById("modalScheduledDate");
+  var custom = document.getElementById("modalScheduledCustom");
+  if (sel.value === "custom") {
+    custom.style.display = "block";
+    custom.focus();
+    try { custom.showPicker(); } catch(_) {}
+  } else {
+    custom.style.display = "none";
+  }
 }
 function setModalTitle(text, hidePencil) {
   var textEl = document.getElementById("modalTitleText");
@@ -2413,6 +2579,7 @@ function renderSection(title, tasks, dotColor, categoryKey) {
 }
 
 function renderAll() {
+  renderGenreList();
   var isManualGenre = selectedGenre === "teiki" || selectedGenre === "long_term";
   document.getElementById("displayToggle").style.display = isManualGenre ? "none" : "flex";
   document.getElementById("viewToggle").style.display = "flex";
@@ -2570,7 +2737,8 @@ async function loadAll() {
 
     var tasksPromise = apiCall("GET", "/api/dashboard/tasks?" + params.join("&"));
     var peoplePromise = apiCall("GET", "/api/people").catch(function() { return { people: [], myId: null }; });
-    var results = await Promise.all([tasksPromise, peoplePromise]);
+    var catPromise = apiCall("GET", "/api/categories").catch(function() { return { categories: [] }; });
+    var results = await Promise.all([tasksPromise, peoplePromise, catPromise]);
     var tasksJson = results[0];
     var peopleJson = results[1];
 
@@ -2579,9 +2747,11 @@ async function loadAll() {
 
     peopleData = Array.isArray(peopleJson.people) ? peopleJson.people : [];
     myId = peopleJson.myId != null ? peopleJson.myId : null;
+    var catJson = results[2];
+    if (catJson.categories && catJson.categories.length) { customCategories = catJson.categories; rebuildCategoryMaps(); }
     if (selectedPersonId == null && peopleData.length > 0) selectedPersonId = myId != null ? myId : (peopleData[0] ? peopleData[0].id : null);
     checkAllTeikiRecurrence();
-    renderPersonButtons(); renderAll(); tasksLoaded = true;
+    renderPersonButtons(); renderGenreList(); renderAll(); tasksLoaded = true;
     document.getElementById("lastUpdated").textContent = "最終更新: " + new Date().toLocaleTimeString("ja-JP");
     var sel = peopleData.find(function(p) { return p.id === selectedPersonId; });
     if (apiError) { document.getElementById("apiErrorBanner").textContent = "Chatwork: " + apiError; document.getElementById("apiErrorBanner").style.display = "block"; }
