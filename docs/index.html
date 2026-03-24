@@ -2509,7 +2509,6 @@ function openLongTermModal(id) {
     bodyHtml += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleTodoDone(\'' + id + '\',' + idx + ',this.checked)" title="完了切替">';
     bodyHtml += '<span class="todo-date-label" onclick="event.stopPropagation();showTodoDatePicker(\'' + id + '\',' + idx + ',this)" title="日付変更">' + (dateLabel || "日付") + '</span>';
     bodyHtml += '<span class="todo-text">' + esc(item.text) + '</span>';
-    bodyHtml += '<input type="number" min="0" step="0.5" value="' + (item.estimatedH || '') + '" placeholder="H" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'estimatedH\',this.value)" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;text-align:center;">';
     bodyHtml += '<select class="todo-status-select" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'status\',this.value)">';
     ["open","in_progress","done"].forEach(function(s) {
       bodyHtml += '<option value="' + s + '"' + ((item.status || "open") === s ? ' selected' : '') + '>' + TODO_STATUSES[s] + '</option>';
@@ -2519,7 +2518,7 @@ function openLongTermModal(id) {
     bodyHtml += '</div>';
   });
   bodyHtml += '</div>';
-  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><input type="number" id="todoNewH" min="0" step="0.5" placeholder="H" style="width:55px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
+  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
   bodyHtml += '<h3 style="font-size:14px;margin:20px 0 10px;color:var(--text);">備考</h3>';
   bodyHtml += '<textarea id="longTermNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea>';
   bodyHtml += '<button class="modal-save-btn" onclick="saveLongTermTodos(\'' + id + '\')">保存</button>';
@@ -2536,14 +2535,12 @@ function updateLongTermField(id, field, val) {
 function addTodoItemLocal(taskId) {
   var inp = document.getElementById("todoNewText");
   var dateInp = document.getElementById("todoNewDate");
-  var hInp = document.getElementById("todoNewH");
   var text = inp.value.trim();
   if (!text) return;
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t) return;
   if (!t.todos) t.todos = [];
   var newTodo = { text: text, date: dateInp ? dateInp.value : today(), status: "open" };
-  if (hInp && hInp.value) newTodo.estimatedH = parseFloat(hInp.value);
   t.todos.push(newTodo);
   openLongTermModal(taskId);
 }
