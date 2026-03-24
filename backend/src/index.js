@@ -73,6 +73,12 @@ export default {
       } else if (path === '/api/categories' && request.method === 'POST') {
         response = await handleSaveCategories(request, env);
       }
+      // ── 非表示カテゴリ ──
+      else if (path === '/api/hidden-categories' && request.method === 'GET') {
+        response = await handleGetHiddenCategories(request, env);
+      } else if (path === '/api/hidden-categories' && request.method === 'POST') {
+        response = await handleSaveHiddenCategories(request, env);
+      }
       // ── デプロイ通知 ──
       else if (path === '/api/deploy-notify' && request.method === 'POST') {
         response = await handleDeployNotify(request, env);
@@ -729,6 +735,24 @@ async function handleSaveCategories(request, env) {
     return jsonResponse({ error: 'categories array required' }, 400);
   }
   await env.TASK_STORE.put(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+  return jsonResponse({ ok: true });
+}
+
+const HIDDEN_CATEGORIES_KEY = 'HIDDEN_CATEGORIES';
+
+async function handleGetHiddenCategories(request, env) {
+  await verifyGoogleToken(request, env);
+  const data = await env.TASK_STORE.get(HIDDEN_CATEGORIES_KEY);
+  return jsonResponse({ hidden: data ? JSON.parse(data) : [] });
+}
+
+async function handleSaveHiddenCategories(request, env) {
+  await verifyGoogleToken(request, env);
+  const { hidden } = await request.json();
+  if (!Array.isArray(hidden)) {
+    return jsonResponse({ error: 'hidden array required' }, 400);
+  }
+  await env.TASK_STORE.put(HIDDEN_CATEGORIES_KEY, JSON.stringify(hidden));
   return jsonResponse({ ok: true });
 }
 

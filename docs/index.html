@@ -1525,6 +1525,7 @@ var DEFAULT_CATEGORY_ORDER = ["tsunagikomi", "sheet", "number_match", "asp", "ot
 var DEFAULT_CATEGORY_COLORS = { tsunagikomi: "var(--accent)", sheet: "var(--green)", number_match: "var(--yellow)", asp: "var(--purple)", other: "var(--text2)", teiki: "var(--cyan)", long_term: "var(--orange)" };
 var CUSTOM_CATEGORY_COLORS = ["var(--accent)", "var(--green)", "var(--yellow)", "var(--purple)", "var(--cyan)", "var(--orange)", "var(--text2)"];
 var customCategories = [];
+var hiddenCategories = [];
 var CATEGORY_LABELS = Object.assign({}, DEFAULT_CATEGORY_LABELS);
 var CATEGORY_ORDER = DEFAULT_CATEGORY_ORDER.slice();
 var CATEGORY_COLORS = Object.assign({}, DEFAULT_CATEGORY_COLORS);
@@ -1539,12 +1540,17 @@ function rebuildCategoryMaps() {
   DEFAULT_CATEGORY_ORDER.forEach(function(k) { GENRE_MAP[k] = k; });
   customCategories.forEach(function(c, i) {
     CATEGORY_LABELS[c.id] = c.label;
-    // その他の前に挿入
     var otherIdx = CATEGORY_ORDER.indexOf("other");
     if (otherIdx === -1) otherIdx = CATEGORY_ORDER.length;
     if (CATEGORY_ORDER.indexOf(c.id) === -1) CATEGORY_ORDER.splice(otherIdx, 0, c.id);
     CATEGORY_COLORS[c.id] = c.color || CUSTOM_CATEGORY_COLORS[i % CUSTOM_CATEGORY_COLORS.length];
     GENRE_MAP[c.id] = c.id;
+  });
+  // 非表示カテゴリを除外
+  hiddenCategories.forEach(function(hid) {
+    var idx = CATEGORY_ORDER.indexOf(hid);
+    if (idx !== -1) CATEGORY_ORDER.splice(idx, 1);
+    delete GENRE_MAP[hid];
   });
 }
 
@@ -1684,20 +1690,49 @@ function renderGenreList() {
   nav.innerHTML = html;
 }
 
-// カスタムカテゴリ追加モーダル
+// カテゴリ管理モーダル
 function showAddCategoryModal() {
   var bodyHtml = '<div style="padding:16px;">';
-  bodyHtml += '<div class="modal-form-group"><label>カテゴリ名</label><input type="text" id="newCatLabel" placeholder="例: 入稿" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;width:100%;box-sizing:border-box;"></div>';
-  bodyHtml += '<button class="modal-submit-btn" onclick="submitAddCategory()">追加する</button>';
-  if (customCategories.length > 0) {
-    bodyHtml += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;"><div style="font-size:12px;color:var(--text2);margin-bottom:8px;">追加済みカテゴリ</div>';
-    customCategories.forEach(function(c) {
-      bodyHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;">' + esc(c.label) + '</span><button onclick="removeCustomCategory(\'' + c.id + '\')" style="background:none;border:none;color:var(--danger,#f87171);cursor:pointer;font-size:12px;">削除</button></div>';
-    });
+
+  // 既存カテゴリ一覧（表示/非表示切替）
+  bodyHtml += '<div style="margin-bottom:16px;"><div style="font-size:12px;color:var(--text2);margin-bottom:8px;">カテゴリ一覧</div>';
+  var protectedCats = ["other", "teiki", "long_term"];
+  // デフォルトカテゴリ（定期・長期・その他は保護）
+  DEFAULT_CATEGORY_ORDER.forEach(function(k) {
+    if (protectedCats.indexOf(k) !== -1) return;
+    var isHidden = hiddenCategories.indexOf(k) !== -1;
+    bodyHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">';
+    bodyHtml += '<span style="font-size:13px;' + (isHidden ? 'opacity:0.4;text-decoration:line-through;' : '') + '">' + esc(DEFAULT_CATEGORY_LABELS[k]) + '</span>';
+    if (isHidden) {
+      bodyHtml += '<button onclick="unhideCategory(\'' + k + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;">表示</button>';
+    } else {
+      bodyHtml += '<button onclick="hideCategory(\'' + k + '\')" style="background:none;border:none;color:var(--danger,#f87171);cursor:pointer;font-size:12px;">非表示</button>';
+    }
     bodyHtml += '</div>';
-  }
+  });
+  // カスタムカテゴリ
+  customCategories.forEach(function(c) {
+    var isHidden = hiddenCategories.indexOf(c.id) !== -1;
+    bodyHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">';
+    bodyHtml += '<span style="font-size:13px;' + (isHidden ? 'opacity:0.4;text-decoration:line-through;' : '') + '">' + esc(c.label) + '</span>';
+    bodyHtml += '<div style="display:flex;gap:8px;">';
+    if (isHidden) {
+      bodyHtml += '<button onclick="unhideCategory(\'' + c.id + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;">表示</button>';
+    } else {
+      bodyHtml += '<button onclick="hideCategory(\'' + c.id + '\')" style="background:none;border:none;color:var(--danger,#f87171);cursor:pointer;font-size:12px;">非表示</button>';
+    }
+    bodyHtml += '<button onclick="removeCustomCategory(\'' + c.id + '\')" style="background:none;border:none;color:var(--danger,#f87171);cursor:pointer;font-size:12px;">削除</button>';
+    bodyHtml += '</div></div>';
+  });
   bodyHtml += '</div>';
-  setModalTitle("カテゴリを追加", true);
+
+  // 新規追加
+  bodyHtml += '<div style="border-top:1px solid var(--border);padding-top:12px;">';
+  bodyHtml += '<div class="modal-form-group"><label>カテゴリを追加</label><input type="text" id="newCatLabel" placeholder="例: 入稿" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;width:100%;box-sizing:border-box;"></div>';
+  bodyHtml += '<button class="modal-submit-btn" onclick="submitAddCategory()">追加する</button>';
+  bodyHtml += '</div></div>';
+
+  setModalTitle("カテゴリ管理", true);
   document.getElementById("modalBody").innerHTML = bodyHtml;
   document.getElementById("modalActions").innerHTML = '';
   document.getElementById("taskModal").classList.remove("hidden");
@@ -1719,9 +1754,31 @@ async function submitAddCategory() {
 
 async function removeCustomCategory(id) {
   customCategories = customCategories.filter(function(c) { return c.id !== id; });
+  hiddenCategories = hiddenCategories.filter(function(h) { return h !== id; });
   rebuildCategoryMaps();
   try {
     await apiCall("POST", "/api/categories", { categories: customCategories });
+    await apiCall("POST", "/api/hidden-categories", { hidden: hiddenCategories });
+  } catch(e) {}
+  renderGenreList();
+  showAddCategoryModal();
+}
+
+async function hideCategory(id) {
+  if (hiddenCategories.indexOf(id) === -1) hiddenCategories.push(id);
+  rebuildCategoryMaps();
+  try {
+    await apiCall("POST", "/api/hidden-categories", { hidden: hiddenCategories });
+  } catch(e) {}
+  renderGenreList();
+  showAddCategoryModal();
+}
+
+async function unhideCategory(id) {
+  hiddenCategories = hiddenCategories.filter(function(h) { return h !== id; });
+  rebuildCategoryMaps();
+  try {
+    await apiCall("POST", "/api/hidden-categories", { hidden: hiddenCategories });
   } catch(e) {}
   renderGenreList();
   showAddCategoryModal();
@@ -1732,9 +1789,15 @@ async function loadCustomCategories() {
     var data = await apiCall("GET", "/api/categories");
     if (data.categories && data.categories.length) {
       customCategories = data.categories;
-      rebuildCategoryMaps();
     }
   } catch(e) {}
+  try {
+    var data2 = await apiCall("GET", "/api/hidden-categories");
+    if (data2.hidden && data2.hidden.length) {
+      hiddenCategories = data2.hidden;
+    }
+  } catch(e) {}
+  rebuildCategoryMaps();
 }
 
 var _dashQueue = Promise.resolve();
