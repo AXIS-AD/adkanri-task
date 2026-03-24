@@ -918,7 +918,7 @@ function toggleSidebar() {
 }
 
 // ============================
-// Auth（セッションJWT対応）
+// Auth
 // ============================
 var authToken = null;
 var currentUser = null;
@@ -926,12 +926,10 @@ var userRole = "user";
 
 function decodeJwt(token) {
   var payload = token.split(".")[1];
-  var binary = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-  // UTF-8マルチバイト文字（日本語名など）を正しくデコード
-  var bytes = new Uint8Array(binary.length);
-  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return JSON.parse(new TextDecoder().decode(bytes));
+  return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
 }
+
+var silentRefreshInProgress = false;
 
 function isTokenExpired() {
   if (!authToken) return true;
@@ -943,8 +941,29 @@ function reAuthenticate() {
   if (typeof google !== "undefined" && google.accounts) google.accounts.id.prompt();
 }
 
+function trySilentRefresh() {
+  if (silentRefreshInProgress) return;
+  silentRefreshInProgress = true;
+  if (typeof google !== "undefined" && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt(function(notification) {
+      silentRefreshInProgress = false;
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        reAuthenticate();
+      }
+    });
+  } else {
+    silentRefreshInProgress = false;
+    reAuthenticate();
+  }
+}
+
 function apiCall(method, path, body) {
   if (isTokenExpired()) {
+    var savedUser = localStorage.getItem("userInfo");
+    if (savedUser) {
+      trySilentRefresh();
+      return Promise.reject(new Error("トークン更新中"));
+    }
     reAuthenticate();
     return Promise.reject(new Error("ログインが必要です"));
   }
@@ -952,25 +971,18 @@ function apiCall(method, path, body) {
   if (body && method !== "GET" && method !== "DELETE") opts.body = JSON.stringify(body);
   return fetch(API_BASE + path, opts).then(function(res) {
     return res.json().then(function(data) {
-      if (res.status === 401) {
-        // セッション無効 → localStorage クリアして再ログイン
-        localStorage.removeItem("sessionToken");
-        localStorage.removeItem("userInfo");
-        authToken = null;
-        reAuthenticate();
-        throw new Error(data.error || "ログインが必要です");
-      }
+      if (res.status === 401) { trySilentRefresh(); throw new Error(data.error || "ログインが必要です"); }
       if (!res.ok) throw new Error(data.error || "エラーが発生しました");
       return data;
     });
   });
 }
 
-function applySession(token, user) {
+function applyAuth(token) {
   authToken = token;
-  currentUser = user;
-  localStorage.setItem("sessionToken", token);
-  localStorage.setItem("userInfo", JSON.stringify(user));
+  var payload = decodeJwt(authToken);
+  currentUser = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
+  localStorage.setItem("userInfo", JSON.stringify(currentUser));
   document.getElementById("sidebarUser").textContent = currentUser.email;
   var avatar = document.getElementById("userAvatar");
   if (currentUser.picture) {
@@ -983,99 +995,39 @@ function applySession(token, user) {
 }
 
 function handleCredentialResponse(response) {
-  // Google ID Token をバックエンドに送り、セッションJWTを取得
-  var googleToken = response.credential;
-  fetch(API_BASE + "/api/auth/login", {
-    method: "POST",
-    headers: { "Authorization": "Bearer " + googleToken, "Content-Type": "application/json" }
-  })
-  .then(function(res) { return res.json(); })
-  .then(function(data) {
-    if (data.sessionToken) {
-      var user = { email: data.email, name: data.name, picture: data.picture || null };
-      applySession(data.sessionToken, user);
-      checkRole();
-    } else {
-      // セッションJWT発行失敗 → Google Token で直接動作（後方互換）
-      authToken = googleToken;
-      var payload = decodeJwt(googleToken);
-      var user = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
-      localStorage.setItem("userInfo", JSON.stringify(user));
-      currentUser = user;
-      document.getElementById("sidebarUser").textContent = currentUser.email;
-      document.getElementById("authOverlay").classList.add("hidden");
-      checkRole();
-    }
-  })
-  .catch(function() {
-    // ネットワークエラー等 → Google Token で直接動作（後方互換）
-    authToken = googleToken;
-    try {
-      var payload = decodeJwt(googleToken);
-      var user = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
-      localStorage.setItem("userInfo", JSON.stringify(user));
-      currentUser = user;
-      document.getElementById("sidebarUser").textContent = currentUser.email;
-    } catch(_) {}
-    document.getElementById("authOverlay").classList.add("hidden");
-    checkRole();
-  });
+  localStorage.setItem("authToken", response.credential);
+  applyAuth(response.credential);
+  checkRole();
 }
 
 (function restoreSession() {
-  // セッションJWTがあればそれを復元
-  var sessionToken = localStorage.getItem("sessionToken");
-  if (sessionToken) {
+  var saved = localStorage.getItem("authToken");
+  if (saved) {
     try {
-      var payload = decodeJwt(sessionToken);
+      var payload = decodeJwt(saved);
       if (Date.now() / 1000 < payload.exp - 60) {
-        var savedUser = localStorage.getItem("userInfo");
-        var user = savedUser ? JSON.parse(savedUser) : { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
-        applySession(sessionToken, user);
-        checkRole();
-        return;
-      }
-    } catch (_) {}
-    // 期限切れ → クリア
-    localStorage.removeItem("sessionToken");
-  }
-
-  // 旧形式のauthTokenがあれば移行を試みる（後方互換）
-  var oldToken = localStorage.getItem("authToken");
-  if (oldToken) {
-    localStorage.removeItem("authToken"); // 旧キーを削除
-    try {
-      var payload = decodeJwt(oldToken);
-      if (Date.now() / 1000 < payload.exp - 60) {
-        // まだ有効なGoogle Token → セッションJWT取得を試みる
-        authToken = oldToken;
-        var user = { email: payload.email, name: payload.name || payload.email, picture: payload.picture || null };
-        currentUser = user;
-        document.getElementById("sidebarUser").textContent = user.email;
-        var avatar = document.getElementById("userAvatar");
-        if (user.picture) {
-          avatar.innerHTML = '<img src="' + user.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
-        } else {
-          avatar.textContent = (user.name || "?").charAt(0).toUpperCase();
-        }
-        avatar.title = user.name;
-        document.getElementById("authOverlay").classList.add("hidden");
-        // バックグラウンドでセッションJWTに移行
-        fetch(API_BASE + "/api/auth/login", {
-          method: "POST",
-          headers: { "Authorization": "Bearer " + oldToken, "Content-Type": "application/json" }
-        }).then(function(r) { return r.json(); }).then(function(data) {
-          if (data.sessionToken) {
-            applySession(data.sessionToken, { email: data.email, name: data.name, picture: data.picture || null });
-          }
-        }).catch(function() {});
+        applyAuth(saved);
         checkRole();
         return;
       }
     } catch (_) {}
   }
-
-  // 保存されたユーザー情報だけある場合 → 再ログイン
+  var savedUser = localStorage.getItem("userInfo");
+  if (savedUser) {
+    try {
+      currentUser = JSON.parse(savedUser);
+      document.getElementById("sidebarUser").textContent = currentUser.email;
+      var avatar = document.getElementById("userAvatar");
+      if (currentUser.picture) {
+        avatar.innerHTML = '<img src="' + currentUser.picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+      } else {
+        avatar.textContent = (currentUser.name || "?").charAt(0).toUpperCase();
+      }
+      avatar.title = currentUser.name;
+    } catch (_) {}
+    trySilentRefresh();
+    return;
+  }
   reAuthenticate();
 })();
 

@@ -73,10 +73,6 @@ export default {
       } else if (path === '/api/categories' && request.method === 'POST') {
         response = await handleSaveCategories(request, env);
       }
-      // ── 認証（セッションJWT発行） ──
-      else if (path === '/api/auth/login' && request.method === 'POST') {
-        response = await handleAuthLogin(request, env);
-      }
       // ── デプロイ通知 ──
       else if (path === '/api/deploy-notify' && request.method === 'POST') {
         response = await handleDeployNotify(request, env);
@@ -133,10 +129,8 @@ function jsonResponse(data, status = 200) {
 }
 
 // ====================================================
-// 認証（Google ID Token 検証 + 自前セッションJWT）
+// 認証（Google ID Token 検証）
 // ====================================================
-
-const SESSION_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // 30日（秒）
 
 class AuthError extends Error {
   constructor(message) {
@@ -145,108 +139,6 @@ class AuthError extends Error {
   }
 }
 
-// HMAC-SHA256 で自前セッションJWTを発行
-async function createSessionToken(payload, env) {
-  const secret = env.SESSION_SECRET;
-  if (!secret) throw new Error('SESSION_SECRET が未設定です');
-
-  const header = { alg: 'HS256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const body = { ...payload, iat: now, exp: now + SESSION_TOKEN_MAX_AGE };
-
-  const enc = new TextEncoder();
-  const headerB64 = base64urlEncode(JSON.stringify(header));
-  const bodyB64 = base64urlEncode(JSON.stringify(body));
-  const signingInput = headerB64 + '.' + bodyB64;
-
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(signingInput));
-  const sigB64 = base64urlEncode(sig);
-
-  return signingInput + '.' + sigB64;
-}
-
-// 自前セッションJWTを検証
-async function verifySessionToken(token, env) {
-  const secret = env.SESSION_SECRET;
-  if (!secret) return null;
-
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-
-  try {
-    const enc = new TextEncoder();
-    const signingInput = parts[0] + '.' + parts[1];
-    const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const sigBytes = base64urlDecode(parts[2]);
-    const valid = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(signingInput));
-    if (!valid) return null;
-
-    // base64url → UTF-8文字列にデコード（日本語対応）
-    const payloadBytes = base64urlDecode(parts[1]);
-    const payloadStr = new TextDecoder().decode(payloadBytes);
-    const payload = JSON.parse(payloadStr);
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
-
-    return payload;
-  } catch (_) {
-    return null;
-  }
-}
-
-function base64urlEncode(input) {
-  let bytes;
-  if (input instanceof ArrayBuffer) {
-    bytes = new Uint8Array(input);
-  } else if (input instanceof Uint8Array) {
-    bytes = input;
-  } else {
-    // 文字列 → UTF-8バイト列（日本語等マルチバイト対応）
-    bytes = new TextEncoder().encode(input);
-  }
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64urlDecode(str) {
-  const padded = str + '==='.slice(0, (4 - str.length % 4) % 4);
-  const binary = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from(binary, c => c.charCodeAt(0));
-}
-
-// /api/auth/login ハンドラ: Google Token → セッションJWT発行
-async function handleAuthLogin(request, env) {
-  const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) {
-    throw new AuthError('ログインが必要です');
-  }
-
-  const googleToken = auth.slice(7);
-  const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + googleToken);
-  if (!res.ok) {
-    throw new AuthError('Google認証に失敗しました');
-  }
-
-  const gPayload = await res.json();
-  if (gPayload.aud !== env.GOOGLE_CLIENT_ID) {
-    throw new AuthError('認証情報が不正です');
-  }
-
-  const email = (gPayload.email || '').toLowerCase();
-  const domain = email.includes('@') ? email.split('@')[1] : '';
-  if (!ALLOWED_EMAIL_DOMAINS.some((d) => domain === d)) {
-    throw new AuthError('AXIS・shibuya-ad.com のアドレスのみ利用可能です');
-  }
-
-  const name = gPayload.name || email;
-  const picture = gPayload.picture || null;
-  const sessionToken = await createSessionToken({ email, name, picture }, env);
-
-  return jsonResponse({ sessionToken, email, name, picture });
-}
-
-// 統合認証: 自前セッションJWT → フォールバックでGoogle ID Token
 async function verifyGoogleToken(request, env) {
   const auth = request.headers.get('Authorization') || '';
   if (!auth.startsWith('Bearer ')) {
@@ -254,14 +146,6 @@ async function verifyGoogleToken(request, env) {
   }
 
   const token = auth.slice(7);
-
-  // まず自前セッションJWTとして検証
-  const session = await verifySessionToken(token, env);
-  if (session) {
-    return { email: session.email, name: session.name || session.email };
-  }
-
-  // フォールバック: Google ID Token として検証（後方互換）
   const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + token);
   if (!res.ok) {
     throw new AuthError('セッションが切れました。再度ログインしてください');
