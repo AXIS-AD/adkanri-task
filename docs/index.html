@@ -2075,9 +2075,20 @@ function calcScheduleDate(key) {
   return "";
 }
 function scheduleLabel(val) {
-  if (!val) return "\uD83D\uDCC5\u4E88\u5B9A\u306A\u3057";
-  if (val === "なるはや") return "\uD83D\uDCC5\u306A\u308B\u306F\u3084";
-  return "\uD83D\uDCC5" + val;
+  if (!val) return "\uD83D\uDCC5予定なし";
+  if (val === "なるはや") return "\uD83D\uDCC5なるはや";
+  var td = today();
+  if (val === td) return "\uD83D\uDCC5今日";
+  var tom = new Date(); tom.setDate(tom.getDate() + 1);
+  var tomStr = tom.getFullYear() + "-" + String(tom.getMonth()+1).padStart(2,"0") + "-" + String(tom.getDate()).padStart(2,"0");
+  if (val === tomStr) return "\uD83D\uDCC5明日";
+  var d = new Date(val + "T00:00:00+09:00");
+  if (d < new Date(td + "T00:00:00+09:00")) return "\uD83D\uDCC5超過";
+  var diffDays = Math.ceil((d - new Date(td + "T00:00:00+09:00")) / 86400000);
+  if (diffDays <= 6) return "\uD83D\uDCC5今週";
+  if (diffDays <= 13) return "\uD83D\uDCC5来週";
+  if (d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear()) return "\uD83D\uDCC5今月";
+  return "\uD83D\uDCC5" + (d.getMonth()+1) + "/" + d.getDate();
 }
 function editScheduledDate(id, el) {
   var task = allTasks.find(function(t) { return t.id === id; });
