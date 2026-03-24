@@ -1902,7 +1902,7 @@ function openModal(id) {
   bodyHtml += '<div class="modal-field-row">';
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">カテゴリ</div><select id="modalCategory">' + CATEGORY_ORDER.map(function(k) { return '<option value="' + k + '"' + (normalizeCategory(task.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select></div>';
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">期日</div><input type="date" id="modalDueDate" value="' + (task.limit || '') + '" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
-  var schedOpts = [{v:"",l:"未設定"},{v:"today",l:"今日（"+calcScheduleDate("today")+"）"},{v:"tomorrow",l:"明日（"+calcScheduleDate("tomorrow")+"）"},{v:"this_week",l:"今週（"+calcScheduleDate("this_week")+"）"},{v:"next_week",l:"来週（"+calcScheduleDate("next_week")+"）"},{v:"this_month",l:"今月（"+calcScheduleDate("this_month")+"）"},{v:"asap",l:"なるはや"},{v:"custom",l:"日付を指定..."}];
+  var schedOpts = [{v:"",l:"未設定"},{v:"today",l:"今日"},{v:"tomorrow",l:"明日"},{v:"this_week",l:"今週"},{v:"next_week",l:"来週"},{v:"this_month",l:"今月"},{v:"asap",l:"なるはや"},{v:"custom",l:"日付を指定..."}];
   var curSched = task.scheduledDate || "";
   var schedMatchesPreset = false;
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">\uD83D\uDCC5 \u5BFE\u5FDC\u4E88\u5B9A\u65E5</div><select id="modalScheduledDate" onchange="onModalSchedChange()" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">';
@@ -2088,11 +2088,11 @@ function editScheduledDate(id, el) {
   sel.style.cssText = "font-size:12px;padding:3px 6px;border:1px solid var(--green);border-radius:6px;background:var(--surface2);color:var(--text);cursor:pointer;";
   var opts = [
     {v:"",l:"-- 選択 --"},
-    {v:"today",l:"今日（"+calcScheduleDate("today")+"）"},
-    {v:"tomorrow",l:"明日（"+calcScheduleDate("tomorrow")+"）"},
-    {v:"this_week",l:"今週（"+calcScheduleDate("this_week")+"）"},
-    {v:"next_week",l:"来週（"+calcScheduleDate("next_week")+"）"},
-    {v:"this_month",l:"今月（"+calcScheduleDate("this_month")+"）"},
+    {v:"today",l:"今日"},
+    {v:"tomorrow",l:"明日"},
+    {v:"this_week",l:"今週"},
+    {v:"next_week",l:"来週"},
+    {v:"this_month",l:"今月"},
     {v:"asap",l:"なるはや"},
     {v:"custom",l:"日付を指定..."},
     {v:"none",l:"予定なし"},
