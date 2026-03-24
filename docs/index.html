@@ -866,8 +866,6 @@
         <div class="report-filter-row">
           <label><input type="checkbox" id="rfDueToday" checked onchange="buildReport()"> 期日が今日＋超過</label>
           <label><input type="checkbox" id="rfScheduled" checked onchange="buildReport()"> 対応予定日が今日</label>
-          <label><input type="checkbox" id="rfWaiting" checked onchange="buildReport()"> 待ちタスク</label>
-          <label><input type="checkbox" id="rfTeiki" checked onchange="buildReport()"> 定期タスク</label>
           <label><input type="checkbox" id="rfLongTerm" checked onchange="buildReport()"> 長期タスク</label>
         </div>
         <div class="report-filter-row">
@@ -881,6 +879,7 @@
           <input type="number" id="rfBuffer" value="1" min="0" step="0.5" onchange="buildReport()" style="width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"> H
         </div>
       </div>
+      <div class="report-h-inputs" id="reportHInputs" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px;max-height:200px;overflow-y:auto;"></div>
       <textarea class="report-preview" id="reportPreview"></textarea>
     </div>
     <div class="report-footer">
@@ -2823,14 +2822,13 @@ function getReportFilters() {
   var dueEl = document.getElementById("rfDueToday");
   var schEl = document.getElementById("rfScheduled");
   var waitEl = document.getElementById("rfWaiting");
-  var teikiEl = document.getElementById("rfTeiki");
   var longTermEl = document.getElementById("rfLongTerm");
   var priEl = document.getElementById("rfPriority");
   return {
     dueToday: dueEl ? dueEl.checked : true,
     scheduled: schEl ? schEl.checked : true,
-    waiting: waitEl ? waitEl.checked : true,
-    teiki: teikiEl ? teikiEl.checked : true,
+    waiting: true,
+    teiki: true,
     longTerm: longTermEl ? longTermEl.checked : true,
     priority: priEl ? priEl.value : "all"
   };
@@ -2846,7 +2844,7 @@ function priorityFilter(tasks, priSetting) {
   });
 }
 
-function buildMorningReport() {
+function collectReportTasks() {
   var rf = getReportFilters();
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var td = today();
@@ -2866,16 +2864,90 @@ function buildMorningReport() {
   }
   todayOrOverdue = priorityFilter(todayOrOverdue, rf.priority);
 
-  var waitingTasks = rf.waiting ? myTasks.filter(function(t) { return t.localStatus === "waiting"; }) : [];
+  var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
   waitingTasks = priorityFilter(waitingTasks, rf.priority);
 
-  var teikiTasks = rf.teiki ? getMyTeikiTasks().filter(function(t) {
+  var teikiTasks = getMyTeikiTasks().filter(function(t) {
     if (t.status === "done") return false;
     return isTeikiDueToday(t);
-  }) : [];
+  });
+
+  var ltTodos = [];
+  if (rf.longTerm) {
+    var ltTasks = getMyLongTermTasks().filter(function(t) { return t.status !== "done"; });
+    ltTasks.forEach(function(t) {
+      var todos = t.todos || [];
+      todos.forEach(function(item, idx) {
+        if (item.status === "done") return;
+        if (!item.date || item.date > td) return;
+        ltTodos.push({ parentTitle: t.title, text: item.text, taskId: t.id, todoIdx: idx, estimatedH: item.estimatedH || null });
+      });
+    });
+  }
+
+  return { todayOrOverdue: todayOrOverdue, waitingTasks: waitingTasks, teikiTasks: teikiTasks, ltTodos: ltTodos };
+}
+
+function buildReportHInputs() {
+  var el = document.getElementById("reportHInputs");
+  if (!el) return;
+  var data = collectReportTasks();
+  var all = [];
+
+  data.teikiTasks.forEach(function(t) {
+    all.push({ id: t.id, label: "[定期] " + (t.title || ""), type: "task", task: t });
+  });
+  data.todayOrOverdue.forEach(function(t) {
+    if (t.localStatus === "waiting") return;
+    all.push({ id: t.id, label: (t.title || ""), type: "task", task: t });
+  });
+  data.ltTodos.forEach(function(lt) {
+    all.push({ id: "lt_" + lt.taskId + "_" + lt.todoIdx, label: lt.parentTitle + "┗" + lt.text, type: "ltTodo", ref: lt });
+  });
+
+  if (all.length === 0) { el.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0;">対象タスクなし</div>'; return; }
+
+  var html = '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">タスク別 所要時間(H)</div>';
+  all.forEach(function(item) {
+    var val = "";
+    if (item.type === "task") val = item.task.estimatedH || "";
+    else if (item.type === "ltTodo") val = item.ref.estimatedH || "";
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
+    html += '<span style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(item.label) + '">' + esc(item.label) + '</span>';
+    html += '<input type="number" min="0" step="0.5" value="' + val + '" placeholder="H" data-rh-id="' + item.id + '" data-rh-type="' + item.type + '" onchange="updateReportH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function updateReportH(input) {
+  var id = input.getAttribute("data-rh-id");
+  var type = input.getAttribute("data-rh-type");
+  var val = input.value ? parseFloat(input.value) : null;
+
+  if (type === "task") {
+    var t = allTasks.find(function(x) { return x.id === id; });
+    if (t) t.estimatedH = val;
+  } else if (type === "ltTodo") {
+    var parts = id.replace("lt_", "").split("_");
+    var taskId = parts[0];
+    var todoIdx = parseInt(parts[1]);
+    var t2 = allTasks.find(function(x) { return x.id === taskId; });
+    if (t2 && t2.todos && t2.todos[todoIdx]) t2.todos[todoIdx].estimatedH = val;
+  }
+  // プレビューだけ再構築（H入力は維持）
+  var ta = document.getElementById("reportPreview");
+  if (ta) ta.value = buildMorningReport(true);
+}
+
+function buildMorningReport(skipHInputs) {
+  var rf = getReportFilters();
+  var data = collectReportTasks();
+  var td = today();
+
+  if (!skipHInputs) buildReportHInputs();
 
   var catGroups = {};
-  // 動的にレポート用カテゴリを構築（定期タスク＋既存＋カスタム＋その他）
   var REPORT_CATS = [{ key: "teiki", label: "定期タスク" }];
   CATEGORY_ORDER.forEach(function(k) {
     if (k === "teiki" || k === "long_term" || k === "other") return;
@@ -2883,17 +2955,16 @@ function buildMorningReport() {
   });
   REPORT_CATS.push({ key: "other", label: "その他" });
 
-  todayOrOverdue.forEach(function(t) {
+  data.todayOrOverdue.forEach(function(t) {
     if (t.localStatus === "waiting") return;
     var cat = normalizeCategory(t.category);
-    // REPORT_CATSに存在するカテゴリか確認、なければ"other"
     var mapped = REPORT_CATS.some(function(c) { return c.key === cat; }) ? cat : "other";
     if (mapped === "teiki" || mapped === "long_term") mapped = "other";
     if (!catGroups[mapped]) catGroups[mapped] = [];
     catGroups[mapped].push(t);
   });
 
-  teikiTasks.forEach(function(t) {
+  data.teikiTasks.forEach(function(t) {
     if (!catGroups["teiki"]) catGroups["teiki"] = [];
     catGroups["teiki"].push(t);
   });
@@ -2902,7 +2973,7 @@ function buildMorningReport() {
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   try { localStorage.setItem("morningTaskIds_" + reportPid + "_" + td, JSON.stringify(morningIds)); } catch(_) {}
   var morningSnapshot = {};
-  var allSnap = todayOrOverdue.concat(teikiTasks).concat(waitingTasks);
+  var allSnap = data.todayOrOverdue.concat(data.teikiTasks).concat(data.waitingTasks);
   allSnap.forEach(function(t) {
     morningSnapshot[t.id] = { id: t.id, title: t.title, category: normalizeCategory(t.category), dueTime: t.dueTime || "", localStatus: t.localStatus || t.status || "open", isTeiki: !!t.isManual && normalizeCategory(t.category) === "teiki" };
   });
@@ -2920,45 +2991,39 @@ function buildMorningReport() {
   REPORT_CATS.forEach(function(c, idx) {
     if (idx > 0) lines += "\n[hr]";
     var catH = 0;
-    lines += "\n【" + c.label + "】";
+    if (catGroups[c.key] && catGroups[c.key].length > 0) {
+      catGroups[c.key].forEach(function(t) {
+        if (t.estimatedH) catH += parseFloat(t.estimatedH);
+      });
+    }
+    lines += "\n【" + c.label + "】" + (catH > 0 ? catH + "H" : "");
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
       catGroups[c.key].forEach(function(t) {
         var timeStr = t.dueTime ? "（" + t.dueTime + "）" : "";
         var hStr = t.estimatedH ? " [" + t.estimatedH + "H]" : "";
         lines += "\n・" + (t.title || "（タイトルなし）") + timeStr + hStr;
-        if (t.estimatedH) catH += parseFloat(t.estimatedH);
       });
     }
-    if (catH > 0) lines += "\n  → 小計: " + catH + "H";
     totalH += catH;
   });
-  // 長期タスク: 今日が期日のtodoを表示
-  if (rf.longTerm) {
-    var ltTasks = getMyLongTermTasks().filter(function(t) { return t.status !== "done"; });
-    var ltLines = [];
+
+  if (rf.longTerm && data.ltTodos.length > 0) {
     var ltH = 0;
-    ltTasks.forEach(function(t) {
-      var todos = t.todos || [];
-      todos.forEach(function(item) {
-        if (item.status === "done") return;
-        if (!item.date || item.date > td) return;
-        var hStr = item.estimatedH ? " [" + item.estimatedH + "H]" : "";
-        ltLines.push("・" + (t.title || "（タイトルなし）") + "┗" + item.text + hStr);
-        if (item.estimatedH) ltH += parseFloat(item.estimatedH);
-      });
+    data.ltTodos.forEach(function(lt) {
+      if (lt.estimatedH) ltH += parseFloat(lt.estimatedH);
     });
-    if (ltLines.length > 0) {
-      lines += "\n[hr]\n【長期タスク】";
-      ltLines.forEach(function(l) { lines += "\n" + l; });
-      if (ltH > 0) lines += "\n  → 小計: " + ltH + "H";
-      totalH += ltH;
-    }
+    lines += "\n[hr]\n【長期タスク】" + (ltH > 0 ? ltH + "H" : "");
+    data.ltTodos.forEach(function(lt) {
+      var hStr = lt.estimatedH ? " [" + lt.estimatedH + "H]" : "";
+      lines += "\n・" + (lt.parentTitle || "（タイトルなし）") + "┗" + lt.text + hStr;
+    });
+    totalH += ltH;
   }
   lines += "\n[/info]";
 
   lines += "\n[info][title]待ちタスク[/title]";
-  if (waitingTasks.length > 0) {
-    waitingTasks.forEach(function(t) {
+  if (data.waitingTasks.length > 0) {
+    data.waitingTasks.forEach(function(t) {
       lines += "\n・" + (t.title || "（タイトルなし）");
     });
   }
