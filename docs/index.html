@@ -225,6 +225,7 @@
   .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
   .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .3s; }
   .todo-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+  .todo-checkbox { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
   .todo-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface2); border-radius: 8px; font-size: 13px; }
   .todo-item.todo-done { opacity: .55; }
   .todo-item.todo-done .todo-text { text-decoration: line-through; }
@@ -867,6 +868,7 @@
           <label><input type="checkbox" id="rfScheduled" checked onchange="buildReport()"> 対応予定日が今日</label>
           <label><input type="checkbox" id="rfWaiting" checked onchange="buildReport()"> 待ちタスク</label>
           <label><input type="checkbox" id="rfTeiki" checked onchange="buildReport()"> 定期タスク</label>
+          <label><input type="checkbox" id="rfLongTerm" checked onchange="buildReport()"> 長期タスク</label>
         </div>
         <div class="report-filter-row">
           <label>優先度: </label>
@@ -2444,8 +2446,10 @@ function openLongTermModal(id) {
     var d = item.date ? new Date(item.date) : null;
     var dateLabel = d ? (d.getMonth()+1) + "/" + d.getDate() : "";
     bodyHtml += '<div class="todo-item' + (isDone ? ' todo-done' : '') + '">';
+    bodyHtml += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleTodoDone(\'' + id + '\',' + idx + ',this.checked)" title="完了切替">';
     bodyHtml += '<span class="todo-date-label" onclick="event.stopPropagation();showTodoDatePicker(\'' + id + '\',' + idx + ',this)" title="日付変更">' + (dateLabel || "日付") + '</span>';
     bodyHtml += '<span class="todo-text">' + esc(item.text) + '</span>';
+    bodyHtml += '<input type="number" min="0" step="0.5" value="' + (item.estimatedH || '') + '" placeholder="H" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'estimatedH\',this.value)" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;text-align:center;">';
     bodyHtml += '<select class="todo-status-select" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'status\',this.value)">';
     ["open","in_progress","done"].forEach(function(s) {
       bodyHtml += '<option value="' + s + '"' + ((item.status || "open") === s ? ' selected' : '') + '>' + TODO_STATUSES[s] + '</option>';
@@ -2455,7 +2459,7 @@ function openLongTermModal(id) {
     bodyHtml += '</div>';
   });
   bodyHtml += '</div>';
-  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
+  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><input type="number" id="todoNewH" min="0" step="0.5" placeholder="H" style="width:55px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
   bodyHtml += '<h3 style="font-size:14px;margin:20px 0 10px;color:var(--text);">備考</h3>';
   bodyHtml += '<textarea id="longTermNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea>';
   bodyHtml += '<button class="modal-save-btn" onclick="saveLongTermTodos(\'' + id + '\')">保存</button>';
@@ -2472,12 +2476,15 @@ function updateLongTermField(id, field, val) {
 function addTodoItemLocal(taskId) {
   var inp = document.getElementById("todoNewText");
   var dateInp = document.getElementById("todoNewDate");
+  var hInp = document.getElementById("todoNewH");
   var text = inp.value.trim();
   if (!text) return;
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t) return;
   if (!t.todos) t.todos = [];
-  t.todos.push({ text: text, date: dateInp ? dateInp.value : today(), status: "open" });
+  var newTodo = { text: text, date: dateInp ? dateInp.value : today(), status: "open" };
+  if (hInp && hInp.value) newTodo.estimatedH = parseFloat(hInp.value);
+  t.todos.push(newTodo);
   openLongTermModal(taskId);
 }
 
@@ -2501,10 +2508,19 @@ function showTodoDatePicker(taskId, idx, el) {
   input.addEventListener("blur", function() { setTimeout(save, 150); });
 }
 
+function toggleTodoDone(taskId, idx, checked) {
+  changeTodoField(taskId, idx, "status", checked ? "done" : "open");
+  openLongTermModal(taskId);
+}
+
 function changeTodoField(taskId, idx, field, val) {
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t || !t.todos || !t.todos[idx]) return;
-  t.todos[idx][field] = val;
+  if (field === "estimatedH") {
+    t.todos[idx][field] = val ? parseFloat(val) : null;
+  } else {
+    t.todos[idx][field] = val;
+  }
 }
 
 function removeTodoItem(taskId, idx) {
@@ -2793,17 +2809,29 @@ function getMyTeikiTasks() {
   });
 }
 
+function getMyLongTermTasks() {
+  var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+  var lt = allTasks.filter(function(t) { return t.isManual && normalizeCategory(t.category) === "long_term"; });
+  if (!pid) return lt;
+  return lt.filter(function(t) {
+    if (!t.assigneeId) return true;
+    return String(t.assigneeId) === String(pid);
+  });
+}
+
 function getReportFilters() {
   var dueEl = document.getElementById("rfDueToday");
   var schEl = document.getElementById("rfScheduled");
   var waitEl = document.getElementById("rfWaiting");
   var teikiEl = document.getElementById("rfTeiki");
+  var longTermEl = document.getElementById("rfLongTerm");
   var priEl = document.getElementById("rfPriority");
   return {
     dueToday: dueEl ? dueEl.checked : true,
     scheduled: schEl ? schEl.checked : true,
     waiting: waitEl ? waitEl.checked : true,
     teiki: teikiEl ? teikiEl.checked : true,
+    longTerm: longTermEl ? longTermEl.checked : true,
     priority: priEl ? priEl.value : "all"
   };
 }
@@ -2904,6 +2932,28 @@ function buildMorningReport() {
     if (catH > 0) lines += "\n  → 小計: " + catH + "H";
     totalH += catH;
   });
+  // 長期タスク: 今日が期日のtodoを表示
+  if (rf.longTerm) {
+    var ltTasks = getMyLongTermTasks().filter(function(t) { return t.status !== "done"; });
+    var ltLines = [];
+    var ltH = 0;
+    ltTasks.forEach(function(t) {
+      var todos = t.todos || [];
+      todos.forEach(function(item) {
+        if (item.status === "done") return;
+        if (!item.date || item.date > td) return;
+        var hStr = item.estimatedH ? " [" + item.estimatedH + "H]" : "";
+        ltLines.push("・" + (t.title || "（タイトルなし）") + "┗" + item.text + hStr);
+        if (item.estimatedH) ltH += parseFloat(item.estimatedH);
+      });
+    });
+    if (ltLines.length > 0) {
+      lines += "\n[hr]\n【長期タスク】";
+      ltLines.forEach(function(l) { lines += "\n" + l; });
+      if (ltH > 0) lines += "\n  → 小計: " + ltH + "H";
+      totalH += ltH;
+    }
+  }
   lines += "\n[/info]";
 
   lines += "\n[info][title]待ちタスク[/title]";
