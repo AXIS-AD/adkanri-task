@@ -875,8 +875,6 @@
             <option value="high">高のみ</option>
             <option value="high_medium">高＋中</option>
           </select>
-          <label>差し込みバッファ: </label>
-          <input type="number" id="rfBuffer" value="1" min="0" step="0.5" onchange="buildReport()" style="width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"> H
         </div>
       </div>
       <div class="report-h-inputs" id="reportHInputs" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px;max-height:200px;overflow-y:auto;"></div>
@@ -2914,7 +2912,12 @@ function buildReportHInputs() {
   if (personCats["other"]) cats.push({ key: "other", label: "その他" });
   if (rf.longTerm && data.ltTodos.length > 0) cats.push({ key: "long_term", label: "長期タスク" });
 
+  var bufferVal = _reportCatH["_buffer"] != null ? _reportCatH["_buffer"] : 1;
   var html = '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">カテゴリ別 所要時間(H)</div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">';
+  html += '<span style="flex:1;font-size:12px;color:var(--text);font-weight:600;">差し込みバッファ</span>';
+  html += '<input type="number" min="0" step="0.5" value="' + bufferVal + '" placeholder="H" data-rh-cat="_buffer" onchange="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
+  html += '</div>';
   cats.forEach(function(c) {
     var val = _reportCatH[c.key] != null ? _reportCatH[c.key] : "";
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
@@ -2993,8 +2996,7 @@ function buildMorningReport(skipHInputs) {
   var pName = pObj ? pObj.name : "";
   var dateStr = td.replace(/-/g, "/");
 
-  var bufferEl = document.getElementById("rfBuffer");
-  var bufferH = bufferEl ? parseFloat(bufferEl.value) || 0 : 1;
+  var bufferH = _reportCatH["_buffer"] != null ? parseFloat(_reportCatH["_buffer"]) : 1;
   var totalH = 0;
 
   // 先にtotalHを計算
@@ -3046,7 +3048,6 @@ function buildMorningReport(skipHInputs) {
 
   lines += "\n[info][title]差し込みタスク[/title]";
   lines += "\n・";
-  lines += "\n差し込みバッファ: " + bufferH + "H";
   lines += "\n[/info]";
 
   return lines;
