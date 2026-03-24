@@ -875,6 +875,8 @@
             <option value="high">高のみ</option>
             <option value="high_medium">高＋中</option>
           </select>
+          <label>差し込みバッファ: </label>
+          <input type="number" id="rfBuffer" value="1" min="0" step="0.5" onchange="buildReport()" style="width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"> H
         </div>
       </div>
       <textarea class="report-preview" id="reportPreview"></textarea>
@@ -1845,6 +1847,7 @@ function openModal(id) {
   schedOpts.forEach(function(o) { var calcVal = (o.v && o.v !== "asap" && o.v !== "custom") ? calcScheduleDate(o.v) : o.v === "asap" ? "なるはや" : o.v; var sel = curSched === calcVal; if (sel) schedMatchesPreset = true; bodyHtml += '<option value="' + o.v + '"' + (sel ? ' selected' : '') + '>' + o.l + '</option>'; });
   if (curSched && !schedMatchesPreset) bodyHtml += '<option value="current" selected>' + curSched + '</option>';
   bodyHtml += '</select><input type="date" id="modalScheduledCustom" style="display:none;width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;margin-top:8px;"></div>';
+  bodyHtml += '<div class="modal-field"><div class="modal-field-label">⏱ 所要時間(H)</div><input type="number" id="modalEstimatedH" min="0" step="0.5" value="' + (task.estimatedH || '') + '" placeholder="例: 1.5" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
   bodyHtml += '</div>';
 
   bodyHtml += '<div class="modal-field" style="margin-bottom:20px;"><div class="modal-field-label">メモ</div><textarea id="modalNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(task.note || '') + '</textarea></div>';
@@ -1867,7 +1870,9 @@ async function saveModalTask(id) {
   var catEl = document.getElementById("modalCategory");
   var dueEl = document.getElementById("modalDueDate");
   var assignEl = document.getElementById("modalAssignee");
+  var estEl = document.getElementById("modalEstimatedH");
   if (noteEl) { t.note = noteEl.value.trim(); updates.note = t.note; }
+  if (estEl) { t.estimatedH = estEl.value ? parseFloat(estEl.value) : null; updates.estimatedH = t.estimatedH; }
   if (dueEl) { t.limit = dueEl.value || null; updates.limit = t.limit; }
   var schedEl = document.getElementById("modalScheduledDate");
   var schedCustom = document.getElementById("modalScheduledCustom");
@@ -2842,20 +2847,20 @@ function buildMorningReport() {
   }) : [];
 
   var catGroups = {};
-  var REPORT_CATS = [
-    { key: "teiki", label: "定期タスク" },
-    { key: "number_match", label: "数字合わせ" },
-    { key: "tsunagikomi", label: "つなぎこみ" },
-    { key: "other", label: "その他" }
-  ];
+  // 動的にレポート用カテゴリを構築（定期タスク＋既存＋カスタム＋その他）
+  var REPORT_CATS = [{ key: "teiki", label: "定期タスク" }];
+  CATEGORY_ORDER.forEach(function(k) {
+    if (k === "teiki" || k === "long_term" || k === "other") return;
+    REPORT_CATS.push({ key: k, label: CATEGORY_LABELS[k] });
+  });
+  REPORT_CATS.push({ key: "other", label: "その他" });
 
   todayOrOverdue.forEach(function(t) {
     if (t.localStatus === "waiting") return;
     var cat = normalizeCategory(t.category);
-    var mapped = "other";
-    if (cat === "number_match") mapped = "number_match";
-    else if (cat === "tsunagikomi") mapped = "tsunagikomi";
-    else mapped = "other";
+    // REPORT_CATSに存在するカテゴリか確認、なければ"other"
+    var mapped = REPORT_CATS.some(function(c) { return c.key === cat; }) ? cat : "other";
+    if (mapped === "teiki" || mapped === "long_term") mapped = "other";
     if (!catGroups[mapped]) catGroups[mapped] = [];
     catGroups[mapped].push(t);
   });
@@ -2878,17 +2883,26 @@ function buildMorningReport() {
   var pName = pObj ? pObj.name : "";
   var dateStr = td.replace(/-/g, "/");
 
+  var bufferEl = document.getElementById("rfBuffer");
+  var bufferH = bufferEl ? parseFloat(bufferEl.value) || 0 : 1;
+  var totalH = 0;
+
   var lines = "[To:5420288]\u897F\u6751 \u77E5\u8F1D\u3055\u3093\n";
   lines += "[info][title]" + dateStr + " " + pName + "\u306E\u30BF\u30B9\u30AF[/title]";
   REPORT_CATS.forEach(function(c, idx) {
     if (idx > 0) lines += "\n[hr]";
+    var catH = 0;
     lines += "\n【" + c.label + "】";
     if (catGroups[c.key] && catGroups[c.key].length > 0) {
       catGroups[c.key].forEach(function(t) {
         var timeStr = t.dueTime ? "（" + t.dueTime + "）" : "";
-        lines += "\n・" + (t.title || "（タイトルなし）") + timeStr;
+        var hStr = t.estimatedH ? " [" + t.estimatedH + "H]" : "";
+        lines += "\n・" + (t.title || "（タイトルなし）") + timeStr + hStr;
+        if (t.estimatedH) catH += parseFloat(t.estimatedH);
       });
     }
+    if (catH > 0) lines += "\n  → 小計: " + catH + "H";
+    totalH += catH;
   });
   lines += "\n[/info]";
 
@@ -2902,6 +2916,13 @@ function buildMorningReport() {
 
   lines += "\n[info][title]差し込みタスク[/title]";
   lines += "\n・";
+  lines += "\n差し込みバッファ: " + bufferH + "H";
+  lines += "\n[/info]";
+
+  lines += "\n[info][title]TTL[/title]";
+  lines += "\nタスク合計: " + totalH + "H";
+  lines += "\n差し込みバッファ: " + bufferH + "H";
+  lines += "\n合計: " + (totalH + bufferH) + "H";
   lines += "\n[/info]";
 
   return lines;
