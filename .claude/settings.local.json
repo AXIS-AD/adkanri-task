@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\\\\\" -type f -name \"*.json\" -o -name \"*.js\" -o -name \"*.toml\" -o -name \"*.md\" | head -50)",
+      "Bash(cd \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend\" && npx wrangler --version 2>&1)",
+      "Bash(pkill -f \"wrangler dev\" 2>/dev/null; echo \"stopped\")",
+      "Bash(cd \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend\" && node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(48\\).toString\\('base64url'\\)\\)\")",
+      "Bash(cd \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend\" && echo \"q6YRMd-E1lZYOTSPyz5Um6ZWZfwvrusR6t6i_CrRYjPbGpKyh21Ju0w2A5oS8-3r\" | npx wrangler secret put SESSION_SECRET 2>&1)",
+      "Bash(curl -s http://localhost:8787/api/auth/test 2>&1)",
+      "Bash(pkill -f \"wrangler dev\" 2>/dev/null && rm -f \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend/.dev.vars\" && echo \"cleaned up\")",
+      "Bash(pkill -f wrangler 2>/dev/null; rm -f \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend/.dev.vars\"; echo \"done\")",
+      "Bash(ls -t \"/c/Users/tomor/Downloads\"/*.png 2>/dev/null | head -1)",
+      "Bash(pkill -f \"http-server\" 2>/dev/null; echo \"stopped\")",
+      "Bash(cd \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend\" && npm run deploy 2>&1)",
+      "Bash(cd \"C:/Users/tomor/OneDrive/ドキュメント/タスク管理ツール/backend\" && npx wrangler deploy 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\" && npx wrangler deploy)",
+      "Bash(find \"C:/Users/tomor/OneDrive/ドキュメント/TikTok出稿\" -type d -name \"*tiktok*\" 2>/dev/null | head -20)",
+      "Bash(cd \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\" && npm run deploy)",
+      "Bash(cd \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\" && ./node_modules/.bin/wrangler deploy)",
+      "Bash(ls \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\\\\node_modules\\\\.bin\\\\wrangler*\" 2>/dev/null; which wrangler 2>/dev/null; npm ls wrangler 2>/dev/null --prefix \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\")",
+      "Bash(cd \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\" && npm install wrangler --save-dev)",
+      "Bash(cd \"C:\\\\Users\\\\tomor\\\\OneDrive\\\\ドキュメント\\\\タスク管理ツール\\\\backend\" && npx wrangler tail --format=pretty 2>&1 | head -5)",
+      "Bash(claude config:*)",
+      "Bash(CLAUDECODE= claude config set --global statusLine disabled)",
+      "Bash(CLAUDECODE= claude config set -g statusLine disabled)",
+      "Bash(CLAUDECODE= claude config list 2>&1 | head -20)",
+      "Bash(CLAUDECODE= claude --help 2>&1 | head -30)"
+    ]
+  }
+}
