@@ -79,6 +79,10 @@ export default {
       } else if (path === '/api/hidden-categories' && request.method === 'POST') {
         response = await handleSaveHiddenCategories(request, env);
       }
+      // ── セッション認証 ──
+      else if (path === '/api/auth/session' && request.method === 'POST') {
+        response = await handleCreateSession(request, env);
+      }
       // ── デプロイ通知 ──
       else if (path === '/api/deploy-notify' && request.method === 'POST') {
         response = await handleDeployNotify(request, env);
@@ -135,7 +139,7 @@ function jsonResponse(data, status = 200) {
 }
 
 // ====================================================
-// 認証（Google ID Token 検証）
+// 認証（セッションJWT + Google ID Token フォールバック）
 // ====================================================
 
 class AuthError extends Error {
@@ -145,30 +149,139 @@ class AuthError extends Error {
   }
 }
 
-async function verifyGoogleToken(request, env) {
-  const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) {
-    throw new AuthError('ログインが必要です');
-  }
+// --- UTF-8 safe base64url ---
+function base64urlEncode(input) {
+  let bytes;
+  if (input instanceof ArrayBuffer) { bytes = new Uint8Array(input); }
+  else if (input instanceof Uint8Array) { bytes = input; }
+  else { bytes = new TextEncoder().encode(input); }
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
-  const token = auth.slice(7);
-  const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + token);
-  if (!res.ok) {
+function base64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// --- セッションJWT 発行・検証 ---
+const SESSION_EXPIRY_DAYS = 30;
+
+async function createSessionJwt(env, payload) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const body = {
+    email: payload.email,
+    name: payload.name,
+    picture: payload.picture || null,
+    iat: now,
+    exp: now + SESSION_EXPIRY_DAYS * 86400,
+  };
+  const headerB64 = base64urlEncode(JSON.stringify(header));
+  const bodyB64 = base64urlEncode(JSON.stringify(body));
+  const signingInput = headerB64 + '.' + bodyB64;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(env.SESSION_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
+  return signingInput + '.' + base64urlEncode(sig);
+}
+
+async function verifySessionJwt(token, env) {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new AuthError('不正なトークン形式');
+
+  const signingInput = parts[0] + '.' + parts[1];
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(env.SESSION_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+
+  // 署名はバイナリなのでbase64urlDecodeではなく直接デコード
+  let sigStr = parts[2].replace(/-/g, '+').replace(/_/g, '/');
+  while (sigStr.length % 4) sigStr += '=';
+  const sigBinary = atob(sigStr);
+  const sigBuffer = new Uint8Array(sigBinary.length);
+  for (let i = 0; i < sigBinary.length; i++) sigBuffer[i] = sigBinary.charCodeAt(i);
+
+  const valid = await crypto.subtle.verify(
+    'HMAC', key, sigBuffer, new TextEncoder().encode(signingInput)
+  );
+  if (!valid) throw new AuthError('トークンの署名が不正です');
+
+  const payload = JSON.parse(base64urlDecode(parts[1]));
+  if (payload.exp && Date.now() / 1000 > payload.exp) {
     throw new AuthError('セッションが切れました。再度ログインしてください');
   }
+  return payload;
+}
 
+// --- Google ID Token 検証（セッション発行時に使用） ---
+async function verifyGoogleIdToken(token, env) {
+  const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + token);
+  if (!res.ok) {
+    throw new AuthError('Google認証に失敗しました。再度ログインしてください');
+  }
   const payload = await res.json();
   if (payload.aud !== env.GOOGLE_CLIENT_ID) {
     throw new AuthError('認証情報が不正です');
   }
-
   const email = (payload.email || '').toLowerCase();
   const domain = email.includes('@') ? email.split('@')[1] : '';
   if (!ALLOWED_EMAIL_DOMAINS.some((d) => domain === d)) {
     throw new AuthError('AXIS・shibuya-ad.com のアドレスのみ利用可能です');
   }
+  return { email, name: payload.name || email, picture: payload.picture || null };
+}
 
-  return { email, name: payload.name || email };
+// --- 統合認証: セッションJWT優先、Google ID Tokenフォールバック ---
+async function verifyGoogleToken(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) {
+    throw new AuthError('ログインが必要です');
+  }
+  const token = auth.slice(7);
+
+  // セッションJWTを試す（3パーツ＆ヘッダーがeyJで始まる）
+  const parts = token.split('.');
+  if (parts.length === 3) {
+    try {
+      const header = JSON.parse(base64urlDecode(parts[0]));
+      if (header.alg === 'HS256' && header.typ === 'JWT') {
+        const payload = await verifySessionJwt(token, env);
+        return { email: payload.email, name: payload.name, picture: payload.picture };
+      }
+    } catch (e) {
+      if (e instanceof AuthError) throw e;
+      // セッションJWTでなければGoogle ID Tokenとして試す
+    }
+  }
+
+  // フォールバック: Google ID Token
+  return await verifyGoogleIdToken(token, env);
+}
+
+// --- セッション発行エンドポイント ---
+async function handleCreateSession(request, env) {
+  const { idToken } = await request.json();
+  if (!idToken) return jsonResponse({ error: 'idToken is required' }, 400);
+
+  const user = await verifyGoogleIdToken(idToken, env);
+  const sessionToken = await createSessionJwt(env, user);
+  return jsonResponse({ token: sessionToken, email: user.email, name: user.name, picture: user.picture });
 }
 
 // ====================================================

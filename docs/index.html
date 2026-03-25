@@ -927,7 +927,12 @@ var userRole = "user";
 
 function decodeJwt(token) {
   var payload = token.split(".")[1];
-  return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+  var str = payload.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  var binary = atob(str);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 var silentRefreshInProgress = false;
@@ -972,7 +977,7 @@ function apiCall(method, path, body) {
   if (body && method !== "GET" && method !== "DELETE") opts.body = JSON.stringify(body);
   return fetch(API_BASE + path, opts).then(function(res) {
     return res.json().then(function(data) {
-      if (res.status === 401) { trySilentRefresh(); throw new Error(data.error || "ログインが必要です"); }
+      if (res.status === 401) { localStorage.removeItem("authToken"); authToken = null; reAuthenticate(); throw new Error(data.error || "ログインが必要です"); }
       if (!res.ok) throw new Error(data.error || "エラーが発生しました");
       return data;
     });
@@ -995,7 +1000,25 @@ function applyAuth(token) {
   document.getElementById("authOverlay").classList.add("hidden");
 }
 
-function handleCredentialResponse(response) {
+async function handleCredentialResponse(response) {
+  // Google ID Tokenを使ってセッションJWTを取得
+  try {
+    var res = await fetch(API_BASE + "/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: response.credential })
+    });
+    var data = await res.json();
+    if (data.token) {
+      localStorage.setItem("authToken", data.token);
+      applyAuth(data.token);
+      checkRole();
+      return;
+    }
+  } catch (e) {
+    console.error("Session creation failed:", e);
+  }
+  // フォールバック: Google ID Tokenをそのまま使用
   localStorage.setItem("authToken", response.credential);
   applyAuth(response.credential);
   checkRole();
