@@ -2522,7 +2522,7 @@ function openLongTermModal(id) {
   setModalTitle(t.title);
   var todos = t.todos || [];
 
-  var metaHtml = '<span>' + (t.deadline || "期日未設定") + '</span>';
+  var metaHtml = '<span class="todo-date-label" onclick="event.stopPropagation();showLongTermDeadlinePicker(\'' + id + '\',this)" title="期日変更" style="cursor:pointer;">' + (t.deadline || "期日未設定") + '</span>';
   metaHtml += '<select class="status-select-inline" onchange="updateLongTermField(\'' + id + '\',\'status\',this.value)">';
   ["open","in_progress","done"].forEach(function(s) {
     metaHtml += '<option value="' + s + '"' + (t.status === s ? ' selected' : '') + '>' + STATUS_LABELS_LT[s] + '</option>';
@@ -2564,6 +2564,26 @@ function openLongTermModal(id) {
 function updateLongTermField(id, field, val) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (t) t[field] = val;
+}
+
+function showLongTermDeadlinePicker(id, el) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  var input = document.createElement("input");
+  input.type = "date";
+  input.value = t && t.deadline ? t.deadline : "";
+  input.style.cssText = "font-size:12px;padding:2px 4px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text);width:130px;";
+  el.replaceWith(input);
+  input.focus();
+  try { input.showPicker(); } catch(_) {}
+  var saved = false;
+  function save() {
+    if (saved) return;
+    saved = true;
+    updateLongTermField(id, "deadline", input.value || null);
+    openLongTermModal(id);
+  }
+  input.addEventListener("change", save);
+  input.addEventListener("blur", function() { setTimeout(save, 150); });
 }
 
 function addTodoItemLocal(taskId) {
