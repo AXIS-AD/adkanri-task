@@ -242,6 +242,15 @@
   .todo-add input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 13px; }
   .todo-add input:focus { outline: none; border-color: var(--accent); }
   .todo-add button { padding: 8px 14px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .lt-expanded { background: var(--surface2); }
+  .lt-expand-row td { background: var(--surface); }
+  .lt-expand-body { padding: 8px 16px 12px 40px; }
+  .lt-expand-todo { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 13px; }
+  .lt-expand-todo:hover { background: var(--surface2); }
+  .lt-expand-todo:hover .todo-delete-btn { opacity: 1; }
+  .lt-expand-todo.todo-done { opacity: .55; }
+  .lt-expand-todo.todo-done .todo-text { text-decoration: line-through; }
+  .lt-expand-add { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
   .modal-save-btn { width: 100%; padding: 12px; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: opacity .2s; }
   .modal-save-btn:hover { opacity: .85; }
   .status-select-inline { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
@@ -1660,14 +1669,107 @@ function renderListTable(tasks) {
   html += '</tbody></table>';
   return html;
 }
+var _expandedLongTermIds = {};
+
+function toggleLongTermExpand(id) {
+  if (_expandedLongTermIds[id]) {
+    delete _expandedLongTermIds[id];
+  } else {
+    _expandedLongTermIds[id] = true;
+  }
+  renderAll();
+}
+
+function renderLongTermInlineTodos(t) {
+  var id = t.id;
+  var todos = t.todos || [];
+  var html = '<tr class="lt-expand-row"><td colspan="6" style="padding:0;border:none;">';
+  html += '<div class="lt-expand-body">';
+  if (todos.length === 0) {
+    html += '<div style="color:var(--text2);font-size:13px;padding:4px 0;">やることが未追加</div>';
+  }
+  todos.forEach(function(item, idx) {
+    var isDone = item.status === "done";
+    var d = item.date ? new Date(item.date) : null;
+    var dateLabel = d ? (d.getMonth()+1) + "/" + d.getDate() : "";
+    html += '<div class="lt-expand-todo' + (isDone ? ' todo-done' : '') + '">';
+    html += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleTodoDoneInline(\'' + id + '\',' + idx + ',this.checked)">';
+    html += '<span class="todo-date-label" onclick="event.stopPropagation();showTodoDatePickerInline(\'' + id + '\',' + idx + ',this)">' + (dateLabel || "日付") + '</span>';
+    html += '<span class="todo-text" style="flex:1;">' + esc(item.text) + '</span>';
+    html += '<button class="todo-delete-btn" onclick="event.stopPropagation();removeTodoItemInline(\'' + id + '\',' + idx + ')" title="削除">🗑️</button>';
+    html += '</div>';
+  });
+  html += '<div class="lt-expand-add">';
+  html += '<input type="date" id="todoNewDate_' + id + '" value="' + today() + '" style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);font-size:12px;">';
+  html += '<input type="text" id="todoNewText_' + id + '" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoInline(\'' + id + '\')" style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);font-size:12px;">';
+  html += '<button onclick="addTodoInline(\'' + id + '\')" style="padding:4px 10px;border:none;border-radius:4px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer;">追加</button>';
+  html += '</div>';
+  html += '</div></td></tr>';
+  return html;
+}
+
+function toggleTodoDoneInline(taskId, idx, checked) {
+  changeTodoField(taskId, idx, "status", checked ? "done" : "open");
+  saveLongTermTodosQuiet(taskId);
+}
+
+function showTodoDatePickerInline(taskId, idx, el) {
+  var input = document.createElement("input");
+  input.type = "date";
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  input.value = t && t.todos && t.todos[idx] ? (t.todos[idx].date || "") : "";
+  input.style.cssText = "font-size:12px;padding:2px 4px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text);width:100px;";
+  el.replaceWith(input);
+  input.focus();
+  try { input.showPicker(); } catch(_) {}
+  var saved = false;
+  function save() {
+    if (saved) return;
+    saved = true;
+    changeTodoField(taskId, idx, "date", input.value);
+    saveLongTermTodosQuiet(taskId);
+  }
+  input.addEventListener("change", save);
+  input.addEventListener("blur", function() { setTimeout(save, 150); });
+}
+
+function removeTodoItemInline(taskId, idx) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t || !t.todos) return;
+  t.todos.splice(idx, 1);
+  saveLongTermTodosQuiet(taskId);
+}
+
+function addTodoInline(taskId) {
+  var inp = document.getElementById("todoNewText_" + taskId);
+  var dateInp = document.getElementById("todoNewDate_" + taskId);
+  var text = inp ? inp.value.trim() : "";
+  if (!text) return;
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t) return;
+  if (!t.todos) t.todos = [];
+  t.todos.push({ text: text, date: dateInp ? dateInp.value : today(), status: "open" });
+  saveLongTermTodosQuiet(taskId);
+}
+
+async function saveLongTermTodosQuiet(taskId) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t) return;
+  try {
+    await apiCall("POST", "/api/dashboard/tasks/" + taskId, { status: t.status, todos: t.todos || [], note: t.note || "" });
+    renderAll();
+  } catch (e) { alert("保存に失敗: " + e.message); }
+}
+
 function renderManualListTable(tasks, genre) {
   if (!tasks.length) return '';
   var isTeiki = genre === "teiki";
   var html = '<table class="task-list-table"><thead><tr><th>' + (isTeiki ? '✓' : '') + '</th><th>タスク名</th><th>' + (isTeiki ? '頻度' : '期日') + '</th><th>担当</th><th>備考</th><th></th></tr></thead><tbody>';
   tasks.forEach(function(t) {
     var isDone = t.status === "done";
-    var clickFn = isTeiki ? 'openTeikiModal' : 'openLongTermModal';
-    html += '<tr class="task-list-row" onclick="' + clickFn + '(\'' + t.id + '\')" style="cursor:pointer;">';
+    var isExpanded = !isTeiki && _expandedLongTermIds[t.id];
+    var clickFn = isTeiki ? 'openTeikiModal' : 'toggleLongTermExpand';
+    html += '<tr class="task-list-row' + (isExpanded ? ' lt-expanded' : '') + '" onclick="' + clickFn + '(\'' + t.id + '\')" style="cursor:pointer;">';
     if (isTeiki) {
       html += '<td style="width:32px;text-align:center;"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')" style="width:22px;height:22px;">' + (isDone ? '✓' : '') + '</button></td>';
       html += '<td class="tl-title">' + esc(t.title) + '</td>';
@@ -1675,7 +1777,8 @@ function renderManualListTable(tasks, genre) {
     } else {
       var todos = t.todos || [];
       var doneC = todos.filter(function(x) { return x.status === "done" || x.done; }).length;
-      html += '<td style="width:32px;text-align:center;font-size:11px;color:var(--text2);">' + (todos.length ? doneC + '/' + todos.length : '-') + '</td>';
+      var arrow = isExpanded ? '▼' : '▶';
+      html += '<td style="width:32px;text-align:center;font-size:11px;color:var(--text2);">' + arrow + ' ' + (todos.length ? doneC + '/' + todos.length : '-') + '</td>';
       html += '<td class="tl-title">' + esc(t.title) + '</td>';
       html += '<td>' + (t.deadline || '未設定') + '</td>';
     }
@@ -1683,6 +1786,9 @@ function renderManualListTable(tasks, genre) {
     html += '<td><input type="text" onclick="event.stopPropagation()" placeholder="メモ..." value="' + esc(t.note || '') + '" onchange="saveNote(\'' + t.id + '\',this.value)" style="font-size:12px;width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text1);"></td>';
     html += '<td style="width:32px;"><button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button></td>';
     html += '</tr>';
+    if (isExpanded) {
+      html += renderLongTermInlineTodos(t);
+    }
   });
   html += '</tbody></table>';
   return html;
