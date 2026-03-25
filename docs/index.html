@@ -1710,7 +1710,8 @@ function renderLongTermInlineTodos(t) {
 
 function toggleTodoDoneInline(taskId, idx, checked) {
   changeTodoField(taskId, idx, "status", checked ? "done" : "open");
-  saveLongTermTodosQuiet(taskId);
+  renderAll();
+  saveLongTermTodosQueued(taskId);
 }
 
 function showTodoDatePickerInline(taskId, idx, el) {
@@ -1727,7 +1728,8 @@ function showTodoDatePickerInline(taskId, idx, el) {
     if (saved) return;
     saved = true;
     changeTodoField(taskId, idx, "date", input.value);
-    saveLongTermTodosQuiet(taskId);
+    renderAll();
+    saveLongTermTodosQueued(taskId);
   }
   input.addEventListener("change", save);
   input.addEventListener("blur", function() { setTimeout(save, 150); });
@@ -1737,7 +1739,8 @@ function removeTodoItemInline(taskId, idx) {
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t || !t.todos) return;
   t.todos.splice(idx, 1);
-  saveLongTermTodosQuiet(taskId);
+  renderAll();
+  saveLongTermTodosQueued(taskId);
 }
 
 function addTodoInline(taskId) {
@@ -1749,16 +1752,15 @@ function addTodoInline(taskId) {
   if (!t) return;
   if (!t.todos) t.todos = [];
   t.todos.push({ text: text, date: dateInp ? dateInp.value : today(), status: "open" });
-  saveLongTermTodosQuiet(taskId);
+  renderAll();
+  saveLongTermTodosQueued(taskId);
 }
 
-async function saveLongTermTodosQuiet(taskId) {
+function saveLongTermTodosQueued(taskId) {
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t) return;
-  try {
-    await apiCall("POST", "/api/dashboard/tasks/" + taskId, { status: t.status, todos: t.todos || [], note: t.note || "" });
-    renderAll();
-  } catch (e) { alert("保存に失敗: " + e.message); }
+  var payload = { status: t.status || "open", todos: JSON.parse(JSON.stringify(t.todos || [])), note: t.note || "" };
+  dashUpdate(taskId, payload);
 }
 
 function renderManualListTable(tasks, genre) {
