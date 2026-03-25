@@ -732,7 +732,7 @@ async function handleCreateManualTask(request, env) {
     params.append('limit_type', 'date');
 
     try {
-      const res = await fetch(`https://api.chatwork.com/v2/rooms/${DASHBOARD_ROOM_ID}/tasks`, {
+      const res = await fetch(`https://api.chatwork.com/v2/rooms/${TASK_CREATE_ROOM_ID}/tasks`, {
         method: 'POST',
         headers: { 'X-ChatWorkToken': cfg.apiToken },
         body: params,
@@ -1060,6 +1060,7 @@ async function updateTaskLogCompletion(env, taskId, completedDate, comment) {
 // ====================================================
 
 const DASHBOARD_ROOM_ID = '333632829';
+const TASK_CREATE_ROOM_ID = '376867208';
 
 const HARDCODED_ASSIGN_MAP = {
   '\u30A2\u30AB\u30A6\u30F3\u30C8\u95A2\u9023\uFF08\u4F5C\u6210\u30FB\u7D10\u3065\u3051\u30FB\u30A8\u30E9\u30FC\uFF09': '10696465',
