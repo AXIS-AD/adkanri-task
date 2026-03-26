@@ -1985,6 +1985,7 @@ async function confirmDone() {
   var payload = { localStatus: "done", replyMessage: reply, doneDate: today() };
   if (t && t.roomId) payload.roomId = t.roomId;
   if (t && t.assigneeId) payload.assigneeId = t.assigneeId;
+  if (t) { payload.title = t.title; payload.category = normalizeCategory(t.category); payload.assigneeName = t.assigneeName || ""; }
   closeDoneModal();
   if (currentModalId) closeModal();
   await dashUpdate(id, payload);
