@@ -2996,6 +2996,8 @@ function closeReportModal() {
 function switchReportTab(type) {
   reportTabType = type;
   _eveningKvLoaded = false;
+  _completedTodayLoaded = false;
+  _completedTodayData = [];
   document.querySelectorAll(".report-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.type === type); });
   var filtersEl = document.getElementById("reportFilters");
   if (filtersEl) filtersEl.style.display = type === "morning" ? "" : "none";
@@ -3300,6 +3302,8 @@ function buildMorningReport(skipHInputs) {
 }
 
 var _eveningKvLoaded = false;
+var _completedTodayLoaded = false;
+var _completedTodayData = [];
 
 function findMorningSentLocal(reportPid, td) {
   var tdUTC = new Date().toISOString().slice(0, 10);
@@ -3390,27 +3394,23 @@ function buildEveningReport() {
 
   var result = outputLines.join("\n");
 
+  if (!_completedTodayLoaded) {
+    _completedTodayLoaded = true;
+    apiCall("GET", "/api/dashboard/completed-today?date=" + td).then(function(res) {
+      _completedTodayData = Array.isArray(res) ? res : [];
+      buildReport();
+    }).catch(function() { _completedTodayData = []; buildReport(); });
+    return result + "\n（差し込みタスクを読み込み中...）";
+  }
+
   var sashikomi = [];
   var sashiIds = {};
-  var cwTasks = getMyTasks();
-  var teikiTasks = getMyTeikiTasks();
-  cwTasks.forEach(function(t) {
-    var inMorning = morningTitles.some(function(mt) { return mt === t.title || mt.indexOf(t.title) === 0 || t.title.indexOf(mt) === 0; });
-    if (!inMorning && t.localStatus === "done" && t.doneDate === td) { sashikomi.push(t); sashiIds[t.id] = true; }
+  (_completedTodayData || []).forEach(function(ct) {
+    if (!ct.title) return;
+    if (sashiIds[ct.id]) return;
+    var inMorning = morningTitles.some(function(mt) { return mt === ct.title || mt.indexOf(ct.title) === 0 || ct.title.indexOf(mt) === 0; });
+    if (!inMorning) { sashikomi.push(ct); sashiIds[ct.id] = true; }
   });
-  teikiTasks.forEach(function(t) {
-    var inMorning = morningTitles.some(function(mt) { return mt === t.title || mt.indexOf(t.title) === 0 || t.title.indexOf(mt) === 0; });
-    if (!inMorning && t.status === "done" && t.doneDate === td) { sashikomi.push(t); sashiIds[t.id] = true; }
-  });
-  try {
-    var cKey = "completedToday_" + reportPid + "_" + td;
-    var cList = JSON.parse(localStorage.getItem(cKey) || "[]");
-    cList.forEach(function(ct) {
-      if (sashiIds[ct.id]) return;
-      var inMorning = morningTitles.some(function(mt) { return mt === ct.title || mt.indexOf(ct.title) === 0 || ct.title.indexOf(mt) === 0; });
-      if (!inMorning) { sashikomi.push(ct); sashiIds[ct.id] = true; }
-    });
-  } catch(_) {}
 
   if (sashikomi.length > 0) {
     var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";

@@ -55,6 +55,10 @@ export default {
       } else if (path === '/api/dashboard/morning-sent' && request.method === 'GET') {
         response = await handleGetMorningSent(request, env);
       }
+      // ── 今日の完了タスク ──
+      else if (path === '/api/dashboard/completed-today' && request.method === 'GET') {
+        response = await handleGetCompletedToday(request, env);
+      }
       // ── スプレッドシート連携 ──
       else if (path === '/api/sheet-options' && request.method === 'GET') {
         response = await handleGetSheetOptions(request, env);
@@ -796,6 +800,29 @@ async function handleCreateManualTask(request, env) {
   await saveManualTasks(env, tasks);
 
   return jsonResponse({ ok: true, id });
+}
+
+async function handleGetCompletedToday(request, env) {
+  await verifyGoogleToken(request, env);
+  const url = new URL(request.url);
+  const date = url.searchParams.get('date') || new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+
+  const local = await getDashboardLocal(env);
+  const manualTasks = await getManualTasks(env);
+  const completed = [];
+
+  for (const [taskId, meta] of Object.entries(local)) {
+    if (meta.localStatus === 'done' && meta.doneDate === date) {
+      completed.push({ id: taskId, title: meta.title || null });
+    }
+  }
+  for (const mt of manualTasks) {
+    if ((mt.localStatus === 'done' || mt.status === 'done') && mt.doneDate === date) {
+      completed.push({ id: mt.id, title: mt.title || null });
+    }
+  }
+
+  return jsonResponse(completed);
 }
 
 async function handleDeleteManualTask(request, env) {
