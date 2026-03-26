@@ -2305,7 +2305,7 @@ function addManualTask(category) {
   bodyHtml += '</select></div>';
   if (category !== 'teiki' && category !== 'long_term') {
     bodyHtml += '<div class="modal-form-group"><label>カテゴリ</label><select id="addTaskCategory">';
-    ["tsunagikomi","number_match","other"].forEach(function(c) {
+    CATEGORY_ORDER.filter(function(c) { return c !== "teiki" && c !== "long_term"; }).forEach(function(c) {
       var sel = c === category ? ' selected' : '';
       bodyHtml += '<option value="' + c + '"' + sel + '>' + esc(CATEGORY_LABELS[c]) + '</option>';
     });
