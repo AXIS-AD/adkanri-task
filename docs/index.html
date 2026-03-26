@@ -3392,14 +3392,16 @@ function buildEveningReport() {
   });
 
   if (sashikomi.length > 0) {
+    var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
+    sashikomi.forEach(function(t) {
+      sashiLines += "\n\u2705 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
+    });
+    sashiLines += "\n[/info]";
     var sashiSection = result.match(/\[info\]\[title\]差し込みタスク\[\/title\][\s\S]*?\[\/info\]/);
     if (sashiSection) {
-      var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
-      sashikomi.forEach(function(t) {
-        sashiLines += "\n\u2705 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
-      });
-      sashiLines += "\n[/info]";
       result = result.replace(sashiSection[0], sashiLines.trim());
+    } else {
+      result += "\n" + sashiLines.trim();
     }
   }
 
