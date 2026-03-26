@@ -541,7 +541,6 @@ async function handleGetDashboardTasks(request, env) {
   for (const [taskId, meta] of Object.entries(local)) {
     if (seen.has(taskId)) continue;
     if (meta.localStatus !== 'done' || meta.doneDate !== todayStr) continue;
-    if (!meta.title) continue;
     const metaAssigneeId = meta.assigneeId || 0;
     if (!memberIds.includes(metaAssigneeId)) continue;
     if (accountId !== null && metaAssigneeId !== accountId) continue;
@@ -549,7 +548,7 @@ async function handleGetDashboardTasks(request, env) {
       id: taskId,
       roomId: meta.roomId || DASHBOARD_ROOM_ID,
       body: '',
-      title: meta.title,
+      title: meta.title || '(完了済みタスク)',
       category: meta.category || 'other',
       priority: meta.priority || 'medium',
       localStatus: 'done',

@@ -1986,6 +1986,16 @@ async function confirmDone() {
   if (t && t.roomId) payload.roomId = t.roomId;
   if (t && t.assigneeId) payload.assigneeId = t.assigneeId;
   if (t) { payload.title = t.title; payload.category = normalizeCategory(t.category); payload.assigneeName = t.assigneeName || ""; }
+  if (t) {
+    try {
+      var cKey = "completedToday_" + (selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId) + "_" + today();
+      var cList = JSON.parse(localStorage.getItem(cKey) || "[]");
+      if (!cList.some(function(c) { return c.id === id; })) {
+        cList.push({ id: id, title: t.title, category: normalizeCategory(t.category) });
+        localStorage.setItem(cKey, JSON.stringify(cList));
+      }
+    } catch(_) {}
+  }
   closeDoneModal();
   if (currentModalId) closeModal();
   await dashUpdate(id, payload);
@@ -3381,16 +3391,26 @@ function buildEveningReport() {
   var result = outputLines.join("\n");
 
   var sashikomi = [];
+  var sashiIds = {};
   var cwTasks = getMyTasks();
   var teikiTasks = getMyTeikiTasks();
   cwTasks.forEach(function(t) {
     var inMorning = morningTitles.some(function(mt) { return mt === t.title || mt.indexOf(t.title) === 0 || t.title.indexOf(mt) === 0; });
-    if (!inMorning && t.localStatus === "done" && t.doneDate === td) sashikomi.push(t);
+    if (!inMorning && t.localStatus === "done" && t.doneDate === td) { sashikomi.push(t); sashiIds[t.id] = true; }
   });
   teikiTasks.forEach(function(t) {
     var inMorning = morningTitles.some(function(mt) { return mt === t.title || mt.indexOf(t.title) === 0 || t.title.indexOf(mt) === 0; });
-    if (!inMorning && t.status === "done" && t.doneDate === td) sashikomi.push(t);
+    if (!inMorning && t.status === "done" && t.doneDate === td) { sashikomi.push(t); sashiIds[t.id] = true; }
   });
+  try {
+    var cKey = "completedToday_" + reportPid + "_" + td;
+    var cList = JSON.parse(localStorage.getItem(cKey) || "[]");
+    cList.forEach(function(ct) {
+      if (sashiIds[ct.id]) return;
+      var inMorning = morningTitles.some(function(mt) { return mt === ct.title || mt.indexOf(ct.title) === 0 || ct.title.indexOf(mt) === 0; });
+      if (!inMorning) { sashikomi.push(ct); sashiIds[ct.id] = true; }
+    });
+  } catch(_) {}
 
   if (sashikomi.length > 0) {
     var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
