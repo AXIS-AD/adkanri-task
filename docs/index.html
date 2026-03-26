@@ -1654,7 +1654,7 @@ function renderListTable(tasks) {
     html += '<tr class="task-list-row ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')" style="cursor:pointer;">';
     html += '<td class="tl-title">' + esc(t.title) + '</td>';
     html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="date-label" onclick="editDueDate(\'' + t.id + '\',this)">' + (t.limit || "なし") + ' <small>(' + dl + ')</small></span></td>';
-    html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="scheduled-label" onclick="editScheduledDate(\'' + t.id + '\',this)">' + scheduleLabel(t.scheduledDate) + '</span></td>';
+    html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="scheduled-label" onclick="editScheduledDate(\'' + t.id + '\',this)">' + scheduleLabel(t.scheduledDate, t.scheduledKey) + '</span></td>';
     html += '<td onclick="event.stopPropagation()">' + buildAssigneeSelect(t.id, t.assigneeId) + '</td>';
     html += '<td onclick="event.stopPropagation()"><select class="list-select" onchange="updateTask(\'' + t.id + '\',\'priority\',this.value)"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"||!t.priority?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select></td>';
     html += '<td onclick="event.stopPropagation()"><select class="list-select" onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select></td>';
@@ -2035,9 +2035,10 @@ function openModal(id) {
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">期日</div><input type="date" id="modalDueDate" value="' + (task.limit || '') + '" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
   var schedOpts = [{v:"",l:"未設定"},{v:"today",l:"今日"},{v:"tomorrow",l:"明日"},{v:"this_week",l:"今週"},{v:"next_week",l:"来週"},{v:"this_month",l:"今月"},{v:"asap",l:"なるはや"},{v:"custom",l:"日付を指定..."}];
   var curSched = task.scheduledDate || "";
+  var curKey = task.scheduledKey || "";
   var schedMatchesPreset = false;
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">\uD83D\uDCC5 \u5BFE\u5FDC\u4E88\u5B9A\u65E5</div><select id="modalScheduledDate" onchange="onModalSchedChange()" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">';
-  schedOpts.forEach(function(o) { var calcVal = (o.v && o.v !== "asap" && o.v !== "custom") ? calcScheduleDate(o.v) : o.v === "asap" ? "なるはや" : o.v; var sel = curSched === calcVal; if (sel) schedMatchesPreset = true; bodyHtml += '<option value="' + o.v + '"' + (sel ? ' selected' : '') + '>' + o.l + '</option>'; });
+  schedOpts.forEach(function(o) { var sel = curKey ? (curKey === o.v) : (curSched === ((o.v && o.v !== "asap" && o.v !== "custom") ? calcScheduleDate(o.v) : o.v === "asap" ? "なるはや" : o.v)); if (sel) schedMatchesPreset = true; bodyHtml += '<option value="' + o.v + '"' + (sel ? ' selected' : '') + '>' + o.l + '</option>'; });
   if (curSched && !schedMatchesPreset) bodyHtml += '<option value="current" selected>' + curSched + '</option>';
   bodyHtml += '</select><input type="date" id="modalScheduledCustom" style="display:none;width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;margin-top:8px;"></div>';
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">⏱ 所要時間(H)</div><input type="number" id="modalEstimatedH" min="0" step="0.5" value="' + (task.estimatedH || '') + '" placeholder="例: 1.5" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
@@ -2073,12 +2074,15 @@ async function saveModalTask(id) {
     var sv = schedEl.value;
     if (sv === "custom") {
       t.scheduledDate = schedCustom && schedCustom.value ? schedCustom.value : null;
+      t.scheduledKey = null;
     } else if (sv === "current") {
       // 既存値のまま変更なし
     } else {
       t.scheduledDate = sv ? calcScheduleDate(sv) : null;
+      t.scheduledKey = sv || null;
     }
     updates.scheduledDate = t.scheduledDate;
+    updates.scheduledKey = t.scheduledKey || null;
   }
   if (catEl && catEl.value !== normalizeCategory(t.category)) { t.category = catEl.value; updates.category = catEl.value; }
   if (assignEl) {
@@ -2145,7 +2149,7 @@ function renderCard(t) {
   var dc = dueClass(t.limit), dl = dueLabel(t.limit), body = cleanBody(t.body);
   var pc = 'priority-' + (t.priority || 'medium');
   var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button>' : '';
-  var schedLbl = scheduleLabel(t.scheduledDate);
+  var schedLbl = scheduleLabel(t.scheduledDate, t.scheduledKey);
   return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span class="scheduled-label" onclick="event.stopPropagation();editScheduledDate(\'' + t.id + '\',this)" title="クリックで対応予定日変更">' + schedLbl + '</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div>';
 }
 
@@ -2205,20 +2209,14 @@ function calcScheduleDate(key) {
   if (key === "asap") return "なるはや";
   return "";
 }
-function scheduleLabel(val) {
-  if (!val) return "\uD83D\uDCC5予定なし";
+var SCHED_KEY_LABELS = { today: "\u4ECA\u65E5", tomorrow: "\u660E\u65E5", this_week: "\u4ECA\u9031", next_week: "\u6765\u9031", this_month: "\u4ECA\u6708", asap: "\u306A\u308B\u306F\u3084" };
+function scheduleLabel(val, key) {
+  if (!val && !key) return "\uD83D\uDCC5予定なし";
+  if (key && SCHED_KEY_LABELS[key]) return "\uD83D\uDCC5" + SCHED_KEY_LABELS[key];
   if (val === "なるはや") return "\uD83D\uDCC5なるはや";
-  var td = today();
-  if (val === td) return "\uD83D\uDCC5今日";
-  var tom = new Date(); tom.setDate(tom.getDate() + 1);
-  var tomStr = tom.getFullYear() + "-" + String(tom.getMonth()+1).padStart(2,"0") + "-" + String(tom.getDate()).padStart(2,"0");
-  if (val === tomStr) return "\uD83D\uDCC5明日";
+  if (!val) return "\uD83D\uDCC5予定なし";
   var d = new Date(val + "T00:00:00+09:00");
-  if (d < new Date(td + "T00:00:00+09:00")) return "\uD83D\uDCC5超過";
-  var diffDays = Math.ceil((d - new Date(td + "T00:00:00+09:00")) / 86400000);
-  if (diffDays <= 6) return "\uD83D\uDCC5今週";
-  if (diffDays <= 13) return "\uD83D\uDCC5来週";
-  if (d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear()) return "\uD83D\uDCC5今月";
+  if (isNaN(d.getTime())) return "\uD83D\uDCC5" + val;
   return "\uD83D\uDCC5" + (d.getMonth()+1) + "/" + d.getDate();
 }
 function editScheduledDate(id, el) {
@@ -2248,23 +2246,24 @@ function editScheduledDate(id, el) {
   el.replaceWith(wrap);
   sel.focus();
   var saved = false;
-  function finish(newVal) {
+  var currentKey = task ? (task.scheduledKey || "") : "";
+  function finish(newVal, newKey) {
     if (saved) return;
     saved = true;
-    if (newVal !== currentVal) {
-      updateTask(id, "scheduledDate", newVal || null);
-      if (task) task.scheduledDate = newVal || null;
+    if (newVal !== currentVal || newKey !== currentKey) {
+      dashUpdate(id, { scheduledDate: newVal || null, scheduledKey: newKey || null });
+      if (task) { task.scheduledDate = newVal || null; task.scheduledKey = newKey || null; }
     }
     var span = document.createElement("span");
     span.className = "scheduled-label";
     span.title = "クリックで対応予定日変更";
     span.setAttribute("onclick", "event.stopPropagation();editScheduledDate('" + id + "',this)");
-    span.textContent = scheduleLabel(newVal);
+    span.textContent = scheduleLabel(newVal, newKey);
     wrap.replaceWith(span);
   }
   sel.addEventListener("change", function() {
     var v = sel.value;
-    if (v === "none") { finish(""); return; }
+    if (v === "none") { finish("", null); return; }
     if (v === "custom") {
       var input = document.createElement("input");
       input.type = "date"; input.value = currentVal;
@@ -2272,15 +2271,15 @@ function editScheduledDate(id, el) {
       sel.replaceWith(input);
       input.focus();
       try { input.showPicker(); } catch(_) {}
-      input.addEventListener("change", function() { finish(input.value); });
-      input.addEventListener("blur", function() { setTimeout(function() { finish(input.value); }, 150); });
+      input.addEventListener("change", function() { finish(input.value, null); });
+      input.addEventListener("blur", function() { setTimeout(function() { finish(input.value, null); }, 150); });
       return;
     }
     if (v === "") return;
     var dateVal = calcScheduleDate(v);
-    finish(dateVal);
+    finish(dateVal, v);
   });
-  sel.addEventListener("blur", function() { setTimeout(function() { if (!saved) finish(currentVal); }, 200); });
+  sel.addEventListener("blur", function() { setTimeout(function() { if (!saved) finish(currentVal, currentKey); }, 200); });
 }
 
 // ============================
@@ -2383,7 +2382,7 @@ async function submitAddForm(category) {
     var prEl = document.getElementById("addTaskPriority");
     if (prEl) data.priority = prEl.value;
     var schEl = document.getElementById("addTaskScheduled");
-    if (schEl && schEl.value) data.scheduledDate = calcScheduleDate(schEl.value);
+    if (schEl && schEl.value) { data.scheduledKey = schEl.value; data.scheduledDate = calcScheduleDate(schEl.value); }
   }
   try {
     await apiCall("POST", "/api/dashboard/manual-tasks", data);

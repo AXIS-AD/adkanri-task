@@ -529,6 +529,7 @@ async function handleGetDashboardTasks(request, env) {
         note: 'note' in meta ? meta.note : '',
         limit: 'limit' in meta ? (meta.limit || null) : t.limit,
         scheduledDate: 'scheduledDate' in meta ? (meta.scheduledDate || null) : null,
+        scheduledKey: meta.scheduledKey || null,
         assigneeId: t.assigneeId,
         assigneeName: t.assigneeName,
       });
@@ -756,6 +757,7 @@ async function handleCreateManualTask(request, env) {
       note: body.note || '',
       limit: body.limit || null,
       scheduledDate: body.scheduledDate || null,
+      scheduledKey: body.scheduledKey || null,
     };
     await saveDashboardLocal(env, local);
     return jsonResponse({ ok: true, id: cwTaskId, chatworkTaskId: cwTaskId });
