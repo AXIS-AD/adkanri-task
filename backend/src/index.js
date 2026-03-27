@@ -539,14 +539,8 @@ async function handleGetDashboardTasks(request, env) {
         localChanged = true;
       }
       const isDoneOnCw = t.status === 'done';
-      const localStatus = isDoneOnCw ? 'done' : (meta.localStatus || 'open');
-      const doneDate = isDoneOnCw ? (meta.doneDate || todayStr) : (meta.doneDate || null);
-      if (isDoneOnCw && !meta.doneDate) {
-        if (!local[t.id]) local[t.id] = {};
-        local[t.id].localStatus = 'done';
-        local[t.id].doneDate = todayStr;
-        localChanged = true;
-      }
+      const localStatus = isDoneOnCw ? (meta.localStatus || 'done') : (meta.localStatus || 'open');
+      const doneDate = meta.doneDate || null;
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
