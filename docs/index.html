@@ -3406,12 +3406,15 @@ function buildEveningReport() {
 
   var sashikomi = [];
   var sashiIds = {};
+  console.log("[evening] morningTitles:", morningTitles);
   (_completedTodayData || []).forEach(function(ct) {
     if (sashiIds[ct.id]) return;
     var title = ct.title || "(完了済みタスク)";
     var inMorning = ct.title && morningTitles.some(function(mt) { return mt === ct.title || mt.indexOf(ct.title) === 0 || ct.title.indexOf(mt) === 0; });
+    console.log("[evening] task:", ct.id, title, "inMorning:", !!inMorning);
     if (!inMorning) { sashikomi.push({ id: ct.id, title: title }); sashiIds[ct.id] = true; }
   });
+  console.log("[evening] sashikomi:", sashikomi.length, "件", sashikomi);
 
   if (sashikomi.length > 0) {
     var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
