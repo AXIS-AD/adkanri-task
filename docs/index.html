@@ -2228,8 +2228,17 @@ function scheduleLabel(val, key) {
   if (key && SCHED_KEY_LABELS[key]) return "\uD83D\uDCC5" + SCHED_KEY_LABELS[key];
   if (val === "なるはや") return "\uD83D\uDCC5なるはや";
   if (!val) return "\uD83D\uDCC5予定なし";
+  var td2 = today();
+  if (val === td2) return "\uD83D\uDCC5今日";
+  var tom = new Date(new Date(td2 + "T00:00:00+09:00").getTime() + 86400000);
+  var tomStr = tom.toISOString().slice(0, 10);
+  if (val === tomStr) return "\uD83D\uDCC5明日";
   var d = new Date(val + "T00:00:00+09:00");
   if (isNaN(d.getTime())) return "\uD83D\uDCC5" + val;
+  var diffDays = Math.ceil((d - new Date(td2 + "T00:00:00+09:00")) / 86400000);
+  if (diffDays >= 2 && diffDays <= 6) return "\uD83D\uDCC5今週";
+  if (diffDays >= 7 && diffDays <= 13) return "\uD83D\uDCC5来週";
+  if (d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear()) return "\uD83D\uDCC5今月";
   return "\uD83D\uDCC5" + (d.getMonth()+1) + "/" + d.getDate();
 }
 function editScheduledDate(id, el) {
