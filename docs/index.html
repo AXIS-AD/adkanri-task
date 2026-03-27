@@ -3295,6 +3295,9 @@ function buildMorningReport(skipHInputs) {
   var morningIds = getMorningTaskIds();
   var reportPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   try { localStorage.setItem("morningTaskIds_" + reportPid + "_" + td, JSON.stringify(morningIds)); } catch(_) {}
+  var allKnownIds = {};
+  allTasks.forEach(function(t) { allKnownIds[t.id] = true; });
+  try { localStorage.setItem("morningAllTaskIds_" + reportPid + "_" + td, JSON.stringify(allKnownIds)); } catch(_) {}
   var morningSnapshot = {};
   var allSnap = data.todayOrOverdue.concat(data.teikiTasks).concat(data.waitingTasks);
   allSnap.forEach(function(t) {
@@ -3455,8 +3458,8 @@ function buildEveningReport() {
 
   var result = outputLines.join("\n");
 
-  var morningIds = {};
-  try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
+  var morningAllIds = {};
+  try { morningAllIds = JSON.parse(localStorage.getItem("morningAllTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
   var sashikomi = [];
   var sashiIds = {};
   var myTasks = allTasks.filter(function(t) {
@@ -3464,10 +3467,9 @@ function buildEveningReport() {
     return String(t.assigneeId) === String(reportPid);
   });
   myTasks.forEach(function(t) {
-    if (morningIds[t.id]) return;
+    if (morningAllIds[t.id]) return;
     if (sashiIds[t.id]) return;
     var st = t.localStatus || t.status || "open";
-    // 完了タスクは今日完了分のみ、それ以外は古い完了なので除外
     if (st === "done" && t.doneDate !== td) return;
     sashikomi.push({ id: t.id, title: t.title, status: st });
     sashiIds[t.id] = true;
