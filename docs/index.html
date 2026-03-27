@@ -3467,6 +3467,8 @@ function buildEveningReport() {
     if (morningIds[t.id]) return;
     if (sashiIds[t.id]) return;
     var st = t.localStatus || t.status || "open";
+    // 完了タスクは今日完了分のみ、それ以外は古い完了なので除外
+    if (st === "done" && t.doneDate !== td) return;
     sashikomi.push({ id: t.id, title: t.title, status: st });
     sashiIds[t.id] = true;
   });
