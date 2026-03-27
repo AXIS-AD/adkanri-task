@@ -516,8 +516,14 @@ async function handleGetDashboardTasks(request, env) {
   const seen = new Set();
   let localChanged = false;
 
+  const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+
   for (const roomId of rooms) {
-    const allRoomTasks = await fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null);
+    const [openTasks, doneTasks] = await Promise.all([
+      fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'open'),
+      fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'done').catch(() => []),
+    ]);
+    const allRoomTasks = openTasks.concat(doneTasks);
     for (const t of allRoomTasks) {
       if (!memberIds.includes(t.assigneeId)) continue;
       if (seen.has(t.id)) continue;
@@ -532,14 +538,23 @@ async function handleGetDashboardTasks(request, env) {
         if (!meta.body && t.body) local[t.id].body = t.body;
         localChanged = true;
       }
+      const isDoneOnCw = t.status === 'done';
+      const localStatus = isDoneOnCw ? 'done' : (meta.localStatus || 'open');
+      const doneDate = isDoneOnCw ? (meta.doneDate || todayStr) : (meta.doneDate || null);
+      if (isDoneOnCw && !meta.doneDate) {
+        if (!local[t.id]) local[t.id] = {};
+        local[t.id].localStatus = 'done';
+        local[t.id].doneDate = todayStr;
+        localChanged = true;
+      }
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
         title,
         category,
         priority: meta.priority || 'medium',
-        localStatus: meta.localStatus || 'open',
-        doneDate: meta.doneDate || null,
+        localStatus,
+        doneDate,
         note: 'note' in meta ? meta.note : '',
         limit: 'limit' in meta ? (meta.limit || null) : t.limit,
         scheduledDate: 'scheduledDate' in meta ? (meta.scheduledDate || null) : null,
@@ -550,33 +565,6 @@ async function handleGetDashboardTasks(request, env) {
     }
   }
   if (localChanged) await saveDashboardLocal(env, local);
-
-  // 今日完了してChatworkから消えたタスクをDASHBOARD_LOCALから復元
-  const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
-  for (const [taskId, meta] of Object.entries(local)) {
-    if (seen.has(taskId)) continue;
-    if (meta.localStatus !== 'done' || meta.doneDate !== todayStr) continue;
-    const metaAssigneeId = meta.assigneeId || 0;
-    if (!memberIds.includes(metaAssigneeId)) continue;
-    if (accountId !== null && metaAssigneeId !== accountId) continue;
-    allTasksList.push({
-      id: taskId,
-      roomId: meta.roomId || DASHBOARD_ROOM_ID,
-      body: meta.body || '',
-      title: meta.title || '(完了済みタスク)',
-      category: meta.category || 'other',
-      priority: meta.priority || 'medium',
-      localStatus: 'done',
-      doneDate: meta.doneDate,
-      note: meta.note || '',
-      limit: meta.limit || null,
-      scheduledDate: meta.scheduledDate || null,
-      scheduledKey: meta.scheduledKey || null,
-      assigneeId: metaAssigneeId,
-      assigneeName: meta.assigneeName || '',
-      assignedBy: '',
-    });
-  }
 
   // 手動タスクを追加（担当者フィルタなし＝全員に表示）
   const manualTasks = await getManualTasks(env);
@@ -1455,8 +1443,8 @@ async function sendDoneReplyMessage(taskId, roomId, replyMessage, readToken, sen
   );
 }
 
-async function fetchChatworkTasksForDashboard(roomId, apiToken, targetId) {
-  const url = `https://api.chatwork.com/v2/rooms/${roomId}/tasks?status=open`;
+async function fetchChatworkTasksForDashboard(roomId, apiToken, targetId, status) {
+  const url = `https://api.chatwork.com/v2/rooms/${roomId}/tasks?status=${status || 'open'}`;
   const res = await fetch(url, { headers: { 'X-ChatWorkToken': apiToken } });
   if (!res.ok) throw new Error(`Chatwork API error: ${res.status}`);
   const tasks = await res.json();
