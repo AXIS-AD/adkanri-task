@@ -514,6 +514,7 @@ async function handleGetDashboardTasks(request, env) {
 
   const memberIds = DEFAULT_PEOPLE.map((p) => p.id);
   const seen = new Set();
+  let localChanged = false;
 
   for (const roomId of rooms) {
     const allRoomTasks = await fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null);
@@ -522,11 +523,19 @@ async function handleGetDashboardTasks(request, env) {
       if (seen.has(t.id)) continue;
       seen.add(t.id);
       const meta = local[t.id] || {};
+      const title = meta.title || extractTitle(t.body);
+      const category = meta.category || autoCategory(t.body);
+      if (!meta.title || !meta.assigneeId) {
+        if (!local[t.id]) local[t.id] = {};
+        if (!meta.title) local[t.id].title = title;
+        if (!meta.assigneeId) local[t.id].assigneeId = t.assigneeId;
+        localChanged = true;
+      }
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
-        title: meta.title || extractTitle(t.body),
-        category: meta.category || autoCategory(t.body),
+        title,
+        category,
         priority: meta.priority || 'medium',
         localStatus: meta.localStatus || 'open',
         doneDate: meta.doneDate || null,
@@ -539,6 +548,7 @@ async function handleGetDashboardTasks(request, env) {
       });
     }
   }
+  if (localChanged) await saveDashboardLocal(env, local);
 
   // 今日完了してChatworkから消えたタスクをDASHBOARD_LOCALから復元
   const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
