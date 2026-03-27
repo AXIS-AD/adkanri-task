@@ -3455,32 +3455,26 @@ function buildEveningReport() {
 
   var result = outputLines.join("\n");
 
-  if (!_completedTodayLoaded) {
-    _completedTodayLoaded = true;
-    apiCall("GET", "/api/dashboard/completed-today?date=" + td).then(function(res) {
-      _completedTodayData = Array.isArray(res) ? res : [];
-      console.log("[evening] completed-today:", _completedTodayData.length, "件", _completedTodayData);
-      buildReport();
-    }).catch(function(e) { console.error("[evening] completed-today API error:", e); _completedTodayData = []; buildReport(); });
-    return result + "\n（差し込みタスクを読み込み中...）";
-  }
-
-  var sashikomi = [];
-  var sashiIds = {};
   var morningIds = {};
   try { morningIds = JSON.parse(localStorage.getItem("morningTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
-  (_completedTodayData || []).forEach(function(ct) {
-    if (sashiIds[ct.id]) return;
-    if (morningIds[ct.id]) return;
-    if (ct.assigneeId && String(ct.assigneeId) !== String(reportPid)) return;
-    var title = ct.title || "(完了済みタスク)";
-    sashikomi.push({ id: ct.id, title: title }); sashiIds[ct.id] = true;
+  var sashikomi = [];
+  var sashiIds = {};
+  var myTasks = allTasks.filter(function(t) {
+    if (t.isManual && (normalizeCategory(t.category) === "teiki" || normalizeCategory(t.category) === "long_term")) return false;
+    return String(t.assigneeId) === String(reportPid);
+  });
+  myTasks.forEach(function(t) {
+    if (morningIds[t.id]) return;
+    if (sashiIds[t.id]) return;
+    var st = t.localStatus || t.status || "open";
+    sashikomi.push({ id: t.id, title: t.title, status: st });
+    sashiIds[t.id] = true;
   });
 
   if (sashikomi.length > 0) {
     var sashiLines = "\n[info][title]\u5DEE\u3057\u8FBC\u307F\u30BF\u30B9\u30AF[/title]";
     sashikomi.forEach(function(t) {
-      sashiLines += "\n\u2705 " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
+      sashiLines += "\n" + stIcon(t.status || "open") + " " + (t.title || "\uFF08\u30BF\u30A4\u30C8\u30EB\u306A\u3057\uFF09");
     });
     sashiLines += "\n[/info]";
     var sashiSection = result.match(/\[info\]\[title\]差し込みタスク\[\/title\][\s\S]*?\[\/info\]/);
