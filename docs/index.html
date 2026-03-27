@@ -3398,18 +3398,19 @@ function buildEveningReport() {
     _completedTodayLoaded = true;
     apiCall("GET", "/api/dashboard/completed-today?date=" + td).then(function(res) {
       _completedTodayData = Array.isArray(res) ? res : [];
+      console.log("[evening] completed-today:", _completedTodayData.length, "件", _completedTodayData);
       buildReport();
-    }).catch(function() { _completedTodayData = []; buildReport(); });
+    }).catch(function(e) { console.error("[evening] completed-today API error:", e); _completedTodayData = []; buildReport(); });
     return result + "\n（差し込みタスクを読み込み中...）";
   }
 
   var sashikomi = [];
   var sashiIds = {};
   (_completedTodayData || []).forEach(function(ct) {
-    if (!ct.title) return;
     if (sashiIds[ct.id]) return;
-    var inMorning = morningTitles.some(function(mt) { return mt === ct.title || mt.indexOf(ct.title) === 0 || ct.title.indexOf(mt) === 0; });
-    if (!inMorning) { sashikomi.push(ct); sashiIds[ct.id] = true; }
+    var title = ct.title || "(完了済みタスク)";
+    var inMorning = ct.title && morningTitles.some(function(mt) { return mt === ct.title || mt.indexOf(ct.title) === 0 || ct.title.indexOf(mt) === 0; });
+    if (!inMorning) { sashikomi.push({ id: ct.id, title: title }); sashiIds[ct.id] = true; }
   });
 
   if (sashikomi.length > 0) {
