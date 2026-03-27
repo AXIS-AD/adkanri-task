@@ -512,6 +512,19 @@ async function handleGetDashboardTasks(request, env) {
   const local = await getDashboardLocal(env);
   const allTasksList = [];
 
+  // ワンタイム: 以前のバグで誤設定されたdoneDateをクリア (v2)
+  if (!local._cleanV2) {
+    for (const [tid, m] of Object.entries(local)) {
+      if (tid.startsWith('_')) continue;
+      if (m && m.localStatus === 'done' && m.doneDate) {
+        delete m.doneDate;
+        delete m.localStatus;
+      }
+    }
+    local._cleanV2 = true;
+    await saveDashboardLocal(env, local);
+  }
+
   const memberIds = DEFAULT_PEOPLE.map((p) => p.id);
   const seen = new Set();
   let localChanged = false;
@@ -541,16 +554,16 @@ async function handleGetDashboardTasks(request, env) {
       const isDoneOnCw = t.status === 'done';
       let localStatus = meta.localStatus || 'open';
       let doneDate = meta.doneDate || null;
-      // Chatworkで完了かつ、以前openとして追跡していた → 新規完了
-      if (isDoneOnCw && !doneDate && local[t.id] && localStatus !== 'done') {
+      if (isDoneOnCw) {
         localStatus = 'done';
-        doneDate = todayStr;
-        local[t.id].localStatus = 'done';
-        local[t.id].doneDate = todayStr;
-        localChanged = true;
-      } else if (isDoneOnCw && !local[t.id]) {
-        // 初見のdoneタスク（古い完了）→ doneDate付けない
-        localStatus = 'done';
+        // doneDate はツールの confirmDone で設定されたもののみ信頼する
+        // Chatworkで直接完了 + 以前openで追跡 → 今日完了として扱う
+        if (!doneDate && local[t.id] && meta.localStatus !== 'done') {
+          doneDate = todayStr;
+          local[t.id].localStatus = 'done';
+          local[t.id].doneDate = todayStr;
+          localChanged = true;
+        }
       }
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
