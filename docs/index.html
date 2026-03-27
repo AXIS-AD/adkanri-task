@@ -891,6 +891,8 @@
     </div>
     <div class="report-footer">
       <span class="report-info">送信先: アラートルーム</span>
+      <button onclick="saveReportDraft()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;">一時保存</button>
+      <button onclick="clearReportDraft();buildReport();" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;">再生成</button>
       <button class="report-send-btn" id="reportSendBtn" onclick="sendReport()">送信</button>
     </div>
   </div>
@@ -3019,6 +3021,11 @@ function getMyTasks() {
 
 function buildReport() {
   var ta = document.getElementById("reportPreview");
+  var draft = loadReportDraft();
+  if (draft) {
+    ta.value = draft;
+    return;
+  }
   if (reportTabType === "morning") {
     ta.value = buildMorningReport();
   } else {
@@ -3411,6 +3418,7 @@ function buildEveningReport() {
   (_completedTodayData || []).forEach(function(ct) {
     if (sashiIds[ct.id]) return;
     if (morningIds[ct.id]) return;
+    if (ct.assigneeId && String(ct.assigneeId) !== String(reportPid)) return;
     var title = ct.title || "(完了済みタスク)";
     sashikomi.push({ id: ct.id, title: title }); sashiIds[ct.id] = true;
   });
@@ -3432,6 +3440,22 @@ function buildEveningReport() {
   return result;
 }
 
+function getReportDraftKey() {
+  var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
+  return "reportDraft_" + reportTabType + "_" + pid + "_" + today();
+}
+function saveReportDraft() {
+  var text = document.getElementById("reportPreview").value;
+  try { localStorage.setItem(getReportDraftKey(), text); } catch(_) {}
+  alert("一時保存しました");
+}
+function loadReportDraft() {
+  try { return localStorage.getItem(getReportDraftKey()) || null; } catch(_) { return null; }
+}
+function clearReportDraft() {
+  try { localStorage.removeItem(getReportDraftKey()); } catch(_) {}
+}
+
 async function sendReport() {
   var btn = document.getElementById("reportSendBtn");
   var message = document.getElementById("reportPreview").value.trim();
@@ -3445,6 +3469,7 @@ async function sendReport() {
       try { localStorage.setItem("morningSent_" + reportPid + "_" + td, message); } catch(_) {}
       try { await apiCall("POST", "/api/dashboard/morning-sent", { personId: reportPid, date: td, message: message }); } catch(_) {}
     }
+    clearReportDraft();
     alert("送信しました！");
     closeReportModal();
   } catch (e) {

@@ -823,12 +823,12 @@ async function handleGetCompletedToday(request, env) {
 
   for (const [taskId, meta] of Object.entries(local)) {
     if (meta.localStatus === 'done' && meta.doneDate === date) {
-      completed.push({ id: taskId, title: meta.title || null });
+      completed.push({ id: taskId, title: meta.title || null, assigneeId: meta.assigneeId || null });
     }
   }
   for (const mt of manualTasks) {
     if ((mt.localStatus === 'done' || mt.status === 'done') && mt.doneDate === date) {
-      completed.push({ id: mt.id, title: mt.title || null });
+      completed.push({ id: mt.id, title: mt.title || null, assigneeId: mt.assigneeId || null });
     }
   }
 
