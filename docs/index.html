@@ -1589,6 +1589,7 @@ function rebuildCategoryMaps() {
 }
 
 var allTasks = [], peopleData = [], myId = null, apiError = null;
+var DEFAULT_PEOPLE_FE = [{ name: "\u7B52\u4E95" }, { name: "\u53CB\u5229" }, { name: "\u77F3\u7530" }, { name: "\u897F\u6751" }];
 var displayMode = "status", selectedPersonId = "all", selectedGenre = "all", viewMode = "card";
 var tasksLoaded = false;
 
@@ -1698,6 +1699,7 @@ function renderLongTermInlineTodos(t) {
     html += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleTodoDoneInline(\'' + id + '\',' + idx + ',this.checked)">';
     html += '<span class="todo-date-label" onclick="event.stopPropagation();showTodoDatePickerInline(\'' + id + '\',' + idx + ',this)">' + (dateLabel || "日付") + '</span>';
     html += '<span class="todo-text" style="flex:1;">' + esc(item.text) + '</span>';
+    if (item.assignee) html += '<span style="font-size:11px;color:var(--text2);margin:0 4px;">' + esc(item.assignee) + '</span>';
     html += '<button class="todo-delete-btn" onclick="event.stopPropagation();removeTodoItemInline(\'' + id + '\',' + idx + ')" title="削除">🗑️</button>';
     html += '</div>';
   });
@@ -2682,20 +2684,33 @@ function openLongTermModal(id) {
     var isDone = item.status === "done";
     var d = item.date ? new Date(item.date) : null;
     var dateLabel = d ? (d.getMonth()+1) + "/" + d.getDate() : "";
-    bodyHtml += '<div class="todo-item' + (isDone ? ' todo-done' : '') + '">';
+    var assignee = item.assignee || "";
+    bodyHtml += '<div class="todo-item' + (isDone ? ' todo-done' : '') + '" style="flex-wrap:wrap;">';
+    bodyHtml += '<div style="display:flex;flex-direction:column;gap:2px;margin-right:4px;">';
+    bodyHtml += '<button onclick="moveTodoItem(\'' + id + '\',' + idx + ',-1)" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:10px;padding:0;line-height:1;"' + (idx === 0 ? ' disabled style="opacity:0.3;background:none;border:none;font-size:10px;padding:0;line-height:1;"' : '') + ' title="上へ">▲</button>';
+    bodyHtml += '<button onclick="moveTodoItem(\'' + id + '\',' + idx + ',1)" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:10px;padding:0;line-height:1;"' + (idx === todos.length - 1 ? ' disabled style="opacity:0.3;background:none;border:none;font-size:10px;padding:0;line-height:1;"' : '') + ' title="下へ">▼</button>';
+    bodyHtml += '</div>';
     bodyHtml += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleTodoDone(\'' + id + '\',' + idx + ',this.checked)" title="完了切替">';
     bodyHtml += '<span class="todo-date-label" onclick="event.stopPropagation();showTodoDatePicker(\'' + id + '\',' + idx + ',this)" title="日付変更">' + (dateLabel || "日付") + '</span>';
-    bodyHtml += '<span class="todo-text">' + esc(item.text) + '</span>';
-    bodyHtml += '<select class="todo-status-select" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'status\',this.value)">';
+    bodyHtml += '<span class="todo-text" onclick="editTodoText(\'' + id + '\',' + idx + ',this)" title="クリックで編集" style="cursor:text;">' + esc(item.text) + '</span>';
+    bodyHtml += '<select class="todo-status-select" onchange="changeTodoField(\'' + id + '\',' + idx + ',\'status\',this.value)" style="font-size:11px;">';
     ["open","in_progress","done"].forEach(function(s) {
       bodyHtml += '<option value="' + s + '"' + ((item.status || "open") === s ? ' selected' : '') + '>' + TODO_STATUSES[s] + '</option>';
+    });
+    bodyHtml += '</select>';
+    bodyHtml += '<select onchange="changeTodoField(\'' + id + '\',' + idx + ',\'assignee\',this.value)" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);max-width:70px;">';
+    bodyHtml += '<option value="">担当</option>';
+    (peopleData.length > 0 ? peopleData : DEFAULT_PEOPLE_FE).forEach(function(p) {
+      bodyHtml += '<option value="' + esc(p.name) + '"' + (assignee === p.name ? ' selected' : '') + '>' + esc(p.name) + '</option>';
     });
     bodyHtml += '</select>';
     bodyHtml += '<button class="todo-delete-btn" onclick="removeTodoItem(\'' + id + '\',' + idx + ')" title="削除">🗑️</button>';
     bodyHtml += '</div>';
   });
   bodyHtml += '</div>';
-  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
+  var addAssigneeOpts = '<option value="">担当</option>';
+  (peopleData.length > 0 ? peopleData : DEFAULT_PEOPLE_FE).forEach(function(p) { addAssigneeOpts += '<option value="' + esc(p.name) + '">' + esc(p.name) + '</option>'; });
+  bodyHtml += '<div class="todo-add"><input type="date" id="todoNewDate" value="' + today() + '" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="todoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addTodoItemLocal(\'' + id + '\')"><select id="todoNewAssignee" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;">' + addAssigneeOpts + '</select><button onclick="addTodoItemLocal(\'' + id + '\')">追加</button></div>';
   bodyHtml += '<h3 style="font-size:14px;margin:20px 0 10px;color:var(--text);">備考</h3>';
   bodyHtml += '<textarea id="longTermNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(t.note || '') + '</textarea>';
   bodyHtml += '<button class="modal-save-btn" onclick="saveLongTermTodos(\'' + id + '\')">保存</button>';
@@ -2737,7 +2752,8 @@ function addTodoItemLocal(taskId) {
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t) return;
   if (!t.todos) t.todos = [];
-  var newTodo = { text: text, date: dateInp ? dateInp.value : today(), status: "open" };
+  var assigneeInp = document.getElementById("todoNewAssignee");
+  var newTodo = { text: text, date: dateInp ? dateInp.value : today(), status: "open", assignee: assigneeInp ? assigneeInp.value : "" };
   t.todos.push(newTodo);
   openLongTermModal(taskId);
 }
@@ -2782,6 +2798,35 @@ function removeTodoItem(taskId, idx) {
   if (!t || !t.todos) return;
   t.todos.splice(idx, 1);
   openLongTermModal(taskId);
+}
+
+function moveTodoItem(taskId, idx, dir) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t || !t.todos) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= t.todos.length) return;
+  var tmp = t.todos[idx];
+  t.todos[idx] = t.todos[newIdx];
+  t.todos[newIdx] = tmp;
+  openLongTermModal(taskId);
+}
+
+function editTodoText(taskId, idx, el) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t || !t.todos || !t.todos[idx]) return;
+  var input = document.createElement("input");
+  input.type = "text"; input.value = t.todos[idx].text;
+  input.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text);font-size:13px;";
+  el.replaceWith(input); input.focus(); input.select();
+  var saved = false;
+  function save() {
+    if (saved) return; saved = true;
+    var val = input.value.trim();
+    if (val) t.todos[idx].text = val;
+    openLongTermModal(taskId);
+  }
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", function(e) { if (e.key === "Enter") input.blur(); if (e.key === "Escape") { saved = true; openLongTermModal(taskId); } });
 }
 
 async function saveLongTermTodos(taskId) {
