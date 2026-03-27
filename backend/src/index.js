@@ -525,10 +525,11 @@ async function handleGetDashboardTasks(request, env) {
       const meta = local[t.id] || {};
       const title = meta.title || extractTitle(t.body);
       const category = meta.category || autoCategory(t.body);
-      if (!meta.title || !meta.assigneeId) {
+      if (!meta.title || !meta.assigneeId || !meta.body) {
         if (!local[t.id]) local[t.id] = {};
         if (!meta.title) local[t.id].title = title;
         if (!meta.assigneeId) local[t.id].assigneeId = t.assigneeId;
+        if (!meta.body && t.body) local[t.id].body = t.body;
         localChanged = true;
       }
       if (accountId !== null && t.assigneeId !== accountId) continue;
@@ -561,7 +562,7 @@ async function handleGetDashboardTasks(request, env) {
     allTasksList.push({
       id: taskId,
       roomId: meta.roomId || DASHBOARD_ROOM_ID,
-      body: '',
+      body: meta.body || '',
       title: meta.title || '(完了済みタスク)',
       category: meta.category || 'other',
       priority: meta.priority || 'medium',
