@@ -539,8 +539,19 @@ async function handleGetDashboardTasks(request, env) {
         localChanged = true;
       }
       const isDoneOnCw = t.status === 'done';
-      const localStatus = isDoneOnCw ? (meta.localStatus || 'done') : (meta.localStatus || 'open');
-      const doneDate = meta.doneDate || null;
+      let localStatus = meta.localStatus || 'open';
+      let doneDate = meta.doneDate || null;
+      // Chatworkで完了かつ、以前openとして追跡していた → 新規完了
+      if (isDoneOnCw && !doneDate && local[t.id] && localStatus !== 'done') {
+        localStatus = 'done';
+        doneDate = todayStr;
+        local[t.id].localStatus = 'done';
+        local[t.id].doneDate = todayStr;
+        localChanged = true;
+      } else if (isDoneOnCw && !local[t.id]) {
+        // 初見のdoneタスク（古い完了）→ doneDate付けない
+        localStatus = 'done';
+      }
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
