@@ -1591,6 +1591,7 @@ function rebuildCategoryMaps() {
 var allTasks = [], peopleData = [], myId = null, apiError = null;
 var DEFAULT_PEOPLE_FE = [{ name: "\u7B52\u4E95" }, { name: "\u53CB\u5229" }, { name: "\u77F3\u7530" }, { name: "\u897F\u6751" }];
 var displayMode = "status", selectedPersonId = "all", selectedGenre = "all", viewMode = "card";
+var filterByDate = null;
 var tasksLoaded = false;
 
 function normalizeCategory(cat) { return cat && (CATEGORY_LABELS[cat] || cat === "other") ? cat : "other"; }
@@ -1656,7 +1657,7 @@ function renderListTable(tasks) {
     var pc = 'priority-' + (t.priority || 'medium');
     html += '<tr class="task-list-row ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')" style="cursor:pointer;">';
     html += '<td class="tl-title">' + esc(t.title) + '</td>';
-    html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="date-label" onclick="editDueDate(\'' + t.id + '\',this)">' + (t.limit || "なし") + ' <small>(' + dl + ')</small></span></td>';
+    html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="date-label" onclick="editDueDate(\'' + t.id + '\',this)">' + (t.limit || "なし") + ' <small>(' + dl + ')</small></span>' + (t.limit ? '<button onclick="event.stopPropagation();setDateFilter(\'' + t.limit + '\')" title="この期限でフィルタ" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:10px;padding:0 2px;">🔍</button>' : '') + '</td>';
     html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="scheduled-label" onclick="editScheduledDate(\'' + t.id + '\',this)">' + scheduleLabel(t.scheduledDate, t.scheduledKey) + '</span></td>';
     html += '<td onclick="event.stopPropagation()">' + buildAssigneeSelect(t.id, t.assigneeId) + '</td>';
     html += '<td onclick="event.stopPropagation()"><select class="list-select" onchange="updateTask(\'' + t.id + '\',\'priority\',this.value)"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"||!t.priority?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select></td>';
@@ -1800,7 +1801,11 @@ function renderManualListTable(tasks, genre) {
   return html;
 }
 
-function setGenre(genre) { selectedGenre = genre; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
+function setGenre(genre) { selectedGenre = genre; filterByDate = null; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
+function setDateFilter(date) {
+  if (filterByDate === date) { filterByDate = null; } else { filterByDate = date; }
+  renderAll();
+}
 function setPerson(id) { selectedPersonId = id; loadAll(); }
 
 // サイドバーのカテゴリリストを動的生成（担当者が持つカテゴリのみ表示）
@@ -2165,7 +2170,7 @@ function renderCard(t) {
   var pc = 'priority-' + (t.priority || 'medium');
   var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button>' : '';
   var schedLbl = scheduleLabel(t.scheduledDate, t.scheduledKey);
-  return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span class="scheduled-label" onclick="event.stopPropagation();editScheduledDate(\'' + t.id + '\',this)" title="クリックで対応予定日変更">' + schedLbl + '</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div>';
+  return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span>' + (t.limit ? '<span onclick="event.stopPropagation();setDateFilter(\'' + t.limit + '\')" title="この期限でフィルタ" style="cursor:pointer;font-size:10px;">🔍</span>' : '') + '<span class="scheduled-label" onclick="event.stopPropagation();editScheduledDate(\'' + t.id + '\',this)" title="クリックで対応予定日変更">' + schedLbl + '</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div>';
 }
 
 function editDueDate(id, el) {
@@ -2864,9 +2869,11 @@ function renderAll() {
     });
   }
   if (GENRE_MAP[selectedGenre]) tasksToShow = tasksToShow.filter(function(t) { return normalizeCategory(t.category) === GENRE_MAP[selectedGenre]; });
+  if (filterByDate) tasksToShow = tasksToShow.filter(function(t) { return t.limit === filterByDate; });
 
   var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
-  var html = "";
+  var filterBanner = filterByDate ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);"><span>期限フィルタ: <strong>' + filterByDate + '</strong></span><button onclick="setDateFilter(null)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;">✕ 解除</button></div>' : '';
+  var html = filterBanner;
 
   if (!isManualGenre && selectedGenre === "all") {
     var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
