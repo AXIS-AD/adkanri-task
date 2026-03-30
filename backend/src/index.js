@@ -571,6 +571,7 @@ async function handleGetDashboardTasks(request, env) {
         limit: 'limit' in meta ? (meta.limit || null) : t.limit,
         scheduledDate: 'scheduledDate' in meta ? (meta.scheduledDate || null) : null,
         scheduledKey: meta.scheduledKey || null,
+        firstSeen,
         assigneeId: t.assigneeId,
         assigneeName: t.assigneeName,
       });
