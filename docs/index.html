@@ -3323,7 +3323,7 @@ function buildReportHInputs() {
   var bufferVal = _reportCatH["_buffer"] != null ? _reportCatH["_buffer"] : 1;
   var totalH = (bufferVal || 0);
   cats.forEach(function(c) { totalH += _reportCatH[c.key] ? parseFloat(_reportCatH[c.key]) : 0; });
-  var html = '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;"><span>カテゴリ別 所要時間(H)</span><span style="color:var(--accent);">合計: ' + totalH + 'H</span></div>';
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;"><span>カテゴリ別 所要時間(H)</span><span id="reportCatHTotal" style="color:var(--accent);">合計: ' + totalH + 'H</span></div>';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">';
   html += '<span style="flex:1;font-size:12px;color:var(--text);font-weight:600;">差し込みバッファ</span>';
   html += '<input type="number" min="0" step="0.5" value="' + bufferVal + '" placeholder="H" data-rh-cat="_buffer" onchange="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
@@ -3342,6 +3342,13 @@ function updateReportCatH(input) {
   var cat = input.getAttribute("data-rh-cat");
   var val = input.value ? parseFloat(input.value) : null;
   _reportCatH[cat] = val;
+  // 合計を再計算
+  var total = 0;
+  document.querySelectorAll("[data-rh-cat]").forEach(function(el) {
+    total += el.value ? parseFloat(el.value) : 0;
+  });
+  var totalEl = document.getElementById("reportCatHTotal");
+  if (totalEl) totalEl.textContent = "合計: " + total + "H";
   var ta = document.getElementById("reportPreview");
   if (ta) ta.value = buildMorningReport(true);
 }
