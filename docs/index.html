@@ -2939,7 +2939,12 @@ function renderAll() {
   document.getElementById("displayToggle").style.display = isManualGenre ? "none" : "flex";
   document.getElementById("viewToggle").style.display = "flex";
 
-  var tasksToShow = allTasks;
+  var _td = today();
+  var tasksToShow = allTasks.filter(function(t) {
+    // 完了タスクはdoneDate=今日のみ表示、それ以外は除外
+    if ((t.localStatus === "done" || t.status === "done") && t.doneDate !== _td) return false;
+    return true;
+  });
   if (selectedPersonId !== "all" && isManualGenre) {
     tasksToShow = allTasks.filter(function(t) {
       if (t.isManual && t.assigneeId) return String(t.assigneeId) === String(selectedPersonId);
