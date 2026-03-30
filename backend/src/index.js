@@ -556,6 +556,33 @@ async function handleGetDashboardTasks(request, env) {
   }
   if (localChanged) await saveDashboardLocal(env, local);
 
+  // 今日完了したタスクをDASHBOARD_LOCALから復元（Chatwork status=openでは取得できない）
+  for (const [taskId, meta] of Object.entries(local)) {
+    if (taskId.startsWith('_')) continue;
+    if (seen.has(taskId)) continue;
+    if (meta.doneDate !== todayStr) continue;
+    if (meta.localStatus !== 'done') continue;
+    const metaAssigneeId = meta.assigneeId || 0;
+    if (accountId !== null && metaAssigneeId !== accountId) continue;
+    allTasksList.push({
+      id: taskId,
+      roomId: meta.roomId || DASHBOARD_ROOM_ID,
+      body: meta.body || '',
+      title: meta.title || '(完了済みタスク)',
+      category: meta.category || 'other',
+      priority: meta.priority || 'medium',
+      localStatus: 'done',
+      doneDate: todayStr,
+      note: meta.note || '',
+      limit: meta.limit || null,
+      scheduledDate: meta.scheduledDate || null,
+      scheduledKey: meta.scheduledKey || null,
+      assigneeId: metaAssigneeId,
+      assigneeName: meta.assigneeName || '',
+      assignedBy: '',
+    });
+  }
+
   // 手動タスクを追加（担当者フィルタなし＝全員に表示）
   const manualTasks = await getManualTasks(env);
   for (const mt of manualTasks) {
