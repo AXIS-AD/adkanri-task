@@ -3678,8 +3678,8 @@ function buildEveningReport() {
 
   var result = outputLines.join("\n");
 
-  var morningAllIds = {};
-  try { morningAllIds = JSON.parse(localStorage.getItem("morningAllTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
+  var morningReportIds = {};
+  try { morningReportIds = JSON.parse(localStorage.getItem("morningTaskIds_" + reportPid + "_" + td) || "{}"); } catch(_) {}
   var sashikomi = [];
   var sashiIds = {};
   var myTasks = allTasks.filter(function(t) {
@@ -3687,7 +3687,7 @@ function buildEveningReport() {
     return String(t.assigneeId) === String(reportPid);
   });
   myTasks.forEach(function(t) {
-    if (morningAllIds[t.id]) return;
+    if (morningReportIds[t.id]) return;
     if (sashiIds[t.id]) return;
     var st = t.localStatus || t.status || "open";
     // 差し込み = 出勤報告になくて今日完了したタスクのみ
