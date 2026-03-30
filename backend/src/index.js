@@ -547,6 +547,8 @@ async function handleGetDashboardTasks(request, env) {
         local[t.id].doneDate = todayStr;
         localChanged = true;
       }
+      // 古い完了タスク（doneDate !== 今日）はレスポンスに含めない
+      if (localStatus === 'done' && doneDate !== todayStr) continue;
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
