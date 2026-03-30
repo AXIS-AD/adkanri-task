@@ -3167,7 +3167,7 @@ function getMorningTaskIds() {
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var todayOrOverdue = myTasks.filter(function(t) {
     var byLimit = t.limit && t.limit <= td;
-    var bySchedule = t.scheduledDate && t.scheduledDate === td;
+    var bySchedule = t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey);
     return byLimit || bySchedule;
   });
   var teikiToday = getMyTeikiTasks().filter(function(t) {
@@ -3239,9 +3239,12 @@ function collectReportTasks() {
   }
   if (rf.scheduled) {
     myTasks.forEach(function(t) {
-      if (t.scheduledDate && t.scheduledDate === td && todayOrOverdue.indexOf(t) === -1) {
-        todayOrOverdue.push(t);
-      }
+      if (todayOrOverdue.indexOf(t) !== -1) return;
+      var isToday = false;
+      if (t.scheduledKey === "today") { isToday = true; }
+      else if (t.scheduledDate && t.scheduledDate === td) { isToday = true; }
+      else if (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey) { isToday = true; }
+      if (isToday) todayOrOverdue.push(t);
     });
   }
   todayOrOverdue = priorityFilter(todayOrOverdue, rf.priority);
