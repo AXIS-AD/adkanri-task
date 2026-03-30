@@ -2149,14 +2149,22 @@ function openModal(id) {
   bodyHtml += '<div class="todo-list" id="normalTodoList">';
   todos.forEach(function(item, idx) {
     var isDone = item.status === "done";
+    var d = item.date ? new Date(item.date) : null;
+    var dateLabel = d ? (d.getMonth()+1) + "/" + d.getDate() : "";
     bodyHtml += '<div class="todo-item' + (isDone ? ' todo-done' : '') + '">';
     bodyHtml += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleNormalTodo(\'' + id + '\',' + idx + ',this.checked)">';
+    bodyHtml += '<span class="todo-date-label" onclick="event.stopPropagation();showNormalTodoDatePicker(\'' + id + '\',' + idx + ',this)" title="日付変更">' + (dateLabel || "日付") + '</span>';
     bodyHtml += '<span class="todo-text" onclick="editNormalTodoText(\'' + id + '\',' + idx + ',this)" style="cursor:text;flex:1;">' + esc(item.text) + '</span>';
+    bodyHtml += '<select class="todo-status-select" onchange="changeNormalTodoField(\'' + id + '\',' + idx + ',\'status\',this.value)" style="font-size:11px;">';
+    ["open","in_progress","done"].forEach(function(s) {
+      bodyHtml += '<option value="' + s + '"' + ((item.status || "open") === s ? ' selected' : '') + '>' + TODO_STATUSES[s] + '</option>';
+    });
+    bodyHtml += '</select>';
     bodyHtml += '<button class="todo-delete-btn" onclick="removeNormalTodo(\'' + id + '\',' + idx + ')" title="削除">🗑️</button>';
     bodyHtml += '</div>';
   });
   bodyHtml += '</div>';
-  bodyHtml += '<div style="display:flex;gap:6px;margin-top:6px;"><input type="text" id="normalTodoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addNormalTodo(\'' + id + '\')" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;"><button onclick="addNormalTodo(\'' + id + '\')" style="padding:8px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;">追加</button></div>';
+  bodyHtml += '<div style="display:flex;gap:6px;margin-top:6px;"><input type="date" id="normalTodoNewDate" value="' + today() + '" style="width:110px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;"><input type="text" id="normalTodoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addNormalTodo(\'' + id + '\')" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;"><button onclick="addNormalTodo(\'' + id + '\')" style="padding:8px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;">追加</button></div>';
   bodyHtml += '</div>';
 
   bodyHtml += '<div class="modal-btn-row">';
@@ -2170,12 +2178,13 @@ function openModal(id) {
 }
 function addNormalTodo(taskId) {
   var inp = document.getElementById("normalTodoNewText");
+  var dateInp = document.getElementById("normalTodoNewDate");
   var text = inp ? inp.value.trim() : "";
   if (!text) return;
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (!t) return;
   if (!t.todos) t.todos = [];
-  t.todos.push({ text: text, status: "open" });
+  t.todos.push({ text: text, date: dateInp ? dateInp.value : today(), status: "open" });
   openModal(taskId);
 }
 function toggleNormalTodo(taskId, idx, checked) {
@@ -2187,6 +2196,24 @@ function removeNormalTodo(taskId, idx) {
   var t = allTasks.find(function(x) { return x.id === taskId; });
   if (t && t.todos) t.todos.splice(idx, 1);
   openModal(taskId);
+}
+function changeNormalTodoField(taskId, idx, field, val) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (t && t.todos && t.todos[idx]) t.todos[idx][field] = val;
+  if (field === "status") openModal(taskId);
+}
+function showNormalTodoDatePicker(taskId, idx, el) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  var input = document.createElement("input");
+  input.type = "date";
+  input.value = t && t.todos && t.todos[idx] ? (t.todos[idx].date || "") : "";
+  input.style.cssText = "font-size:12px;padding:2px 4px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text);width:110px;";
+  el.replaceWith(input); input.focus();
+  try { input.showPicker(); } catch(_) {}
+  var saved = false;
+  function save() { if (saved) return; saved = true; changeNormalTodoField(taskId, idx, "date", input.value); openModal(taskId); }
+  input.addEventListener("change", save);
+  input.addEventListener("blur", function() { setTimeout(save, 150); });
 }
 function editNormalTodoText(taskId, idx, el) {
   var t = allTasks.find(function(x) { return x.id === taskId; });
