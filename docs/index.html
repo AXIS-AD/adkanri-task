@@ -550,25 +550,6 @@
             <button class="active" data-mode="status" onclick="setDisplayMode('status')">ステータス別</button>
             <button data-mode="priority" onclick="setDisplayMode('priority')">優先度別</button>
           </div>
-          <div id="taskFilters" style="display:none;flex:1;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <select id="filterPriority" onchange="applyManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;">
-              <option value="">優先度</option>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-            </select>
-            <select id="filterStatus" onchange="applyManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;">
-              <option value="">ステータス</option>
-              <option value="open">未着手</option>
-              <option value="in_progress">着手中</option>
-              <option value="waiting">相手待ち</option>
-              <option value="done">完了</option>
-            </select>
-            <select id="filterCategory" onchange="applyManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;">
-              <option value="">カテゴリ</option>
-            </select>
-            <button onclick="clearManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;">クリア</button>
-          </div>
           <div class="view-toggle" id="viewToggle" style="display:none;margin-left:auto;">
             <button class="active" data-view="card" onclick="setViewMode('card')" title="カード表示">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
@@ -2911,16 +2892,6 @@ function renderAll() {
   var isManualGenre = selectedGenre === "teiki" || selectedGenre === "long_term";
   document.getElementById("displayToggle").style.display = isManualGenre ? "none" : "flex";
   document.getElementById("viewToggle").style.display = "flex";
-  var filtersEl = document.getElementById("taskFilters");
-  if (filtersEl) {
-    filtersEl.style.display = isManualGenre ? "none" : "flex";
-    var catSel = document.getElementById("filterCategory");
-    if (catSel && catSel.options.length <= 1) {
-      CATEGORY_ORDER.filter(function(k) { return k !== "teiki" && k !== "long_term"; }).forEach(function(k) {
-        var o = document.createElement("option"); o.value = k; o.textContent = CATEGORY_LABELS[k]; catSel.appendChild(o);
-      });
-    }
-  }
 
   var tasksToShow = allTasks;
   if (selectedPersonId !== "all" && isManualGenre) {
@@ -2988,6 +2959,18 @@ function renderAll() {
     html += '<span class="dash-dl-badge" style="cursor:pointer;" onclick="setDueRangeFilter(\'tomorrow\')">\u660E\u65E5\u671F\u9650 ' + tmrwDue + '</span>';
     html += '<span class="dash-dl-badge" style="cursor:pointer;" onclick="setDueRangeFilter(\'week\')">\u4ECA\u9031\u671F\u9650 ' + weekDue + '</span>';
     html += '<span class="dash-dl-badge' + (overdue > 0 ? ' overdue' : '') + '" style="cursor:pointer;" onclick="setDueRangeFilter(\'overdue\')">\u671F\u9650\u5207\u308C ' + overdue + '</span>';
+    html += '</div>';
+
+    var selStyle = 'padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;';
+    var catOpts = '<option value="">カテゴリ</option>';
+    CATEGORY_ORDER.filter(function(k) { return k !== "teiki" && k !== "long_term"; }).forEach(function(k) {
+      catOpts += '<option value="' + k + '"' + (manualFilter.category === k ? ' selected' : '') + '>' + CATEGORY_LABELS[k] + '</option>';
+    });
+    html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;">';
+    html += '<select id="filterPriority" onchange="applyManualFilters()" style="' + selStyle + '"><option value="">優先度</option><option value="high"' + (manualFilter.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (manualFilter.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (manualFilter.priority==="low"?" selected":"") + '>低</option></select>';
+    html += '<select id="filterStatus" onchange="applyManualFilters()" style="' + selStyle + '"><option value="">ステータス</option><option value="open"' + (manualFilter.status==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (manualFilter.status==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (manualFilter.status==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (manualFilter.status==="done"?" selected":"") + '>完了</option></select>';
+    html += '<select id="filterCategory" onchange="applyManualFilters()" style="' + selStyle + '">' + catOpts + '</select>';
+    html += '<button onclick="clearManualFilters()" style="' + selStyle + 'cursor:pointer;color:var(--text2);">クリア</button>';
     html += '</div>';
 
     if (selectedPersonId === "all") {
