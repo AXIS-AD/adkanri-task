@@ -126,7 +126,8 @@
 
   .panel { display: none; flex: 1; overflow-y: auto; }
   .panel.active { display: block; }
-  main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px; }
+  main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px; transition: max-width .2s, padding .2s; }
+  .main-content.expanded main { max-width: 100%; padding: 16px; }
   .section { margin-bottom: 32px; }
   .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .section-header h2 { font-size: 16px; font-weight: 700; }
@@ -942,13 +943,11 @@ function toggleTheme() {
 function toggleSidebar() {
   var sb = document.getElementById("sidebar");
   var btn = document.getElementById("sidebarOpen");
+  var mc = document.querySelector(".main-content");
   sb.classList.toggle("collapsed");
   var isCollapsed = sb.classList.contains("collapsed");
   btn.style.display = isCollapsed ? "inline-flex" : "none";
-  if (isCollapsed) {
-    var sub = document.getElementById("subSidebar");
-    if (sub) sub.classList.add("hidden");
-  }
+  if (mc) mc.classList.toggle("expanded", isCollapsed);
 }
 
 // ============================
