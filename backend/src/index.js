@@ -512,11 +512,24 @@ async function handleGetDashboardTasks(request, env) {
   const local = await getDashboardLocal(env);
   const allTasksList = [];
 
+  const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+
+  // v4クリーンアップ: 今日以外のdoneDateを全削除
+  if (!local._cleanV4) {
+    for (const [tid, m] of Object.entries(local)) {
+      if (tid.startsWith('_')) continue;
+      if (m && m.doneDate && m.doneDate !== todayStr) {
+        delete m.doneDate;
+        delete m.localStatus;
+      }
+    }
+    local._cleanV4 = true;
+    await saveDashboardLocal(env, local);
+  }
+
   const memberIds = DEFAULT_PEOPLE.map((p) => p.id);
   const seen = new Set();
   let localChanged = false;
-
-  const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 
   for (const roomId of rooms) {
     const allRoomTasks = await fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'open');
