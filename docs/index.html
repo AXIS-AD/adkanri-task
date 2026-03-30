@@ -35,7 +35,7 @@
 
   .app-layout { display: flex; min-height: 100vh; }
   .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: width .2s, padding .2s; display: flex; flex-direction: column; }
-  .sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none; }
+  .sidebar.collapsed { width: 0; min-width: 0; padding: 0; overflow: hidden; border-right: none; flex-basis: 0; }
   .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 14px 14px 18px; }
   .sidebar-title { font-size: 18px; font-weight: 700; }
   .sidebar-header button { background: transparent; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
@@ -50,7 +50,7 @@
   .is-admin .admin-only { display: block; }
 
   .sub-sidebar { width: 190px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: width .2s, opacity .2s; display: flex; flex-direction: column; gap: 4px; }
-  .sub-sidebar.hidden { width: 0; padding: 0; overflow: hidden; border-right: none; opacity: 0; }
+  .sub-sidebar.hidden { width: 0; min-width: 0; padding: 0; overflow: hidden; border-right: none; opacity: 0; flex-basis: 0; }
   .sidebar-memo-wrap { margin-top: auto; margin: auto 10px 10px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
   .sidebar-memo-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--text2); user-select: none; }
   .sidebar-memo-header:hover { background: rgba(255,255,255,.03); }
@@ -943,7 +943,12 @@ function toggleSidebar() {
   var sb = document.getElementById("sidebar");
   var btn = document.getElementById("sidebarOpen");
   sb.classList.toggle("collapsed");
-  btn.style.display = sb.classList.contains("collapsed") ? "inline-flex" : "none";
+  var isCollapsed = sb.classList.contains("collapsed");
+  btn.style.display = isCollapsed ? "inline-flex" : "none";
+  if (isCollapsed) {
+    var sub = document.getElementById("subSidebar");
+    if (sub) sub.classList.add("hidden");
+  }
 }
 
 // ============================
