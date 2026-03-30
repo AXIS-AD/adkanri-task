@@ -514,16 +514,13 @@ async function handleGetDashboardTasks(request, env) {
 
   const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 
-  // v4クリーンアップ: 今日以外のdoneDateを全削除
-  if (!local._cleanV4) {
+  // v5クリーンアップ: 全doneDate/localStatus削除（バグ汚染を完全除去）
+  if (!local._cleanV5) {
     for (const [tid, m] of Object.entries(local)) {
       if (tid.startsWith('_')) continue;
-      if (m && m.doneDate && m.doneDate !== todayStr) {
-        delete m.doneDate;
-        delete m.localStatus;
-      }
+      if (m) { delete m.doneDate; delete m.localStatus; }
     }
-    local._cleanV4 = true;
+    local._cleanV5 = true;
     await saveDashboardLocal(env, local);
   }
 
