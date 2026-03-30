@@ -3321,7 +3321,9 @@ function buildReportHInputs() {
   if (rf.longTerm && data.ltTodos.length > 0) cats.push({ key: "long_term", label: "長期タスク" });
 
   var bufferVal = _reportCatH["_buffer"] != null ? _reportCatH["_buffer"] : 1;
-  var html = '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">カテゴリ別 所要時間(H)</div>';
+  var totalH = (bufferVal || 0);
+  cats.forEach(function(c) { totalH += _reportCatH[c.key] ? parseFloat(_reportCatH[c.key]) : 0; });
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;"><span>カテゴリ別 所要時間(H)</span><span style="color:var(--accent);">合計: ' + totalH + 'H</span></div>';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">';
   html += '<span style="flex:1;font-size:12px;color:var(--text);font-weight:600;">差し込みバッファ</span>';
   html += '<input type="number" min="0" step="0.5" value="' + bufferVal + '" placeholder="H" data-rh-cat="_buffer" onchange="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
