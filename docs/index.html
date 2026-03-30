@@ -3470,7 +3470,8 @@ function buildEveningReport() {
     if (morningAllIds[t.id]) return;
     if (sashiIds[t.id]) return;
     var st = t.localStatus || t.status || "open";
-    if (st === "done" && t.doneDate !== td) return;
+    // 差し込み = 出勤報告になくて今日完了したタスクのみ
+    if (st !== "done" || t.doneDate !== td) return;
     sashikomi.push({ id: t.id, title: t.title, status: st });
     sashiIds[t.id] = true;
   });

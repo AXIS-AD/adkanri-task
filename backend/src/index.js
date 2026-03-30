@@ -512,18 +512,6 @@ async function handleGetDashboardTasks(request, env) {
   const local = await getDashboardLocal(env);
   const allTasksList = [];
 
-  // ワンタイム: 以前のバグで誤設定されたdoneDateをクリア (v3)
-  if (!local._cleanV3) {
-    for (const [tid, m] of Object.entries(local)) {
-      if (tid.startsWith('_')) continue;
-      if (m && m.doneDate) {
-        delete m.doneDate;
-      }
-    }
-    local._cleanV3 = true;
-    await saveDashboardLocal(env, local);
-  }
-
   const memberIds = DEFAULT_PEOPLE.map((p) => p.id);
   const seen = new Set();
   let localChanged = false;
@@ -543,16 +531,22 @@ async function handleGetDashboardTasks(request, env) {
       const meta = local[t.id] || {};
       const title = meta.title || extractTitle(t.body);
       const category = meta.category || autoCategory(t.body);
-      if (!meta.title || !meta.assigneeId || !meta.body) {
-        if (!local[t.id]) local[t.id] = {};
-        if (!meta.title) local[t.id].title = title;
-        if (!meta.assigneeId) local[t.id].assigneeId = t.assigneeId;
-        if (!meta.body && t.body) local[t.id].body = t.body;
+      if (!local[t.id]) local[t.id] = {};
+      if (!meta.title) { local[t.id].title = title; localChanged = true; }
+      if (!meta.assigneeId) { local[t.id].assigneeId = t.assigneeId; localChanged = true; }
+      if (!meta.body && t.body) { local[t.id].body = t.body; localChanged = true; }
+      if (!meta.firstSeen) { local[t.id].firstSeen = todayStr; localChanged = true; }
+      const firstSeen = local[t.id].firstSeen || todayStr;
+      const isDoneOnCw = t.status === 'done';
+      let localStatus = isDoneOnCw ? 'done' : (meta.localStatus || 'open');
+      let doneDate = meta.doneDate || null;
+      // 今日初めて見たタスクがChatworkでdone → 今日作成+今日完了
+      if (isDoneOnCw && !doneDate && firstSeen === todayStr) {
+        doneDate = todayStr;
+        local[t.id].localStatus = 'done';
+        local[t.id].doneDate = todayStr;
         localChanged = true;
       }
-      const isDoneOnCw = t.status === 'done';
-      const localStatus = isDoneOnCw ? 'done' : (meta.localStatus || 'open');
-      const doneDate = meta.doneDate || null;
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
