@@ -3326,13 +3326,13 @@ function buildReportHInputs() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;"><span>カテゴリ別 所要時間(H)</span><span id="reportCatHTotal" style="color:var(--accent);">合計: ' + totalH + 'H</span></div>';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">';
   html += '<span style="flex:1;font-size:12px;color:var(--text);font-weight:600;">差し込みバッファ</span>';
-  html += '<input type="number" min="0" step="0.5" value="' + bufferVal + '" placeholder="H" data-rh-cat="_buffer" onchange="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
+  html += '<input type="number" min="0" step="0.5" value="' + bufferVal + '" placeholder="H" data-rh-cat="_buffer" oninput="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
   html += '</div>';
   cats.forEach(function(c) {
     var val = _reportCatH[c.key] != null ? _reportCatH[c.key] : "";
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
     html += '<span style="flex:1;font-size:12px;color:var(--text);">' + esc(c.label) + '</span>';
-    html += '<input type="number" min="0" step="0.5" value="' + val + '" placeholder="H" data-rh-cat="' + c.key + '" onchange="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
+    html += '<input type="number" min="0" step="0.5" value="' + val + '" placeholder="H" data-rh-cat="' + c.key + '" oninput="updateReportCatH(this)" style="width:55px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;">';
     html += '</div>';
   });
   el.innerHTML = html;
