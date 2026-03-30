@@ -3445,8 +3445,18 @@ function buildMorningReport(skipHInputs) {
   if (rf.longTerm && data.ltTodos.length > 0) {
     var ltH2 = _reportCatH["long_term"] ? parseFloat(_reportCatH["long_term"]) : 0;
     lines += "\n[hr]\n【長期タスク】" + (ltH2 > 0 ? ltH2 + "H" : "");
+    var ltGroups = {};
+    var ltOrder = [];
     data.ltTodos.forEach(function(lt) {
-      lines += "\n・" + (lt.parentTitle || "（タイトルなし）") + "┗" + lt.text;
+      var key = lt.parentTitle || "（タイトルなし）";
+      if (!ltGroups[key]) { ltGroups[key] = []; ltOrder.push(key); }
+      ltGroups[key].push(lt);
+    });
+    ltOrder.forEach(function(title) {
+      lines += "\n・" + title;
+      ltGroups[title].forEach(function(lt) {
+        lines += "\n┗" + lt.text;
+      });
     });
   }
   lines += "\n[/info]";
