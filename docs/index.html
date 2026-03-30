@@ -51,6 +51,14 @@
 
   .sub-sidebar { width: 190px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: width .2s, opacity .2s; display: flex; flex-direction: column; gap: 4px; }
   .sub-sidebar.hidden { width: 0; padding: 0; overflow: hidden; border-right: none; opacity: 0; }
+  .sidebar-memo-wrap { margin-top: auto; margin: auto 10px 10px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+  .sidebar-memo-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--text2); user-select: none; }
+  .sidebar-memo-header:hover { background: rgba(255,255,255,.03); }
+  .sidebar-memo-body { padding: 0 8px 8px; }
+  .sidebar-memo-body.collapsed { display: none; }
+  .sidebar-memo-body textarea { width: 100%; box-sizing: border-box; min-height: 60px; max-height: 180px; padding: 8px 10px; border: none; border-radius: 8px; background: var(--bg); color: var(--text); font-size: 12px; resize: vertical; font-family: inherit; line-height: 1.5; outline: none; }
+  .sidebar-memo-body textarea::placeholder { color: var(--text2); opacity: .6; }
+  .sidebar-memo-body textarea:focus { box-shadow: 0 0 0 1.5px var(--accent) inset; }
   .sub-sidebar-title { font-size: 11px; font-weight: 700; color: var(--text2); padding: 10px 16px 4px; text-transform: uppercase; letter-spacing: 1px; }
 
   .person-row { padding: 4px 12px 12px; border-bottom: 1px solid var(--border); }
@@ -467,9 +475,14 @@
     <div class="sub-sidebar-title" style="margin-top:4px;">カテゴリ <button onclick="showAddCategoryModal()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;padding:0 4px;" title="カテゴリ追加">＋</button></div>
     <nav class="genre-list" id="genreList">
     </nav>
-    <div style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border);">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">メモ</div>
-      <textarea id="sidebarMemo" placeholder="メモを入力..." oninput="saveSidebarMemo()" style="width:100%;box-sizing:border-box;min-height:80px;max-height:200px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;resize:vertical;font-family:inherit;line-height:1.4;"></textarea>
+    <div class="sidebar-memo-wrap">
+      <div class="sidebar-memo-header" onclick="toggleSidebarMemo()">
+        <span>📝 メモ</span>
+        <span id="memoToggleIcon" style="font-size:10px;transition:transform .2s;">▼</span>
+      </div>
+      <div id="sidebarMemoBody" class="sidebar-memo-body">
+        <textarea id="sidebarMemo" placeholder="ちょっとしたメモに..." oninput="saveSidebarMemo()"></textarea>
+      </div>
     </div>
   </aside>
 
@@ -1824,6 +1837,19 @@ function saveSidebarMemo() {
 function loadSidebarMemo() {
   var el = document.getElementById("sidebarMemo");
   if (el) try { el.value = localStorage.getItem("sidebarMemo") || ""; } catch(_) {}
+  var collapsed = localStorage.getItem("sidebarMemoCollapsed") === "true";
+  var body = document.getElementById("sidebarMemoBody");
+  var icon = document.getElementById("memoToggleIcon");
+  if (body && collapsed) { body.classList.add("collapsed"); }
+  if (icon && collapsed) { icon.style.transform = "rotate(-90deg)"; }
+}
+function toggleSidebarMemo() {
+  var body = document.getElementById("sidebarMemoBody");
+  var icon = document.getElementById("memoToggleIcon");
+  if (!body) return;
+  var isCollapsed = body.classList.toggle("collapsed");
+  if (icon) icon.style.transform = isCollapsed ? "rotate(-90deg)" : "";
+  try { localStorage.setItem("sidebarMemoCollapsed", isCollapsed); } catch(_) {}
 }
 function applyManualFilters() {
   var p = document.getElementById("filterPriority");
