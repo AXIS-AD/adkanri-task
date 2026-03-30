@@ -1872,6 +1872,10 @@ function clearManualFilters() {
   renderAll();
 }
 function matchesDueRange(t, range) {
+  if (range === "scheduled") {
+    var td = today();
+    return t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey);
+  }
   if (!t.limit) return false;
   var diff = Math.round((new Date(t.limit) - new Date(today())) / 86400000);
   if (range === "today") return diff === 0;
@@ -2950,7 +2954,7 @@ function renderAll() {
   if (manualFilter.category) tasksToShow = tasksToShow.filter(function(t) { return normalizeCategory(t.category) === manualFilter.category; });
 
   var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
-  var rangeLabels = { today: "今日期限", tomorrow: "明日期限", week: "今週期限", overdue: "期限切れ" };
+  var rangeLabels = { today: "今日期限", tomorrow: "明日期限", week: "今週期限", overdue: "期限切れ", scheduled: "今日着手予定" };
   var activeFilter = filterByDate || filterByDueRange;
   var filterLabel = filterByDate ? filterByDate : (filterByDueRange ? rangeLabels[filterByDueRange] : "");
   var filterBanner = activeFilter ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);"><span>期限フィルタ: <strong>' + filterLabel + '</strong></span><button onclick="setDateFilter(null);filterByDueRange=null;renderAll();" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;">✕ 解除</button></div>' : '';
@@ -2976,15 +2980,18 @@ function renderAll() {
     var totalIp = activeCwTasks.filter(function(t) { return t.localStatus === "in_progress"; }).length;
     var totalWait = activeCwTasks.filter(function(t) { return t.localStatus === "waiting"; }).length;
 
-    var todayDue = 0, tmrwDue = 0, weekDue = 0, overdue = 0;
+    var todayDue = 0, tmrwDue = 0, weekDue = 0, overdue = 0, todaySched = 0;
+    var td = today();
     dashScope.forEach(function(t) {
       if (t.localStatus === "done") return;
-      if (!t.limit) return;
-      var diff = Math.round((new Date(t.limit) - new Date(today())) / 86400000);
-      if (diff < 0) overdue++;
-      else if (diff === 0) todayDue++;
-      else if (diff === 1) tmrwDue++;
-      else if (diff <= 7) weekDue++;
+      if (t.limit) {
+        var diff = Math.round((new Date(t.limit) - new Date(td)) / 86400000);
+        if (diff < 0) overdue++;
+        else if (diff === 0) todayDue++;
+        else if (diff === 1) tmrwDue++;
+        else if (diff <= 7) weekDue++;
+      }
+      if (t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey)) todaySched++;
     });
 
     html += '<div class="dash-header"><h2>' + dashTitle + '</h2><div class="dash-time" id="lastUpdated2">\u26F1 ' + new Date().toLocaleTimeString("ja-JP") + '</div></div>';
@@ -3001,6 +3008,7 @@ function renderAll() {
     html += '<span class="dash-dl-badge" style="cursor:pointer;" onclick="setDueRangeFilter(\'tomorrow\')">\u660E\u65E5\u671F\u9650 ' + tmrwDue + '</span>';
     html += '<span class="dash-dl-badge" style="cursor:pointer;" onclick="setDueRangeFilter(\'week\')">\u4ECA\u9031\u671F\u9650 ' + weekDue + '</span>';
     html += '<span class="dash-dl-badge' + (overdue > 0 ? ' overdue' : '') + '" style="cursor:pointer;" onclick="setDueRangeFilter(\'overdue\')">\u671F\u9650\u5207\u308C ' + overdue + '</span>';
+    html += '<span class="dash-dl-badge" style="cursor:pointer;" onclick="setDueRangeFilter(\'scheduled\')">\u4ECA\u65E5\u7740\u624B\u4E88\u5B9A ' + todaySched + '</span>';
     html += '</div>';
 
     var selStyle = 'padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;';
