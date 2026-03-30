@@ -545,10 +545,29 @@
     <div class="panel" id="panel-tasks">
       <div id="apiErrorBanner" class="api-error-banner" style="display:none;"></div>
       <main>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div class="display-toggle" id="displayToggle" style="display:none;margin-bottom:0;">
             <button class="active" data-mode="status" onclick="setDisplayMode('status')">ステータス別</button>
             <button data-mode="priority" onclick="setDisplayMode('priority')">優先度別</button>
+          </div>
+          <div id="taskFilters" style="display:none;flex:1;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <select id="filterPriority" onchange="applyManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;">
+              <option value="">優先度</option>
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+            </select>
+            <select id="filterStatus" onchange="applyManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;">
+              <option value="">ステータス</option>
+              <option value="open">未着手</option>
+              <option value="in_progress">着手中</option>
+              <option value="waiting">相手待ち</option>
+              <option value="done">完了</option>
+            </select>
+            <select id="filterCategory" onchange="applyManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;">
+              <option value="">カテゴリ</option>
+            </select>
+            <button onclick="clearManualFilters()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;">クリア</button>
           </div>
           <div class="view-toggle" id="viewToggle" style="display:none;margin-left:auto;">
             <button class="active" data-view="card" onclick="setViewMode('card')" title="カード表示">
@@ -1593,6 +1612,7 @@ var DEFAULT_PEOPLE_FE = [{ name: "\u7B52\u4E95" }, { name: "\u53CB\u5229" }, { n
 var displayMode = "status", selectedPersonId = "all", selectedGenre = "all", viewMode = "card";
 var filterByDate = null;
 var filterByDueRange = null;
+var manualFilter = { priority: "", status: "", category: "" };
 var tasksLoaded = false;
 
 function normalizeCategory(cat) { return cat && (CATEGORY_LABELS[cat] || cat === "other") ? cat : "other"; }
@@ -1810,6 +1830,22 @@ function setDateFilter(date) {
 }
 function setDueRangeFilter(range) {
   if (filterByDueRange === range) { filterByDueRange = null; } else { filterByDueRange = range; filterByDate = null; }
+  renderAll();
+}
+function applyManualFilters() {
+  var p = document.getElementById("filterPriority");
+  var s = document.getElementById("filterStatus");
+  var c = document.getElementById("filterCategory");
+  manualFilter.priority = p ? p.value : "";
+  manualFilter.status = s ? s.value : "";
+  manualFilter.category = c ? c.value : "";
+  renderAll();
+}
+function clearManualFilters() {
+  manualFilter = { priority: "", status: "", category: "" };
+  var p = document.getElementById("filterPriority"); if (p) p.value = "";
+  var s = document.getElementById("filterStatus"); if (s) s.value = "";
+  var c = document.getElementById("filterCategory"); if (c) c.value = "";
   renderAll();
 }
 function matchesDueRange(t, range) {
@@ -2875,6 +2911,16 @@ function renderAll() {
   var isManualGenre = selectedGenre === "teiki" || selectedGenre === "long_term";
   document.getElementById("displayToggle").style.display = isManualGenre ? "none" : "flex";
   document.getElementById("viewToggle").style.display = "flex";
+  var filtersEl = document.getElementById("taskFilters");
+  if (filtersEl) {
+    filtersEl.style.display = isManualGenre ? "none" : "flex";
+    var catSel = document.getElementById("filterCategory");
+    if (catSel && catSel.options.length <= 1) {
+      CATEGORY_ORDER.filter(function(k) { return k !== "teiki" && k !== "long_term"; }).forEach(function(k) {
+        var o = document.createElement("option"); o.value = k; o.textContent = CATEGORY_LABELS[k]; catSel.appendChild(o);
+      });
+    }
+  }
 
   var tasksToShow = allTasks;
   if (selectedPersonId !== "all" && isManualGenre) {
@@ -2886,6 +2932,9 @@ function renderAll() {
   if (GENRE_MAP[selectedGenre]) tasksToShow = tasksToShow.filter(function(t) { return normalizeCategory(t.category) === GENRE_MAP[selectedGenre]; });
   if (filterByDate) tasksToShow = tasksToShow.filter(function(t) { return t.limit === filterByDate; });
   if (filterByDueRange) tasksToShow = tasksToShow.filter(function(t) { return matchesDueRange(t, filterByDueRange); });
+  if (manualFilter.priority) tasksToShow = tasksToShow.filter(function(t) { return (t.priority || "medium") === manualFilter.priority; });
+  if (manualFilter.status) tasksToShow = tasksToShow.filter(function(t) { return (t.localStatus || "open") === manualFilter.status; });
+  if (manualFilter.category) tasksToShow = tasksToShow.filter(function(t) { return normalizeCategory(t.category) === manualFilter.category; });
 
   var ps = function(a, b) { var m = { high: 0, medium: 1, low: 2 }; return (m[a.priority] ?? 1) - (m[b.priority] ?? 1); };
   var rangeLabels = { today: "今日期限", tomorrow: "明日期限", week: "今週期限", overdue: "期限切れ" };
