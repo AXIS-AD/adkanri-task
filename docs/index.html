@@ -2142,7 +2142,22 @@ function openModal(id) {
   bodyHtml += '<div class="modal-field"><div class="modal-field-label">⏱ 所要時間(H)</div><input type="number" id="modalEstimatedH" min="0" step="0.5" value="' + (task.estimatedH || '') + '" placeholder="例: 1.5" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;"></div>';
   bodyHtml += '</div>';
 
-  bodyHtml += '<div class="modal-field" style="margin-bottom:20px;"><div class="modal-field-label">メモ</div><textarea id="modalNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(task.note || '') + '</textarea></div>';
+  bodyHtml += '<div class="modal-field" style="margin-bottom:12px;"><div class="modal-field-label">メモ</div><textarea id="modalNoteEdit" rows="3" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;">' + esc(task.note || '') + '</textarea></div>';
+
+  var todos = task.todos || [];
+  bodyHtml += '<div class="modal-field" style="margin-bottom:20px;"><div class="modal-field-label">やること</div>';
+  bodyHtml += '<div class="todo-list" id="normalTodoList">';
+  todos.forEach(function(item, idx) {
+    var isDone = item.status === "done";
+    bodyHtml += '<div class="todo-item' + (isDone ? ' todo-done' : '') + '">';
+    bodyHtml += '<input type="checkbox" class="todo-checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleNormalTodo(\'' + id + '\',' + idx + ',this.checked)">';
+    bodyHtml += '<span class="todo-text" onclick="editNormalTodoText(\'' + id + '\',' + idx + ',this)" style="cursor:text;flex:1;">' + esc(item.text) + '</span>';
+    bodyHtml += '<button class="todo-delete-btn" onclick="removeNormalTodo(\'' + id + '\',' + idx + ')" title="削除">🗑️</button>';
+    bodyHtml += '</div>';
+  });
+  bodyHtml += '</div>';
+  bodyHtml += '<div style="display:flex;gap:6px;margin-top:6px;"><input type="text" id="normalTodoNewText" placeholder="やることを入力" onkeydown="if(event.key===\'Enter\')addNormalTodo(\'' + id + '\')" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;"><button onclick="addNormalTodo(\'' + id + '\')" style="padding:8px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;">追加</button></div>';
+  bodyHtml += '</div>';
 
   bodyHtml += '<div class="modal-btn-row">';
   bodyHtml += '<button class="modal-btn-save" onclick="saveModalTask(\'' + id + '\')">保存</button>';
@@ -2152,6 +2167,38 @@ function openModal(id) {
   document.getElementById("modalBody").innerHTML = bodyHtml;
   document.getElementById("modalActions").innerHTML = '';
   document.getElementById("taskModal").classList.remove("hidden");
+}
+function addNormalTodo(taskId) {
+  var inp = document.getElementById("normalTodoNewText");
+  var text = inp ? inp.value.trim() : "";
+  if (!text) return;
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t) return;
+  if (!t.todos) t.todos = [];
+  t.todos.push({ text: text, status: "open" });
+  openModal(taskId);
+}
+function toggleNormalTodo(taskId, idx, checked) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (t && t.todos && t.todos[idx]) t.todos[idx].status = checked ? "done" : "open";
+  openModal(taskId);
+}
+function removeNormalTodo(taskId, idx) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (t && t.todos) t.todos.splice(idx, 1);
+  openModal(taskId);
+}
+function editNormalTodoText(taskId, idx, el) {
+  var t = allTasks.find(function(x) { return x.id === taskId; });
+  if (!t || !t.todos || !t.todos[idx]) return;
+  var input = document.createElement("input");
+  input.type = "text"; input.value = t.todos[idx].text;
+  input.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--accent);border-radius:4px;background:var(--surface2);color:var(--text);font-size:13px;";
+  el.replaceWith(input); input.focus(); input.select();
+  var saved = false;
+  function save() { if (saved) return; saved = true; var val = input.value.trim(); if (val) t.todos[idx].text = val; openModal(taskId); }
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", function(e) { if (e.key === "Enter") input.blur(); if (e.key === "Escape") { saved = true; openModal(taskId); } });
 }
 async function saveModalTask(id) {
   var t = allTasks.find(function(x) { return x.id === id; });
@@ -2165,6 +2212,7 @@ async function saveModalTask(id) {
   var estEl = document.getElementById("modalEstimatedH");
   if (noteEl) { t.note = noteEl.value.trim(); updates.note = t.note; }
   if (estEl) { t.estimatedH = estEl.value ? parseFloat(estEl.value) : null; updates.estimatedH = t.estimatedH; }
+  if (t.todos) updates.todos = t.todos;
   if (dueEl) { t.limit = dueEl.value || null; updates.limit = t.limit; }
   var schedEl = document.getElementById("modalScheduledDate");
   var schedCustom = document.getElementById("modalScheduledCustom");

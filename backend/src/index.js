@@ -568,6 +568,7 @@ async function handleGetDashboardTasks(request, env) {
         localStatus,
         doneDate,
         note: 'note' in meta ? meta.note : '',
+        todos: meta.todos || [],
         limit: 'limit' in meta ? (meta.limit || null) : t.limit,
         scheduledDate: 'scheduledDate' in meta ? (meta.scheduledDate || null) : null,
         scheduledKey: meta.scheduledKey || null,
