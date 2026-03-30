@@ -528,8 +528,19 @@ async function handleGetDashboardTasks(request, env) {
   const seen = new Set();
   let localChanged = false;
 
+  // 今日openだったタスクIDを追跡（日替わりリセット）
+  const openTodayKey = 'OPEN_TODAY_' + todayStr;
+  let openToday = {};
+  try { const d = await env.TASK_STORE.get(openTodayKey); if (d) openToday = JSON.parse(d); } catch(_) {}
+
   for (const roomId of rooms) {
-    const allRoomTasks = await fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'open');
+    const [openTasks, doneTasks] = await Promise.all([
+      fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'open'),
+      fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'done').catch(() => []),
+    ]);
+    // openタスクを記録
+    openTasks.forEach(function(t) { openToday[String(t.id)] = true; });
+    const allRoomTasks = openTasks.concat(doneTasks);
     for (const t of allRoomTasks) {
       if (!memberIds.includes(t.assigneeId)) continue;
       if (seen.has(t.id)) continue;
@@ -543,9 +554,18 @@ async function handleGetDashboardTasks(request, env) {
       if (!meta.body && t.body) { local[t.id].body = t.body; localChanged = true; }
       if (!meta.firstSeen) { local[t.id].firstSeen = todayStr; localChanged = true; }
       const firstSeen = local[t.id].firstSeen || todayStr;
-      const localStatus = meta.localStatus || 'open';
-      const doneDate = meta.doneDate || null;
-      // 古い完了タスク（doneDate !== 今日）はレスポンスに含めない
+      const isDoneOnCw = t.status === 'done';
+      let localStatus = meta.localStatus || 'open';
+      let doneDate = meta.doneDate || null;
+      // Chatworkでdone + 今日openだった = 今日完了
+      if (isDoneOnCw && !doneDate && openToday[String(t.id)]) {
+        doneDate = todayStr;
+        local[t.id].localStatus = 'done';
+        local[t.id].doneDate = todayStr;
+        localChanged = true;
+      }
+      if (isDoneOnCw) localStatus = 'done';
+      // 完了タスクはdoneDate=今日のみ表示
       if (localStatus === 'done' && doneDate !== todayStr) continue;
       if (accountId !== null && t.assigneeId !== accountId) continue;
       allTasksList.push({
@@ -565,6 +585,7 @@ async function handleGetDashboardTasks(request, env) {
     }
   }
   if (localChanged) await saveDashboardLocal(env, local);
+  await env.TASK_STORE.put(openTodayKey, JSON.stringify(openToday));
 
   // 今日完了したタスクをDASHBOARD_LOCALから復元（Chatwork status=openでは取得できない）
   for (const [taskId, meta] of Object.entries(local)) {
