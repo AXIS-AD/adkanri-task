@@ -18,10 +18,37 @@ jobs:
           DEPLOY_NOTIFY_KEY: ${{ secrets.DEPLOY_NOTIFY_KEY }}
         run: |
           TODAY=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
-          COMMITS=$(git log --oneline --after="${TODAY}T00:00:00+09:00" --pretty=format:"%s" | \
-            grep -P '[^\x00-\x7F]' | \
-            sed 's/^[a-z]*: //' | \
-            sed 's/^/・/')
+
+          # コミットメッセージを取得してユーザー向けに変換
+          COMMITS=$(git log --after="${TODAY}T00:00:00+09:00" --pretty=format:"%s" | \
+            grep -v "^Merge" | \
+            grep -v "Co-Authored-By" | \
+            sed 's/^fix: //' | \
+            sed 's/^feat: //' | \
+            sed 's/^improve: //' | \
+            sed 's/^debug: //' | \
+            sed 's/^refactor: //' | \
+            sed '/^$/d' | \
+            sort -u | \
+            awk '{
+              # 技術用語をユーザー向けに変換
+              gsub(/DASHBOARD_LOCAL/, "内部データ");
+              gsub(/OPEN_TODAY/, "タスク追跡");
+              gsub(/localStorage/, "ブラウザ保存");
+              gsub(/doneDate/, "完了日");
+              gsub(/localStatus/, "ステータス");
+              gsub(/scheduledKey/, "予定日キー");
+              gsub(/firstSeen/, "初回検出日");
+              gsub(/Chatwork API/, "Chatwork連携");
+              gsub(/KV/, "データベース");
+              gsub(/allTasks/, "タスク一覧");
+              gsub(/renderAll/, "画面更新");
+              gsub(/フロント/, "画面側");
+              gsub(/バックエンド/, "サーバー側");
+              gsub(/oninput/, "入力時");
+              gsub(/onchange/, "変更時");
+              print "・" $0
+            }')
 
           if [ -z "$COMMITS" ]; then
             echo "本日の変更なし。通知スキップ。"
@@ -33,7 +60,9 @@ jobs:
           [To:9797164]筒井さん
           [To:10034061]友利さん
           [To:10696465]石田さん
-          [info][title]🔄 アド管理ツール 本日のアップデート（${TIMESTAMP}）[/title]${COMMITS}[/info]"
+          [info][title]🔄 アド管理ツール アップデート（${TIMESTAMP}）[/title]
+          本日の改善・修正内容です👇
+          ${COMMITS}[/info]"
 
           python3 << 'PYEOF'
           import json, os, urllib.request
