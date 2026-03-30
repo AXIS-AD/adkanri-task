@@ -3008,7 +3008,7 @@ function renderAll() {
     CATEGORY_ORDER.filter(function(k) { return k !== "teiki" && k !== "long_term"; }).forEach(function(k) {
       catOpts += '<option value="' + k + '"' + (manualFilter.category === k ? ' selected' : '') + '>' + CATEGORY_LABELS[k] + '</option>';
     });
-    html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;">';
+    html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:12px 0 16px;">';
     html += '<select id="filterPriority" onchange="applyManualFilters()" style="' + selStyle + '"><option value="">優先度</option><option value="high"' + (manualFilter.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (manualFilter.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (manualFilter.priority==="low"?" selected":"") + '>低</option></select>';
     html += '<select id="filterStatus" onchange="applyManualFilters()" style="' + selStyle + '"><option value="">ステータス</option><option value="open"' + (manualFilter.status==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (manualFilter.status==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (manualFilter.status==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (manualFilter.status==="done"?" selected":"") + '>完了</option></select>';
     html += '<select id="filterCategory" onchange="applyManualFilters()" style="' + selStyle + '">' + catOpts + '</select>';
