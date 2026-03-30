@@ -3066,9 +3066,11 @@ function renderAll() {
       html += '<div class="section"><div class="section-header"><div class="section-dot" style="background:var(--green)"></div><h2>完了</h2><span class="section-count">' + doneTasks.length + '</span></div>' + doneBody + '</div>';
     }
   } else {
-    var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
     var td = today();
+    var active = tasksToShow.filter(function(t) { return t.localStatus !== "done"; });
     var done = tasksToShow.filter(function(t) { return t.localStatus === "done" && t.doneDate === td; });
+    // doneDate !== 今日 の完了タスクは表示しない
+    tasksToShow = active.concat(done);
     if (displayMode === "priority") {
       var hi = active.filter(function(t) { return t.priority === "high"; });
       var md = active.filter(function(t) { return t.priority === "medium" || !t.priority; });
