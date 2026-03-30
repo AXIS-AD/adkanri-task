@@ -1679,7 +1679,7 @@ function renderListTable(tasks) {
     var pClass = t.priority || "medium";
     var pc = 'priority-' + (t.priority || 'medium');
     html += '<tr class="task-list-row ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')" style="cursor:pointer;">';
-    html += '<td class="tl-title">' + (t.firstSeen === today() ? '🆕 ' : '') + esc(t.title) + '</td>';
+    html += '<td class="tl-title">' + (t.firstSeen === today() ? '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--red);padding:1px 5px;border-radius:10px;margin-right:4px;vertical-align:middle;">NEW</span>' : '') + esc(t.title) + '</td>';
     html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="date-label" onclick="editDueDate(\'' + t.id + '\',this)">' + (t.limit || "なし") + ' <small>(' + dl + ')</small></span></td>';
     html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="scheduled-label" onclick="editScheduledDate(\'' + t.id + '\',this)">' + scheduleLabel(t.scheduledDate, t.scheduledKey) + '</span></td>';
     html += '<td onclick="event.stopPropagation()">' + buildAssigneeSelect(t.id, t.assigneeId) + '</td>';
@@ -1802,14 +1802,14 @@ function renderManualListTable(tasks, genre) {
     html += '<tr class="task-list-row' + (isExpanded ? ' lt-expanded' : '') + '" onclick="' + clickFn + '(\'' + t.id + '\')" style="cursor:pointer;">';
     if (isTeiki) {
       html += '<td style="width:32px;text-align:center;"><button class="teiki-check' + (isDone ? ' done' : '') + '" onclick="event.stopPropagation();toggleTeikiComplete(\'' + t.id + '\')" style="width:22px;height:22px;">' + (isDone ? '✓' : '') + '</button></td>';
-      html += '<td class="tl-title">' + (t.firstSeen === today() ? '🆕 ' : '') + esc(t.title) + '</td>';
+      html += '<td class="tl-title">' + (t.firstSeen === today() ? '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--red);padding:1px 5px;border-radius:10px;margin-right:4px;vertical-align:middle;">NEW</span>' : '') + esc(t.title) + '</td>';
       html += '<td>' + getFreqLabel(t.frequency) + '</td>';
     } else {
       var todos = t.todos || [];
       var doneC = todos.filter(function(x) { return x.status === "done" || x.done; }).length;
       var arrow = isExpanded ? '▼' : '▶';
       html += '<td style="width:32px;text-align:center;font-size:11px;color:var(--text2);">' + arrow + ' ' + (todos.length ? doneC + '/' + todos.length : '-') + '</td>';
-      html += '<td class="tl-title">' + (t.firstSeen === today() ? '🆕 ' : '') + esc(t.title) + '</td>';
+      html += '<td class="tl-title">' + (t.firstSeen === today() ? '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--red);padding:1px 5px;border-radius:10px;margin-right:4px;vertical-align:middle;">NEW</span>' : '') + esc(t.title) + '</td>';
       html += '<td>' + (t.deadline || '未設定') + '</td>';
     }
     html += '<td>' + esc(t.assigneeName || '-') + '</td>';
@@ -2247,7 +2247,7 @@ function renderCard(t) {
   var dc = dueClass(t.limit), dl = dueLabel(t.limit), body = cleanBody(t.body);
   var pc = 'priority-' + (t.priority || 'medium');
   var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button>' : '';
-  var newBadge = t.firstSeen === today() ? '<span title="新着タスク" style="font-size:14px;margin-right:4px;">🆕</span>' : '';
+  var newBadge = t.firstSeen === today() ? '<span title="新着タスク" style="display:inline-block;font-size:10px;font-weight:700;color:#fff;background:var(--red);padding:1px 6px;border-radius:10px;margin-right:6px;vertical-align:middle;letter-spacing:0.5px;">NEW</span>' : '';
   var schedLbl = scheduleLabel(t.scheduledDate, t.scheduledKey);
   return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + newBadge + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span class="scheduled-label" onclick="event.stopPropagation();editScheduledDate(\'' + t.id + '\',this)" title="クリックで対応予定日変更">' + schedLbl + '</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div>';
 }
