@@ -528,10 +528,16 @@ async function handleGetDashboardTasks(request, env) {
   try { const d = await env.TASK_STORE.get(openTodayKey); if (d) openToday = JSON.parse(d); } catch(_) {}
 
   for (const roomId of rooms) {
-    const [openTasks, doneTasks] = await Promise.all([
-      fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'open'),
-      fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'done').catch(() => []),
-    ]);
+    let openTasks = [], doneTasks = [];
+    try {
+      [openTasks, doneTasks] = await Promise.all([
+        fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'open'),
+        fetchChatworkTasksForDashboard(roomId, cfg.apiToken, null, 'done').catch(() => []),
+      ]);
+    } catch (e) {
+      console.error(`[room ${roomId}] fetch error:`, e.message);
+      continue;
+    }
     // openタスクを記録
     openTasks.forEach(function(t) { openToday[String(t.id)] = true; });
     const allRoomTasks = openTasks.concat(doneTasks);
