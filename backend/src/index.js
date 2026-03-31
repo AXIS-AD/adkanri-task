@@ -507,6 +507,8 @@ async function handleGetDashboardTasks(request, env) {
   if (cfg.roomId) roomSet.add(cfg.roomId);
   if (room2) roomSet.add(room2);
   roomSet.add(DASHBOARD_ROOM_ID);
+  roomSet.add('383531534');
+  roomSet.add('396113113');
   const rooms = [...roomSet];
 
   const local = await getDashboardLocal(env);
