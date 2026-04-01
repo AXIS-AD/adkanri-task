@@ -3517,7 +3517,7 @@ function collectReportTasks() {
       todos.forEach(function(item, idx) {
         if (item.status === "done") return;
         if (!item.date || item.date > td) return;
-        ltTodos.push({ parentTitle: t.title, text: item.text, taskId: t.id, todoIdx: idx, estimatedH: item.estimatedH || null });
+        ltTodos.push({ parentTitle: t.title, text: item.text, status: item.status || "open", taskId: t.id, todoIdx: idx, estimatedH: item.estimatedH || null });
       });
     });
   }
@@ -3693,7 +3693,8 @@ function buildMorningReport(skipHInputs) {
     ltOrder.forEach(function(title) {
       lines += "\n・" + title;
       ltGroups[title].forEach(function(lt) {
-        lines += "\n┗" + lt.text;
+        var emoji = lt.status === "done" ? "✅" : lt.status === "in_progress" ? "⌛" : "❌";
+        lines += "\n┗" + emoji + lt.text;
       });
     });
   }
