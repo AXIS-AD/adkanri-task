@@ -482,7 +482,7 @@
         <span id="memoToggleIcon" style="font-size:10px;transition:transform .2s;">▼</span>
       </div>
       <div id="sidebarMemoBody" class="sidebar-memo-body">
-        <textarea id="sidebarMemo" placeholder="ちょっとしたメモに..." oninput="saveSidebarMemo()"></textarea>
+        <textarea id="sidebarMemo" placeholder="ちょっとしたメモに… (Enterで保存)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveSidebarMemoToKV();}"></textarea>
       </div>
     </div>
   </aside>
@@ -1826,13 +1826,26 @@ function setDueRangeFilter(range) {
   if (filterByDueRange === range) { filterByDueRange = null; } else { filterByDueRange = range; filterByDate = null; }
   renderAll();
 }
-function saveSidebarMemo() {
+function saveSidebarMemoToKV() {
   var el = document.getElementById("sidebarMemo");
-  if (el) try { localStorage.setItem("sidebarMemo", el.value); } catch(_) {}
+  if (!el) return;
+  var memo = el.value;
+  try { localStorage.setItem("sidebarMemo", memo); } catch(_) {}
+  apiCall("POST", "/api/dashboard/memo", { memo: memo }).then(function() {
+    el.style.boxShadow = "0 0 0 1.5px var(--green) inset";
+    setTimeout(function() { el.style.boxShadow = ""; }, 800);
+  }).catch(function(e) { console.error("memo save error:", e); });
 }
 function loadSidebarMemo() {
   var el = document.getElementById("sidebarMemo");
-  if (el) try { el.value = localStorage.getItem("sidebarMemo") || ""; } catch(_) {}
+  if (!el) return;
+  try { el.value = localStorage.getItem("sidebarMemo") || ""; } catch(_) {}
+  apiCall("GET", "/api/dashboard/memo").then(function(data) {
+    if (data && data.memo !== undefined) {
+      el.value = data.memo;
+      try { localStorage.setItem("sidebarMemo", data.memo); } catch(_) {}
+    }
+  }).catch(function() {});
   var collapsed = localStorage.getItem("sidebarMemoCollapsed") === "true";
   var body = document.getElementById("sidebarMemoBody");
   var icon = document.getElementById("memoToggleIcon");

@@ -87,6 +87,12 @@ export default {
       else if (path === '/api/auth/session' && request.method === 'POST') {
         response = await handleCreateSession(request, env);
       }
+      // ── サイドバーメモ ──
+      else if (path === '/api/dashboard/memo' && request.method === 'GET') {
+        response = await handleGetMemo(request, env);
+      } else if (path === '/api/dashboard/memo' && request.method === 'POST') {
+        response = await handleSaveMemo(request, env);
+      }
       // ── デプロイ通知 ──
       else if (path === '/api/deploy-notify' && request.method === 'POST') {
         response = await handleDeployNotify(request, env);
@@ -775,6 +781,25 @@ async function handleDeployNotify(request, env) {
     body: 'body=' + encodeURIComponent(message),
   });
   if (!res.ok) return jsonResponse({ error: 'Failed to send' }, 500);
+  return jsonResponse({ ok: true });
+}
+
+async function handleGetMemo(request, env) {
+  const payload = await verifyGoogleToken(request, env);
+  const email = payload.email;
+  if (!email) return jsonResponse({ error: 'missing email' }, 400);
+  const key = `sidebarMemo_${email}`;
+  const memo = await env.TASK_STORE.get(key);
+  return jsonResponse({ memo: memo || '' });
+}
+
+async function handleSaveMemo(request, env) {
+  const payload = await verifyGoogleToken(request, env);
+  const email = payload.email;
+  const { memo } = await request.json();
+  if (!email) return jsonResponse({ error: 'missing email' }, 400);
+  const key = `sidebarMemo_${email}`;
+  await env.TASK_STORE.put(key, memo || '');
   return jsonResponse({ ok: true });
 }
 
