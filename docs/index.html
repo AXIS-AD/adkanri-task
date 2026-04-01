@@ -388,21 +388,6 @@
   .report-filter-row label { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
   .report-filter-row input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
   .report-preview { width: 100%; min-height: 280px; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit; line-height: 1.6; resize: vertical; }
-  .report-checklist { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; max-height: 260px; overflow-y: auto; }
-  .report-checklist-title { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; }
-  .report-checklist-group { margin-bottom: 10px; }
-  .report-checklist-group:last-child { margin-bottom: 0; }
-  .report-checklist-parent { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-  .report-checklist-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: background .15s; }
-  .report-checklist-item:hover { background: rgba(255,255,255,.04); }
-  .report-checklist-item input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
-  .report-checklist-item.rci-done { opacity: .5; }
-  .report-checklist-item.rci-done .rci-text { text-decoration: line-through; }
-  .rci-text { flex: 1; }
-  .rci-status { font-size: 11px; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
-  .rci-status-open { background: rgba(239,68,68,.15); color: #ef4444; }
-  .rci-status-ip { background: rgba(59,130,246,.15); color: #3b82f6; }
-  .rci-status-done { background: rgba(34,197,94,.15); color: #22c55e; }
   .report-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--border); }
   .report-send-btn { padding: 10px 28px; border-radius: 10px; border: none; background: var(--accent); color: white; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .2s; }
   .report-send-btn:hover { opacity: .85; }
@@ -931,7 +916,6 @@
         </div>
       </div>
       <div class="report-h-inputs" id="reportHInputs" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px;max-height:200px;overflow-y:auto;"></div>
-      <div class="report-checklist" id="reportChecklist" style="display:none;"></div>
       <textarea class="report-preview" id="reportPreview"></textarea>
     </div>
     <div class="report-footer">
@@ -3316,101 +3300,12 @@ function buildReport() {
   var draft = loadReportDraft();
   if (draft) {
     ta.value = draft;
-    buildReportChecklist();
-    return;
+      return;
   }
   if (reportTabType === "morning") {
     ta.value = buildMorningReport();
   } else {
     ta.value = buildEveningReport();
-  }
-  buildReportChecklist();
-}
-
-function buildReportChecklist() {
-  var el = document.getElementById("reportChecklist");
-  if (!el) return;
-  var rf = getReportFilters();
-  var td = today();
-  var items = [];
-
-  // 通常タスク（今日 or 超過）のやること
-  var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
-  myTasks.forEach(function(t) {
-    if (!t.todos || t.todos.length === 0) return;
-    var cat = normalizeCategory(t.category);
-    if (cat === "teiki" || cat === "long_term") return;
-    var byLimit = t.limit && t.limit <= td;
-    var bySchedule = t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey);
-    if (!byLimit && !bySchedule) return;
-    t.todos.forEach(function(item, idx) {
-      items.push({ parentTitle: t.title, text: item.text, status: item.status || "open", taskId: t.id, todoIdx: idx, type: "normal" });
-    });
-  });
-
-  // 長期タスクのやること
-  if (rf.longTerm) {
-    var ltTasks = getMyLongTermTasks().filter(function(t) { return t.status !== "done"; });
-    ltTasks.forEach(function(t) {
-      var todos = t.todos || [];
-      todos.forEach(function(item, idx) {
-        if (!item.date || item.date > td) return;
-        items.push({ parentTitle: t.title, text: item.text, status: item.status || "open", taskId: t.id, todoIdx: idx, type: "long_term" });
-      });
-    });
-  }
-
-  if (items.length === 0) { el.style.display = "none"; return; }
-  el.style.display = "";
-
-  var groups = {}; var order = [];
-  items.forEach(function(it) {
-    var key = it.parentTitle || "（タイトルなし）";
-    if (!groups[key]) { groups[key] = []; order.push(key); }
-    groups[key].push(it);
-  });
-
-  var html = '<div class="report-checklist-title">やること進捗チェック</div>';
-  order.forEach(function(title) {
-    html += '<div class="report-checklist-group">';
-    html += '<div class="report-checklist-parent">' + esc(title) + '</div>';
-    groups[title].forEach(function(it) {
-      var isDone = it.status === "done";
-      var isIp = it.status === "in_progress";
-      var statusCls = isDone ? "rci-status-done" : isIp ? "rci-status-ip" : "rci-status-open";
-      var statusLabel = isDone ? "完了" : isIp ? "着手中" : "未着手";
-      html += '<div class="report-checklist-item' + (isDone ? ' rci-done' : '') + '">';
-      html += '<input type="checkbox"' + (isDone ? ' checked' : '') + ' onchange="toggleReportTodo(\'' + it.taskId + '\',' + it.todoIdx + ',this.checked)">';
-      html += '<span class="rci-text">' + esc(it.text) + '</span>';
-      html += '<select class="rci-status ' + statusCls + '" onchange="changeReportTodoStatus(\'' + it.taskId + '\',' + it.todoIdx + ',this.value,this)" style="border:none;cursor:pointer;font-weight:600;">';
-      ["open","in_progress","done"].forEach(function(s) {
-        html += '<option value="' + s + '"' + (it.status === s ? ' selected' : '') + '>' + (s === "open" ? "未着手" : s === "in_progress" ? "着手中" : "完了") + '</option>';
-      });
-      html += '</select>';
-      html += '</div>';
-    });
-    html += '</div>';
-  });
-  el.innerHTML = html;
-}
-
-function toggleReportTodo(taskId, idx, checked) {
-  var t = allTasks.find(function(x) { return x.id === taskId; });
-  if (t && t.todos && t.todos[idx]) {
-    t.todos[idx].status = checked ? "done" : "open";
-    dashUpdate(taskId, { todos: t.todos });
-    clearReportDraft();
-    buildReport();
-  }
-}
-
-function changeReportTodoStatus(taskId, idx, val, selectEl) {
-  var t = allTasks.find(function(x) { return x.id === taskId; });
-  if (t && t.todos && t.todos[idx]) {
-    t.todos[idx].status = val;
-    dashUpdate(taskId, { todos: t.todos });
-    clearReportDraft();
-    buildReport();
   }
 }
 
