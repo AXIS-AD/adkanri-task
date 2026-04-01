@@ -59,6 +59,16 @@
   .sidebar-memo-body textarea { width: 100%; box-sizing: border-box; min-height: 60px; max-height: 180px; padding: 8px 10px; border: none; border-radius: 8px; background: var(--bg); color: var(--text); font-size: 12px; resize: vertical; font-family: inherit; line-height: 1.5; outline: none; }
   .sidebar-memo-body textarea::placeholder { color: var(--text2); opacity: .6; }
   .sidebar-memo-body textarea:focus { box-shadow: 0 0 0 1.5px var(--accent) inset; }
+  .memo-popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); z-index: 600; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .memo-popup-overlay.hidden { display: none; }
+  .memo-popup { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 600px; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  .memo-popup-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .memo-popup-header h3 { font-size: 16px; font-weight: 700; margin: 0; }
+  .memo-popup textarea { margin: 16px 20px 0; min-height: 240px; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; resize: vertical; font-family: inherit; line-height: 1.7; outline: none; }
+  .memo-popup textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+  .memo-popup-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; }
+  .memo-popup-save { padding: 10px 28px; background: var(--accent); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+  .memo-popup-save:hover { opacity: .85; }
   .sub-sidebar-title { font-size: 11px; font-weight: 700; color: var(--text2); padding: 10px 16px 4px; text-transform: uppercase; letter-spacing: 1px; }
 
   .person-row { padding: 4px 12px 12px; border-bottom: 1px solid var(--border); }
@@ -477,12 +487,9 @@
     <nav class="genre-list" id="genreList">
     </nav>
     <div class="sidebar-memo-wrap">
-      <div class="sidebar-memo-header" onclick="toggleSidebarMemo()">
+      <div class="sidebar-memo-header" onclick="openMemoPopup()">
         <span>📝 メモ</span>
-        <span id="memoToggleIcon" style="font-size:10px;transition:transform .2s;">▼</span>
-      </div>
-      <div id="sidebarMemoBody" class="sidebar-memo-body">
-        <textarea id="sidebarMemo" placeholder="ちょっとしたメモに… (Enterで保存)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveSidebarMemoToKV();}"></textarea>
+        <span style="font-size:10px;">▶</span>
       </div>
     </div>
   </aside>
@@ -845,6 +852,18 @@
   </div>
 </div>
 
+<div class="memo-popup-overlay hidden" id="memoPopup" onclick="if(event.target===this)closeMemoPopup()">
+  <div class="memo-popup">
+    <div class="memo-popup-header">
+      <h3>📝 メモ</h3>
+      <button class="modal-close" onclick="closeMemoPopup()">&#10005;</button>
+    </div>
+    <textarea id="memoPopupText" placeholder="メモを入力..."></textarea>
+    <div class="memo-popup-footer">
+      <button class="memo-popup-save" onclick="saveMemoFromPopup()">保存</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay hidden" id="taskModal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -1826,39 +1845,39 @@ function setDueRangeFilter(range) {
   if (filterByDueRange === range) { filterByDueRange = null; } else { filterByDueRange = range; filterByDate = null; }
   renderAll();
 }
-function saveSidebarMemoToKV() {
-  var el = document.getElementById("sidebarMemo");
-  if (!el) return;
-  var memo = el.value;
+var _memoCache = "";
+function openMemoPopup() {
+  var overlay = document.getElementById("memoPopup");
+  var ta = document.getElementById("memoPopupText");
+  if (!overlay || !ta) return;
+  ta.value = _memoCache;
+  overlay.classList.remove("hidden");
+  setTimeout(function() { ta.focus(); }, 50);
+}
+function closeMemoPopup() {
+  var overlay = document.getElementById("memoPopup");
+  if (overlay) overlay.classList.add("hidden");
+}
+function saveMemoFromPopup() {
+  var ta = document.getElementById("memoPopupText");
+  if (!ta) return;
+  var memo = ta.value;
+  _memoCache = memo;
   try { localStorage.setItem("sidebarMemo", memo); } catch(_) {}
+  var btn = document.querySelector(".memo-popup-save");
   apiCall("POST", "/api/dashboard/memo", { memo: memo }).then(function() {
-    el.style.boxShadow = "0 0 0 1.5px var(--green) inset";
-    setTimeout(function() { el.style.boxShadow = ""; }, 800);
+    if (btn) { btn.textContent = "保存しました"; btn.style.background = "var(--green)"; }
+    setTimeout(function() { if (btn) { btn.textContent = "保存"; btn.style.background = ""; } }, 1200);
   }).catch(function(e) { console.error("memo save error:", e); });
 }
 function loadSidebarMemo() {
-  var el = document.getElementById("sidebarMemo");
-  if (!el) return;
-  try { el.value = localStorage.getItem("sidebarMemo") || ""; } catch(_) {}
+  try { _memoCache = localStorage.getItem("sidebarMemo") || ""; } catch(_) {}
   apiCall("GET", "/api/dashboard/memo").then(function(data) {
     if (data && data.memo !== undefined) {
-      el.value = data.memo;
+      _memoCache = data.memo;
       try { localStorage.setItem("sidebarMemo", data.memo); } catch(_) {}
     }
   }).catch(function() {});
-  var collapsed = localStorage.getItem("sidebarMemoCollapsed") === "true";
-  var body = document.getElementById("sidebarMemoBody");
-  var icon = document.getElementById("memoToggleIcon");
-  if (body && collapsed) { body.classList.add("collapsed"); }
-  if (icon && collapsed) { icon.style.transform = "rotate(-90deg)"; }
-}
-function toggleSidebarMemo() {
-  var body = document.getElementById("sidebarMemoBody");
-  var icon = document.getElementById("memoToggleIcon");
-  if (!body) return;
-  var isCollapsed = body.classList.toggle("collapsed");
-  if (icon) icon.style.transform = isCollapsed ? "rotate(-90deg)" : "";
-  try { localStorage.setItem("sidebarMemoCollapsed", isCollapsed); } catch(_) {}
 }
 function applyManualFilters() {
   var p = document.getElementById("filterPriority");
