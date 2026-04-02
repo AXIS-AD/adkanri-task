@@ -3675,6 +3675,17 @@ function buildEveningReport() {
     return "done";
   }
 
+  function findTodoStatus(text) {
+    for (var i = 0; i < allTasks.length; i++) {
+      var t = allTasks[i];
+      if (!t.todos) continue;
+      for (var j = 0; j < t.todos.length; j++) {
+        if (t.todos[j].text === text) return t.todos[j].status || "open";
+      }
+    }
+    return "open";
+  }
+
   var morningTitles = [];
   var sentLines = morningSent.split("\n");
   sentLines.forEach(function(line) {
@@ -3695,6 +3706,13 @@ function buildEveningReport() {
       else {
         var st = findTaskStatus(taskText);
         outputLines.push(stIcon(st) + " " + taskText);
+      }
+    } else if (line.match(/^┗/)) {
+      var todoText = line.replace(/^┗/, "").replace(/^[❌⌛✅🔼]\s?/, "").trim();
+      if (!todoText) { outputLines.push(line); }
+      else {
+        var todoSt = findTodoStatus(todoText);
+        outputLines.push("┗" + stIcon(todoSt) + todoText);
       }
     } else {
       outputLines.push(line);
