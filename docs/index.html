@@ -2537,14 +2537,14 @@ function addManualTask(category, initialStatus) {
     bodyHtml += '<div class="modal-form-group"><label>期日</label><input type="date" id="addTaskDeadline"></div>';
   }
   bodyHtml += '<div class="modal-form-group"><label>備考</label><textarea id="addTaskNote" placeholder="備考を入力（任意）" rows="3" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;resize:vertical;font-family:inherit;"></textarea></div>';
-  bodyHtml += '<button class="modal-submit-btn" onclick="submitAddForm(\'' + category + '\')">追加する</button>';
+  bodyHtml += '<button class="modal-submit-btn" onclick="submitAddForm(\'' + category + '\',\'' + _addTaskInitialStatus + '\')">追加する</button>';
 
   document.getElementById("modalBody").innerHTML = bodyHtml;
   document.getElementById("taskModal").classList.remove("hidden");
   setTimeout(function() { var inp = document.getElementById("addTaskTitle"); if (inp) inp.focus(); }, 100);
 }
 
-async function submitAddForm(category) {
+async function submitAddForm(category, initialStatus) {
   var title = document.getElementById("addTaskTitle").value.trim();
   if (!title) return;
   var noteEl = document.getElementById("addTaskNote");
@@ -2557,7 +2557,7 @@ async function submitAddForm(category) {
   var data = { title: title, category: actualCategory, note: noteEl ? noteEl.value.trim() : "",
     assigneeId: assigneeEl.value, assigneeName: selOpt.getAttribute("data-name") || selOpt.text };
   if (isNormalCat) {
-    var initSt = _addTaskInitialStatus || "open";
+    var initSt = initialStatus || "open";
     data.status = initSt === "done" ? "done" : "open";
     data.localStatus = initSt;
   } else {
