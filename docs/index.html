@@ -1901,7 +1901,7 @@ function clearManualFilters() {
 function matchesDueRange(t, range) {
   if (range === "scheduled") {
     var td = today();
-    return t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey);
+    return (function(sd) { return sd && sd !== "なるはや" && sd <= td; })(effectiveScheduledDate(t));
   }
   if (!t.limit) return false;
   var diff = Math.round((new Date(t.limit) - new Date(today())) / 86400000);
@@ -2411,6 +2411,10 @@ function calcScheduleDate(key) {
   return "";
 }
 var SCHED_KEY_LABELS = { today: "\u4ECA\u65E5", tomorrow: "\u660E\u65E5", this_week: "\u4ECA\u9031", next_week: "\u6765\u9031", this_month: "\u4ECA\u6708", asap: "\u306A\u308B\u306F\u3084" };
+function effectiveScheduledDate(t) {
+  if (t.scheduledKey && t.scheduledKey !== "custom") return calcScheduleDate(t.scheduledKey);
+  return t.scheduledDate;
+}
 function scheduleLabel(val, key) {
   if (!val && !key) return "\uD83D\uDCC5予定なし";
   if (key && SCHED_KEY_LABELS[key]) return "\uD83D\uDCC5" + SCHED_KEY_LABELS[key];
@@ -3102,7 +3106,7 @@ function renderAll() {
         else if (diff === 1) tmrwDue++;
         else if (diff <= 7) weekDue++;
       }
-      if (t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey)) todaySched++;
+      if ((function(sd) { return sd && sd !== "なるはや" && sd <= td; })(effectiveScheduledDate(t))) todaySched++;
     });
 
     html += '<div class="dash-header"><h2>' + dashTitle + '</h2><div class="dash-time" id="lastUpdated2">\u26F1 ' + new Date().toLocaleTimeString("ja-JP") + '</div></div>';
@@ -3320,7 +3324,7 @@ function getMorningTaskIds() {
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var todayOrOverdue = myTasks.filter(function(t) {
     var byLimit = t.limit && t.limit <= td;
-    var bySchedule = t.scheduledKey === "today" || (t.scheduledDate && t.scheduledDate === td) || (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey);
+    var bySchedule = (function(sd) { return sd && sd !== "なるはや" && sd <= td; })(effectiveScheduledDate(t));
     return byLimit || bySchedule;
   });
   var teikiToday = getMyTeikiTasks().filter(function(t) {
@@ -3393,11 +3397,8 @@ function collectReportTasks() {
   if (rf.scheduled) {
     myTasks.forEach(function(t) {
       if (todayOrOverdue.indexOf(t) !== -1) return;
-      var isToday = false;
-      if (t.scheduledKey === "today") { isToday = true; }
-      else if (t.scheduledDate && t.scheduledDate === td) { isToday = true; }
-      else if (t.scheduledDate && t.scheduledDate <= td && !t.scheduledKey) { isToday = true; }
-      if (isToday) todayOrOverdue.push(t);
+      var sd = effectiveScheduledDate(t);
+      if (sd && sd !== "なるはや" && sd <= td) todayOrOverdue.push(t);
     });
   }
   todayOrOverdue = priorityFilter(todayOrOverdue, rf.priority);
