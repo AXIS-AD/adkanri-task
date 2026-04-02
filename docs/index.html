@@ -1190,7 +1190,7 @@ var SUB_CATEGORIES = {
   ],
   csv_fix: [{ id: "csv_fix_sub", label: "CSV保管修正" }, { id: "late_fire", label: "後着火修正依頼" }],
   other: [{ id: "shukkou_miss", label: "出稿ミス共有" }, { id: "other_general", label: "その他" }],
-  kashi_kiji: [{ id: "beyond_collab", label: "Beyondコラボ/貸記事" }],
+  kashi_kiji: [{ id: "beyond_collab", label: "Beyondコラボ" }, { id: "kashi_kiji_sub", label: "貸記事" }],
 };
 
 var SHEET_ID = "1Xk-p_-6Np-e5keqOy5fcgmU-TF28H5dU7UeEYDUX_7k";
@@ -1217,7 +1217,8 @@ var FIELDS = {
   cap_notify: [{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"cap",label:"キャップ",type:"text",required:true },{ id:"notify_count",label:"通知件数",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   shukkou_miss: [{ id:"detail",label:"詳細",type:"textarea",required:true },{ id:"deadline",label:"期日",type:"date",required:false }],
   other_general: [{ id:"detail",label:"詳細",type:"textarea",required:true },{ id:"deadline",label:"期日",type:"date",required:false }],
-  beyond_collab: [{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"cw_link",label:"チャットワークリンク",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  beyond_collab: [{ id:"kashi_type",label:"種別",type:"select",options:["Beyondコラボ","貸記事"],required:true },{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"cw_link",label:"チャットワークリンク",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  kashi_kiji_sub: [{ id:"kashi_type",label:"種別",type:"select",options:["Beyondコラボ","貸記事"],required:true,defaultValue:"貸記事" },{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"cw_link",label:"チャットワークリンク",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
 };
 
 var reqState = { categoryId: "", categoryLabel: "", subCategoryId: "", subCategoryLabel: "" };
@@ -1278,7 +1279,7 @@ function renderFormFields(fields) {
     div.id = "field-" + f.id;
     var inputHtml;
     if (f.type === "select") {
-      inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">選択してください</option>' + f.options.map(function(o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select>';
+      inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">選択してください</option>' + f.options.map(function(o) { return '<option value="' + o + '"' + (f.defaultValue === o ? ' selected' : '') + '>' + o + '</option>'; }).join("") + '</select>';
     } else if (f.type === "sheet-select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">読み込み中...</option></select>';
       loadSheetOptions(f.sheetId, f.sheetRange, "input-" + f.id, f.condRange, f.condValue, f.condReplace, f.condFilter);
