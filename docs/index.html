@@ -2492,8 +2492,10 @@ function editScheduledDate(id, el) {
 // ============================
 // Manual task add (modal popup)
 // ============================
-function addManualTask(category) {
+var _addTaskInitialStatus = "";
+function addManualTask(category, initialStatus) {
   currentModalId = null;
+  _addTaskInitialStatus = initialStatus || "";
   var label = CATEGORY_LABELS[category] || category;
   setModalTitle(label + "を追加", true);
   document.getElementById("modalMeta").innerHTML = '';
@@ -2555,8 +2557,9 @@ async function submitAddForm(category) {
   var data = { title: title, category: actualCategory, note: noteEl ? noteEl.value.trim() : "",
     assigneeId: assigneeEl.value, assigneeName: selOpt.getAttribute("data-name") || selOpt.text };
   if (isNormalCat) {
-    data.status = "open";
-    data.localStatus = "open";
+    var initSt = _addTaskInitialStatus || "open";
+    data.status = initSt === "done" ? "done" : "open";
+    data.localStatus = initSt;
   } else {
     data.status = "open";
   }
@@ -3024,9 +3027,9 @@ async function saveLongTermTodos(taskId) {
   } catch (e) { alert("保存に失敗しました: " + e.message); }
 }
 
-function renderSection(title, tasks, dotColor, categoryKey) {
+function renderSection(title, tasks, dotColor, categoryKey, initialStatus) {
   if (!tasks.length && categoryKey !== "teiki" && categoryKey !== "long_term") return "";
-  var addBtn = '<button class="add-task-btn" onclick="addManualTask(\'' + categoryKey + '\')">＋ 追加</button>';
+  var addBtn = '<button class="add-task-btn" onclick="addManualTask(\'' + categoryKey + '\',\'' + (initialStatus || '') + '\')">＋ 追加</button>';
   var body = viewMode === "list" && categoryKey !== "teiki" && categoryKey !== "long_term"
     ? renderListTable(tasks)
     : '<div class="cards">' + tasks.map(renderCard).join("") + '</div>';
@@ -3185,7 +3188,7 @@ function renderAll() {
       var o = tasksToShow.filter(function(t) { return t.localStatus === "open"; }); o.sort(ps);
       var ip = tasksToShow.filter(function(t) { return t.localStatus === "in_progress"; }); ip.sort(ps);
       var w = tasksToShow.filter(function(t) { return t.localStatus === "waiting"; }); w.sort(ps);
-      html += [renderSection("未着手", o, "var(--text2)"), renderSection("着手中", ip, "var(--accent)"), renderSection("相手待ち", w, "var(--yellow)"), done.length ? renderSection("完了", done, "var(--green)") : ""].join("");
+      html += [renderSection("未着手", o, "var(--text2)", undefined, "open"), renderSection("着手中", ip, "var(--accent)", undefined, "in_progress"), renderSection("相手待ち", w, "var(--yellow)", undefined, "waiting"), done.length ? renderSection("完了", done, "var(--green)", undefined, "done") : ""].join("");
     }
   }
 
