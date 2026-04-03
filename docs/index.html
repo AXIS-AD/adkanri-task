@@ -3595,8 +3595,7 @@ function buildMorningReport(skipHInputs) {
     ltOrder.forEach(function(title) {
       lines += "\n・" + title;
       ltGroups[title].forEach(function(lt) {
-        var emoji = lt.status === "done" ? "✅" : lt.status === "in_progress" ? "⌛" : "❌";
-        lines += "\n┗" + emoji + lt.text;
+        lines += "\n┗" + lt.text;
       });
     });
   }
