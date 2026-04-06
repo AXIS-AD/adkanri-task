@@ -87,6 +87,12 @@ export default {
       else if (path === '/api/auth/session' && request.method === 'POST') {
         response = await handleCreateSession(request, env);
       }
+      // ── タスク振り分け設定 ──
+      else if (path === '/api/admin/assign-map' && request.method === 'GET') {
+        response = await handleGetAssignMap(request, env);
+      } else if (path === '/api/admin/assign-map' && request.method === 'POST') {
+        response = await handleSaveAssignMap(request, env);
+      }
       // ── サイドバーメモ ──
       else if (path === '/api/dashboard/memo' && request.method === 'GET') {
         response = await handleGetMemo(request, env);
@@ -309,7 +315,7 @@ async function handleSubmit(request, env) {
 
   if (taskId) {
     await saveTaskMeta(env, taskId, reqId, formData, '未対応');
-    const assigneeName = resolveAssigneeName(env, formData);
+    const assigneeName = await resolveAssigneeName(env, formData);
     const fieldsDetail = (formData.fields || []).map((f) => f.label + '：' + f.value).join('\n');
     await appendTaskLog(env, String(taskId), formatJST(new Date(), 'yyyy/MM/dd HH:mm'), formData.category, formData.subCategory || '', formData.name, assigneeName, fieldsDetail);
   }
@@ -324,7 +330,7 @@ async function handleSubmit(request, env) {
 async function handleGetTasks(request, env) {
   await verifyGoogleToken(request, env);
 
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const res = await fetch(
     `https://api.chatwork.com/v2/rooms/${cfg.roomId}/tasks`,
     { headers: { 'X-ChatWorkToken': cfg.apiToken } }
@@ -363,7 +369,7 @@ async function handleGetTasks(request, env) {
 
 async function handleGetMyRequests(request, env) {
   await verifyGoogleToken(request, env);
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const local = await getDashboardLocal(env);
 
   const res = await fetch(
@@ -438,7 +444,7 @@ async function handleUpdateStatus(request, env) {
   await env.TASK_STORE.put('AD_REQUEST_TASKS', JSON.stringify(meta));
 
   if (status === '完了') {
-    const cfg = getChatworkConfig(env);
+    const cfg = await getChatworkConfig(env);
     await fetch(
       `https://api.chatwork.com/v2/rooms/${cfg.roomId}/tasks/${taskId}/status`,
       {
@@ -505,7 +511,7 @@ async function handleGetDashboardTasks(request, env) {
   const url = new URL(request.url);
   const accountId = url.searchParams.get('accountId') ? Number(url.searchParams.get('accountId')) : null;
 
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const myId = Number(env.MY_ACCOUNT_ID || 0);
   const room2 = env.CHATWORK_ROOM_2 || '';
 
@@ -653,7 +659,7 @@ async function handleUpdateDashboardTask(request, env) {
   await saveDashboardLocal(env, local);
 
   if (body.localStatus) {
-    const cfg = getChatworkConfig(env);
+    const cfg = await getChatworkConfig(env);
     const cwStatus = body.localStatus === 'done' ? 'done' : 'open';
     const roomId = body.roomId || local[id].roomId || DASHBOARD_ROOM_ID;
     if (roomId) local[id].roomId = roomId;
@@ -743,7 +749,7 @@ async function handleSendMessage(request, env) {
   await verifyGoogleToken(request, env);
   const { message, roomId, personId } = await request.json();
   if (!message) return jsonResponse({ error: 'message is required' }, 400);
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const targetRoom = roomId || REPORT_ROOM_ID;
   let token = cfg.apiToken;
   if (personId) {
@@ -774,7 +780,7 @@ async function handleDeployNotify(request, env) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
   if (!message) return jsonResponse({ error: 'message is required' }, 400);
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const res = await fetch(`https://api.chatwork.com/v2/rooms/${REPORT_ROOM_ID}/messages`, {
     method: 'POST',
     headers: { 'X-ChatWorkToken': cfg.apiToken, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -818,7 +824,7 @@ async function handleCreateManualTask(request, env) {
   await verifyGoogleToken(request, env);
 
   const body = await request.json();
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const isNormalCategory = body.category && !['teiki', 'long_term'].includes(body.category);
 
   let cwTaskId = null;
@@ -956,6 +962,31 @@ async function handleUpdateAdminRoles(request, env) {
   }
 
   await saveAdminRoles(env, { admins: admins.map((e) => e.trim().toLowerCase()) });
+  return jsonResponse({ ok: true });
+}
+
+async function handleGetAssignMap(request, env) {
+  await verifyGoogleToken(request, env);
+  const stored = await env.TASK_STORE.get('ASSIGN_MAP_CUSTOM');
+  const assignMap = stored ? JSON.parse(stored) : null;
+  const lineYahooAssignee = await env.TASK_STORE.get('LINE_YAHOO_ASSIGNEE_CUSTOM');
+  return jsonResponse({
+    assignMap: assignMap || HARDCODED_ASSIGN_MAP,
+    lineYahooAssignee: lineYahooAssignee || LINE_YAHOO_ASSIGNEE,
+    people: DEFAULT_PEOPLE,
+    categories: Object.keys(HARDCODED_ASSIGN_MAP),
+  });
+}
+
+async function handleSaveAssignMap(request, env) {
+  await verifyGoogleToken(request, env);
+  const { assignMap, lineYahooAssignee } = await request.json();
+  if (assignMap) {
+    await env.TASK_STORE.put('ASSIGN_MAP_CUSTOM', JSON.stringify(assignMap));
+  }
+  if (lineYahooAssignee) {
+    await env.TASK_STORE.put('LINE_YAHOO_ASSIGNEE_CUSTOM', lineYahooAssignee);
+  }
   return jsonResponse({ ok: true });
 }
 
@@ -1204,11 +1235,18 @@ const HARDCODED_ASSIGN_MAP = {
   '\u305D\u306E\u4ED6/\u30A8\u30E9\u30FC\u95A2\u9023': '10034061',
 };
 
-function getChatworkConfig(env) {
-  let assignMap = {};
-  try { assignMap = JSON.parse(env.ASSIGN_MAP_JSON || '{}'); } catch (_) {}
-  const hasValidKeys = Object.keys(assignMap).some((k) => !/\?/.test(k) && k.length > 2);
-  if (!hasValidKeys) assignMap = HARDCODED_ASSIGN_MAP;
+async function getChatworkConfig(env) {
+  // KVのカスタム設定を優先
+  let assignMap = null;
+  const customMap = await env.TASK_STORE.get('ASSIGN_MAP_CUSTOM');
+  if (customMap) {
+    try { assignMap = JSON.parse(customMap); } catch (_) {}
+  }
+  if (!assignMap) {
+    try { assignMap = JSON.parse(env.ASSIGN_MAP_JSON || '{}'); } catch (_) { assignMap = {}; }
+    const hasValidKeys = Object.keys(assignMap).some((k) => !/\?/.test(k) && k.length > 2);
+    if (!hasValidKeys) assignMap = HARDCODED_ASSIGN_MAP;
+  }
   return {
     apiToken: env.CHATWORK_API_TOKEN || '',
     roomId: env.CHATWORK_ROOM_ID || '',
@@ -1217,9 +1255,10 @@ function getChatworkConfig(env) {
   };
 }
 
-function resolveAssigneeName(env, formData) {
-  const cfg = getChatworkConfig(env);
-  const toId = hasLineYahooMedia(formData) ? LINE_YAHOO_ASSIGNEE : resolveAssignee(cfg, formData.category, true);
+async function resolveAssigneeName(env, formData) {
+  const cfg = await getChatworkConfig(env);
+  const lyAssignee = await env.TASK_STORE.get('LINE_YAHOO_ASSIGNEE_CUSTOM') || LINE_YAHOO_ASSIGNEE;
+  const toId = hasLineYahooMedia(formData) ? lyAssignee : resolveAssignee(cfg, formData.category, true);
   const ids = String(toId).split(',');
   const names = ids.map((id) => { const p = DEFAULT_PEOPLE.find((pp) => String(pp.id) === id.trim()); return p ? p.name : id.trim(); });
   return names.join(', ');
@@ -1237,7 +1276,7 @@ function resolveAssignee(cfg, category, bh) {
 }
 
 const LINE_YAHOO_ASSIGNEE = '9797164';
-const LINE_YAHOO_KEYWORDS = ['LINE', 'LY', 'Yahoo'];
+const LINE_YAHOO_KEYWORDS = ['LINE', 'LY', 'Yahoo', 'ヤフー'];
 
 function hasLineYahooMedia(formData) {
   if (!formData.fields) return false;
@@ -1257,9 +1296,10 @@ const NOTIFY_MEMBERS = [
 ];
 
 async function sendChatworkTask(formData, reqId, env) {
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const bh = isBusinessHours();
-  const toId = hasLineYahooMedia(formData) ? LINE_YAHOO_ASSIGNEE : resolveAssignee(cfg, formData.category, true);
+  const lyAssignee = await env.TASK_STORE.get('LINE_YAHOO_ASSIGNEE_CUSTOM') || LINE_YAHOO_ASSIGNEE;
+  const toId = hasLineYahooMedia(formData) ? lyAssignee : resolveAssignee(cfg, formData.category, true);
 
   const subLabel = formData.subCategory || formData.category;
   const fieldLines = [];
@@ -1662,7 +1702,7 @@ function isJSTBusinessDay() {
 async function checkOverdueTasks(env) {
   if (!isJSTBusinessDay()) return;
 
-  const cfg = getChatworkConfig(env);
+  const cfg = await getChatworkConfig(env);
   const local = await getDashboardLocal(env);
   const manualTasks = await getManualTasks(env);
 

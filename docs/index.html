@@ -847,6 +847,11 @@
           <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">管理者は全タスクの表示・ステータス管理ができます</p>
           <div id="userRoleList"></div>
         </div>
+        <div class="admin-section" style="margin-top:24px;">
+          <h3>タスク振り分け設定</h3>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">新規依頼のカテゴリ別担当者を変更できます（お休み時の代理設定等）</p>
+          <div id="assignMapSettings"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1535,6 +1540,7 @@ function openRequestModal(idx) {
 // ============================
 var adminData = { admins: [], users: [] };
 
+var assignMapData = null;
 async function loadAdminRoles() {
   var area = document.getElementById("userRoleList");
   area.innerHTML = '<div style="color:var(--text2);font-size:12px;">読み込み中...</div>';
@@ -1544,6 +1550,10 @@ async function loadAdminRoles() {
   } catch (e) {
     area.innerHTML = '<div style="color:var(--text2);font-size:12px;">読み込みに失敗しました</div>';
   }
+  try {
+    assignMapData = await apiCall("GET", "/api/admin/assign-map");
+    renderAssignMapSettings();
+  } catch (e) {}
 }
 
 function renderUserRoleList() {
@@ -1583,6 +1593,59 @@ async function toggleAdminRole(email, makeAdmin) {
     adminData.admins = admins;
     renderUserRoleList();
   } catch (e) { alert("権限変更に失敗しました"); }
+}
+
+function renderAssignMapSettings() {
+  var area = document.getElementById("assignMapSettings");
+  if (!area || !assignMapData) return;
+  var map = assignMapData.assignMap || {};
+  var people = assignMapData.people || [];
+  var cats = assignMapData.categories || [];
+  var lyAssignee = assignMapData.lineYahooAssignee || "";
+
+  var peopleOpts = people.map(function(p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join("");
+
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  html += '<thead><tr><th style="text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);color:var(--text2);font-size:11px;">カテゴリ</th><th style="text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);color:var(--text2);font-size:11px;">担当者</th></tr></thead><tbody>';
+
+  // LINE/Yahoo特別枠
+  html += '<tr style="background:rgba(59,130,246,.06);"><td style="padding:8px 6px;border-bottom:1px solid var(--border);font-weight:600;">LINE / Yahoo / LY / ヤフー</td>';
+  html += '<td style="padding:8px 6px;border-bottom:1px solid var(--border);"><select data-am-key="__line_yahoo__" onchange="onAssignMapChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;">';
+  people.forEach(function(p) { html += '<option value="' + p.id + '"' + (String(p.id) === String(lyAssignee) ? ' selected' : '') + '>' + esc(p.name) + '</option>'; });
+  html += '</select></td></tr>';
+
+  cats.forEach(function(cat) {
+    var currentId = map[cat] || "";
+    html += '<tr><td style="padding:8px 6px;border-bottom:1px solid var(--border);">' + esc(cat) + '</td>';
+    html += '<td style="padding:8px 6px;border-bottom:1px solid var(--border);"><select data-am-key="' + esc(cat) + '" onchange="onAssignMapChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;">';
+    people.forEach(function(p) { html += '<option value="' + p.id + '"' + (String(p.id) === String(currentId) ? ' selected' : '') + '>' + esc(p.name) + '</option>'; });
+    html += '</select></td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<button id="saveAssignMapBtn" onclick="saveAssignMap()" style="margin-top:12px;padding:10px 24px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">保存</button>';
+  area.innerHTML = html;
+}
+
+function onAssignMapChange() {
+  var btn = document.getElementById("saveAssignMapBtn");
+  if (btn) { btn.style.background = "var(--accent)"; btn.textContent = "保存"; }
+}
+
+async function saveAssignMap() {
+  var selects = document.querySelectorAll("[data-am-key]");
+  var newMap = {};
+  var lyAssignee = "";
+  selects.forEach(function(sel) {
+    var key = sel.getAttribute("data-am-key");
+    if (key === "__line_yahoo__") { lyAssignee = sel.value; }
+    else { newMap[key] = sel.value; }
+  });
+  var btn = document.getElementById("saveAssignMapBtn");
+  try {
+    await apiCall("POST", "/api/admin/assign-map", { assignMap: newMap, lineYahooAssignee: lyAssignee });
+    if (btn) { btn.textContent = "保存しました"; btn.style.background = "var(--green)"; }
+    setTimeout(function() { if (btn) { btn.textContent = "保存"; btn.style.background = ""; } }, 1500);
+  } catch (e) { alert("保存に失敗しました: " + e.message); }
 }
 
 // ============================
