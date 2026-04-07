@@ -1602,6 +1602,7 @@ function renderAssignMapSettings() {
   var people = assignMapData.people || [];
   var cats = assignMapData.categories || [];
   var lyAssignee = assignMapData.lineYahooAssignee || "";
+  var gytAssignee = assignMapData.googleYtAssignee || "";
 
   var peopleOpts = people.map(function(p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join("");
 
@@ -1612,6 +1613,12 @@ function renderAssignMapSettings() {
   html += '<tr style="background:rgba(59,130,246,.06);"><td style="padding:8px 6px;border-bottom:1px solid var(--border);font-weight:600;">LINE / Yahoo / LY / ヤフー</td>';
   html += '<td style="padding:8px 6px;border-bottom:1px solid var(--border);"><select data-am-key="__line_yahoo__" onchange="onAssignMapChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;">';
   people.forEach(function(p) { html += '<option value="' + p.id + '"' + (String(p.id) === String(lyAssignee) ? ' selected' : '') + '>' + esc(p.name) + '</option>'; });
+  html += '</select></td></tr>';
+
+  // Google/YouTube特別枠
+  html += '<tr style="background:rgba(59,130,246,.06);"><td style="padding:8px 6px;border-bottom:1px solid var(--border);font-weight:600;">YT / YouTube / YTs / Google<br><span style="font-size:11px;font-weight:400;color:var(--text2);">アカウント関連・リンク発行依頼のみ</span></td>';
+  html += '<td style="padding:8px 6px;border-bottom:1px solid var(--border);"><select data-am-key="__google_yt__" onchange="onAssignMapChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;">';
+  people.forEach(function(p) { html += '<option value="' + p.id + '"' + (String(p.id) === String(gytAssignee) ? ' selected' : '') + '>' + esc(p.name) + '</option>'; });
   html += '</select></td></tr>';
 
   cats.forEach(function(cat) {
@@ -1635,14 +1642,16 @@ async function saveAssignMap() {
   var selects = document.querySelectorAll("[data-am-key]");
   var newMap = {};
   var lyAssignee = "";
+  var gytAssignee = "";
   selects.forEach(function(sel) {
     var key = sel.getAttribute("data-am-key");
     if (key === "__line_yahoo__") { lyAssignee = sel.value; }
+    else if (key === "__google_yt__") { gytAssignee = sel.value; }
     else { newMap[key] = sel.value; }
   });
   var btn = document.getElementById("saveAssignMapBtn");
   try {
-    await apiCall("POST", "/api/admin/assign-map", { assignMap: newMap, lineYahooAssignee: lyAssignee });
+    await apiCall("POST", "/api/admin/assign-map", { assignMap: newMap, lineYahooAssignee: lyAssignee, googleYtAssignee: gytAssignee });
     if (btn) { btn.textContent = "保存しました"; btn.style.background = "var(--green)"; }
     setTimeout(function() { if (btn) { btn.textContent = "保存"; btn.style.background = ""; } }, 1500);
   } catch (e) { alert("保存に失敗しました: " + e.message); }

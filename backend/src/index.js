@@ -970,9 +970,11 @@ async function handleGetAssignMap(request, env) {
   const stored = await env.TASK_STORE.get('ASSIGN_MAP_CUSTOM');
   const assignMap = stored ? JSON.parse(stored) : null;
   const lineYahooAssignee = await env.TASK_STORE.get('LINE_YAHOO_ASSIGNEE_CUSTOM');
+  const googleYtAssignee = await env.TASK_STORE.get('GOOGLE_YT_ASSIGNEE_CUSTOM');
   return jsonResponse({
     assignMap: assignMap || HARDCODED_ASSIGN_MAP,
     lineYahooAssignee: lineYahooAssignee || LINE_YAHOO_ASSIGNEE,
+    googleYtAssignee: googleYtAssignee || GOOGLE_YT_ASSIGNEE,
     people: DEFAULT_PEOPLE,
     categories: Object.keys(HARDCODED_ASSIGN_MAP),
   });
@@ -980,12 +982,15 @@ async function handleGetAssignMap(request, env) {
 
 async function handleSaveAssignMap(request, env) {
   await verifyGoogleToken(request, env);
-  const { assignMap, lineYahooAssignee } = await request.json();
+  const { assignMap, lineYahooAssignee, googleYtAssignee } = await request.json();
   if (assignMap) {
     await env.TASK_STORE.put('ASSIGN_MAP_CUSTOM', JSON.stringify(assignMap));
   }
   if (lineYahooAssignee) {
     await env.TASK_STORE.put('LINE_YAHOO_ASSIGNEE_CUSTOM', lineYahooAssignee);
+  }
+  if (googleYtAssignee) {
+    await env.TASK_STORE.put('GOOGLE_YT_ASSIGNEE_CUSTOM', googleYtAssignee);
   }
   return jsonResponse({ ok: true });
 }
@@ -1259,7 +1264,8 @@ async function getChatworkConfig(env) {
 async function resolveAssigneeName(env, formData) {
   const cfg = await getChatworkConfig(env);
   const lyAssignee = await env.TASK_STORE.get('LINE_YAHOO_ASSIGNEE_CUSTOM') || LINE_YAHOO_ASSIGNEE;
-  const toId = hasLineYahooMedia(formData) ? lyAssignee : resolveAssignee(cfg, formData.category, true);
+  const gytAssignee = await env.TASK_STORE.get('GOOGLE_YT_ASSIGNEE_CUSTOM') || GOOGLE_YT_ASSIGNEE;
+  const toId = hasLineYahooMedia(formData) ? lyAssignee : hasGoogleYtContent(formData) ? gytAssignee : resolveAssignee(cfg, formData.category, true);
   const ids = String(toId).split(',');
   const names = ids.map((id) => { const p = DEFAULT_PEOPLE.find((pp) => String(pp.id) === id.trim()); return p ? p.name : id.trim(); });
   return names.join(', ');
@@ -1278,6 +1284,9 @@ function resolveAssignee(cfg, category, bh) {
 
 const LINE_YAHOO_ASSIGNEE = '9797164';
 const LINE_YAHOO_KEYWORDS = ['LINE', 'LY', 'Yahoo', 'ヤフー'];
+const GOOGLE_YT_ASSIGNEE = '10696465';
+const GOOGLE_YT_KEYWORDS = ['YT', 'YouTube', 'YTs', 'Google'];
+const GOOGLE_YT_CATEGORIES = ['アカウント関連（作成・紐づけ・エラー）', 'リンク発行依頼'];
 
 function hasLineYahooMedia(formData) {
   if (!formData.fields) return false;
@@ -1285,6 +1294,18 @@ function hasLineYahooMedia(formData) {
     if (f.label && /媒体/.test(f.label) && f.value) {
       const val = String(f.value);
       if (LINE_YAHOO_KEYWORDS.some((kw) => val.includes(kw))) return true;
+    }
+  }
+  return false;
+}
+
+function hasGoogleYtContent(formData) {
+  if (!formData.category || !GOOGLE_YT_CATEGORIES.includes(formData.category)) return false;
+  if (!formData.fields) return false;
+  for (const f of formData.fields) {
+    if (f.value) {
+      const val = String(f.value);
+      if (GOOGLE_YT_KEYWORDS.some((kw) => val.includes(kw))) return true;
     }
   }
   return false;
@@ -1300,7 +1321,8 @@ async function sendChatworkTask(formData, reqId, env) {
   const cfg = await getChatworkConfig(env);
   const bh = isBusinessHours();
   const lyAssignee = await env.TASK_STORE.get('LINE_YAHOO_ASSIGNEE_CUSTOM') || LINE_YAHOO_ASSIGNEE;
-  const toId = hasLineYahooMedia(formData) ? lyAssignee : resolveAssignee(cfg, formData.category, true);
+  const gytAssignee = await env.TASK_STORE.get('GOOGLE_YT_ASSIGNEE_CUSTOM') || GOOGLE_YT_ASSIGNEE;
+  const toId = hasLineYahooMedia(formData) ? lyAssignee : hasGoogleYtContent(formData) ? gytAssignee : resolveAssignee(cfg, formData.category, true);
 
   const subLabel = formData.subCategory || formData.category;
   const fieldLines = [];
