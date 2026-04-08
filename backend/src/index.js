@@ -2,7 +2,7 @@
 // TOアド管理 API - Cloudflare Worker (Unified)
 // ====================================================
 
-const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com'];
+const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com', 'axis-company.jp'];
 const ALLOWED_ORIGINS = ['https://axis-ad.github.io', 'http://localhost:3000', 'http://localhost:3456'];
 const PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.adkanri-task\.pages\.dev$/;
 const REQ_PREFIX = 'REQ-ID:';
