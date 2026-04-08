@@ -24,7 +24,14 @@
       "Bash(CLAUDECODE= claude config set --global statusLine disabled)",
       "Bash(CLAUDECODE= claude config set -g statusLine disabled)",
       "Bash(CLAUDECODE= claude config list 2>&1 | head -20)",
-      "Bash(CLAUDECODE= claude --help 2>&1 | head -30)"
+      "Bash(CLAUDECODE= claude --help 2>&1 | head -30)",
+      "Bash(gh run:*)",
+      "Bash(npx wrangler:*)",
+      "Read(//Users/touyamakirara/**)",
+      "Read(//Users/touyamakirara/Library/Preferences/.wrangler/**)",
+      "Read(//Users/touyamakirara/Library/Preferences/.wrangler/config/**)",
+      "Bash(grep -ri \"cloudflare\\\\|wrangler\\\\|CLOUDFLARE_API_TOKEN\" /Users/touyamakirara/Documents/adkanri-task/*.md)",
+      "Bash(grep -ri \"cloudflare\\\\|wrangler\" /Users/touyamakirara/Documents/タスク管理ツール/**/*.md)"
     ]
   }
 }

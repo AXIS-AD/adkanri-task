@@ -135,7 +135,7 @@ GitHub Pages が自動で反映されます。
 https://axis-ad.github.io/adkanri-task/ にアクセスして:
 
 1. Google ログイン画面が表示される
-2. AXIS/shibuya-ad.com のアカウントでログインできる
+2. AXIS/shibuya-ad.com/axis-company.jp のアカウントでログインできる
 3. フォームから依頼を送信できる
 4. チャットワークにタスクが作成される
 

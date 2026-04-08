@@ -1,6 +1,6 @@
 // ====================================================
 // TOアド管理依頼ツール v2 - サーバーサイド
-// AXIS・shibuya-ad.com のアドレスで依頼可能 / ログインアドレスを依頼者名に自動設定
+// AXIS・shibuya-ad.com・axis-company.jp のアドレスで依頼可能 / ログインアドレスを依頼者名に自動設定
 // ====================================================
 
 // ※ デプロイは「ユーザーとして実行」にすること（これでログイン中のメールアドレスが取得できる）
@@ -10,7 +10,7 @@
 //   CHATWORK_API_TOKEN, CHATWORK_ROOM_ID, ALL_USER_IDS, ASSIGN_MAP_JSON
 
 // 許可するメールドメイン（ログイン・依頼可能）
-const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com'];
+const ALLOWED_EMAIL_DOMAINS = ['axis-ads.co.jp', 'axis-hd.co.jp', 'shibuya-ad.com', 'axis-company.jp'];
 
 const REQ_PREFIX = 'REQ-ID:';
 const PROPS_KEY = 'AD_REQUEST_TASKS';
@@ -40,7 +40,7 @@ function doGet(e) {
     } else if (u.reason === 'no_email') {
       text = '依頼者: ログインが必要です。「権限を確認」→「許可」を押してからページを再読み込みしてください';
     } else {
-      text = '依頼者: AXIS・shibuya-ad.com のアドレスのみ利用可能です';
+      text = '依頼者: AXIS・shibuya-ad.com・axis-company.jp のアドレスのみ利用可能です';
     }
     var cb = p.callback || 'adkanriRequester';
     var js = cb + '(' + JSON.stringify(text) + ')';
@@ -81,7 +81,7 @@ function submitRequest(formData) {
   try {
     const user = getCurrentUser();
     if (!user.allowed) {
-      return { success: false, error: 'AXIS・shibuya-ad.com のアドレスでのみ依頼できます。' };
+      return { success: false, error: 'AXIS・shibuya-ad.com・axis-company.jp のアドレスでのみ依頼できます。' };
     }
     formData.name = user.email;
 

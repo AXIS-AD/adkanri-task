@@ -258,7 +258,7 @@ async function verifyGoogleIdToken(token, env) {
   const email = (payload.email || '').toLowerCase();
   const domain = email.includes('@') ? email.split('@')[1] : '';
   if (!ALLOWED_EMAIL_DOMAINS.some((d) => domain === d)) {
-    throw new AuthError('AXIS・shibuya-ad.com のアドレスのみ利用可能です');
+    throw new AuthError('AXIS・shibuya-ad.com・axis-company.jp のアドレスのみ利用可能です');
   }
   return { email, name: payload.name || email, picture: payload.picture || null };
 }

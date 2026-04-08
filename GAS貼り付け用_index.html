@@ -514,7 +514,7 @@ function loadCurrentUser() {
         if (user.reason === 'no_email') {
           text = '依頼者: ログインが必要です。「権限を確認」→「許可」を押してからページを再読み込みしてください';
         } else {
-          text = '依頼者: AXIS・shibuya-ad.com のアドレスのみ利用可能です';
+          text = '依頼者: AXIS・shibuya-ad.com・axis-company.jp のアドレスのみ利用可能です';
         }
       } else {
         text = '依頼者: ' + (user.name || user.email || '');
@@ -692,7 +692,7 @@ function validate() {
       err.className = 'error-msg current-user-error';
       err.style.marginBottom = '16px';
       err.textContent = state.currentUser && state.currentUser.allowed === false
-        ? 'AXIS・shibuya-ad.com のアドレスでログインしてください。'
+        ? 'AXIS・shibuya-ad.com・axis-company.jp のアドレスでログインしてください。'
         : '依頼者情報が取得できません。デプロイを「ユーザーとして実行」に設定してください。';
       container.insertBefore(err, container.firstChild);
     }
