@@ -450,7 +450,7 @@
   }
 
   /* ===== モバイル対応 Phase1: サイドバー + カード + ヘッダー ===== */
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     /* サイドバー: デフォルト非表示、.mobile-openで表示 */
     .sidebar {
       position: fixed;
@@ -1084,7 +1084,7 @@ function toggleTheme() {
   }
 })();
 
-function isMobile() { return window.innerWidth <= 768; }
+function isMobile() { return window.innerWidth <= 1024; }
 function toggleSidebar() {
   var sb = document.getElementById("sidebar");
   var btn = document.getElementById("sidebarOpen");
