@@ -2886,25 +2886,11 @@ function isTeikiDueToday(t) {
   if (freq === "daily") return true;
   if (freq.startsWith("weekday:")) {
     var days = freq.split(":")[1].split(",").map(Number);
-    if (days.indexOf(d.getDay()) >= 0) return true;
-    if (t.status !== "done") {
-      var todayDow = d.getDay();
-      for (var i = 0; i < days.length; i++) {
-        var daysAgo = (todayDow - days[i] + 7) % 7;
-        if (daysAgo > 0) return true;
-      }
-    }
-    return false;
+    return days.indexOf(d.getDay()) >= 0;
   }
   if (freq.startsWith("monthday:")) {
     var dates = freq.split(":")[1].split(",").map(Number);
-    if (dates.indexOf(d.getDate()) >= 0) return true;
-    if (t.status !== "done") {
-      for (var j = 0; j < dates.length; j++) {
-        if (dates[j] < d.getDate()) return true;
-      }
-    }
-    return false;
+    return dates.indexOf(d.getDate()) >= 0;
   }
   if (freq === "weekly") return true;
   if (freq === "biweekly") return true;
