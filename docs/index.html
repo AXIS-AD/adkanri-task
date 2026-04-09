@@ -448,6 +448,106 @@
     .help-hero h1 { font-size: 20px; }
     .help-roles { flex-direction: column; }
   }
+
+  /* ===== モバイル対応 Phase1: サイドバー + カード + ヘッダー ===== */
+  @media (max-width: 768px) {
+    /* サイドバー: オーバーレイ表示 */
+    .sidebar {
+      position: fixed;
+      left: 0; top: 0;
+      z-index: 400;
+      width: 280px;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      box-shadow: none;
+    }
+    .sidebar:not(.collapsed) {
+      transform: translateX(0);
+      box-shadow: 4px 0 24px rgba(0,0,0,.4);
+    }
+    .sidebar.collapsed { transform: translateX(-100%); width: 280px; padding: 16px 0; border-right: 1px solid var(--border); }
+
+    /* サイドバー背景オーバーレイ */
+    .sidebar-backdrop {
+      display: block !important;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 399;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .sidebar-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ハンバーガーボタン表示 */
+    .sidebar-toggle { display: flex !important; }
+
+    /* ヘッダー調整 */
+    header { padding: 8px 12px; gap: 6px; }
+    .header-left { gap: 6px; }
+    .header-right { gap: 4px; }
+    .last-update { display: none; }
+    .reload-btn { padding: 6px 10px; font-size: 11px; }
+    .reload-btn span { display: none; }
+    .done-report-btn { padding: 4px 10px; font-size: 11px; }
+
+    /* 表示切替・フィルタ */
+    .display-toggle { flex-wrap: wrap; gap: 4px; }
+    .display-toggle button, .view-toggle button { padding: 5px 10px; font-size: 11px; }
+    .filter-row { flex-wrap: wrap; gap: 6px; }
+    .filter-row select { font-size: 12px; padding: 5px 8px; }
+
+    /* メインコンテンツ */
+    main { padding: 12px; }
+    .main-content.expanded main { padding: 12px; }
+
+    /* カード: 1列 */
+    .cards { grid-template-columns: 1fr; gap: 10px; }
+    .card { padding: 14px; }
+
+    /* セクション */
+    .section-header h2 { font-size: 15px; }
+    .add-task-btn { padding: 4px 10px; font-size: 11px; }
+
+    /* サマリーカード */
+    .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+    /* モーダル: ほぼ全画面 */
+    .modal-overlay { padding: 8px; }
+    .modal { max-width: 100%; max-height: 95vh; border-radius: 12px; }
+    .modal-header { padding: 14px 16px; }
+    .modal-body { padding: 16px; }
+    .modal-field-row { grid-template-columns: 1fr; gap: 8px; }
+
+    /* 報告モーダル */
+    .report-modal-overlay { padding: 0; }
+    .report-modal { max-width: 100%; max-height: 100vh; border-radius: 0; height: 100vh; }
+    .report-modal-body { padding: 12px; }
+    .report-tabs { gap: 6px; }
+    .report-tab { font-size: 13px; padding: 8px; }
+    .report-preview { min-height: 200px; font-size: 12px; }
+    .report-footer { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+
+    /* メモポップアップ */
+    .memo-popup-overlay { padding: 8px; }
+    .memo-popup { max-width: 100%; }
+    .memo-popup textarea { min-height: 180px; margin: 12px 16px 0; }
+
+    /* リスト表示 */
+    .list-table { font-size: 12px; }
+    .list-table th, .list-table td { padding: 6px 8px; }
+
+    /* 依頼フォーム */
+    .cat-grid { grid-template-columns: 1fr; }
+    .req-container { padding: 16px 12px 60px; }
+
+    /* 管理画面 */
+    .admin-container { padding: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -463,6 +563,7 @@
 </div>
 
 <div class="app-layout">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()" style="display:none;"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h1 class="sidebar-title">アド管理タスク</h1>
@@ -956,14 +1057,29 @@ function toggleTheme() {
   }
 })();
 
+function isMobile() { return window.innerWidth <= 768; }
 function toggleSidebar() {
   var sb = document.getElementById("sidebar");
   var btn = document.getElementById("sidebarOpen");
   var mc = document.querySelector(".main-content");
+  var bd = document.getElementById("sidebarBackdrop");
   sb.classList.toggle("collapsed");
   var isCollapsed = sb.classList.contains("collapsed");
-  btn.style.display = isCollapsed ? "inline-flex" : "none";
-  if (mc) mc.classList.toggle("expanded", isCollapsed);
+  if (isMobile()) {
+    btn.style.display = "inline-flex";
+    if (bd) { bd.style.display = isCollapsed ? "none" : "block"; bd.classList.toggle("active", !isCollapsed); }
+  } else {
+    btn.style.display = isCollapsed ? "inline-flex" : "none";
+    if (mc) mc.classList.toggle("expanded", isCollapsed);
+  }
+}
+function closeMobileSidebar() {
+  var sb = document.getElementById("sidebar");
+  var bd = document.getElementById("sidebarBackdrop");
+  if (sb && !sb.classList.contains("collapsed")) {
+    sb.classList.add("collapsed");
+    if (bd) { bd.classList.remove("active"); setTimeout(function() { bd.style.display = "none"; }, 250); }
+  }
 }
 
 // ============================
@@ -3886,6 +4002,11 @@ document.addEventListener("DOMContentLoaded", function() {
   initGoogleSignIn();
   renderCategories();
   loadSidebarMemo();
+  // モバイル: サイドバーを初期状態で閉じる
+  if (isMobile()) {
+    var sb = document.getElementById("sidebar");
+    if (sb) sb.classList.add("collapsed");
+  }
 });
 </script>
 </body>
