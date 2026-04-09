@@ -62,6 +62,8 @@ export default {
       // ── スプレッドシート連携 ──
       else if (path === '/api/sheet-options' && request.method === 'GET') {
         response = await handleGetSheetOptions(request, env);
+      } else if (path === '/api/departments' && request.method === 'GET') {
+        response = await handleGetDepartments(request, env);
       }
       // ── 権限管理 ──
       else if (path === '/api/role' && request.method === 'POST') {
@@ -1104,6 +1106,43 @@ function base64url(buf) {
   let str = '';
   for (const b of bytes) str += String.fromCharCode(b);
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+const DEPT_SHEET_ID = '1Xk-p_-6Np-e5keqOy5fcgmU-TF28H5dU7UeEYDUX_7k';
+const DEPT_RANGE = 'DB!B7:C';
+
+async function handleGetDepartments(request, env) {
+  await verifyGoogleToken(request, env);
+
+  // キャッシュ確認（10分）
+  const cacheKey = 'DEPT_CACHE';
+  const cached = await env.TASK_STORE.get(cacheKey);
+  if (cached) return jsonResponse(JSON.parse(cached));
+
+  const token = await getGoogleAccessToken(env);
+  const range = encodeURIComponent(DEPT_RANGE);
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${DEPT_SHEET_ID}/values/${range}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) return jsonResponse({ error: 'Failed to fetch sheet' }, 500);
+  const data = await res.json();
+  const rows = data.values || [];
+
+  const departments = [];
+  const mapping = {};
+  const seen = {};
+  for (const row of rows) {
+    const dept = (row[0] || '').trim();
+    const name = (row[1] || '').trim();
+    if (!dept || !name) continue;
+    if (!seen[dept]) { departments.push(dept); seen[dept] = true; }
+    mapping[name] = dept;
+  }
+
+  const result = { departments, mapping };
+  await env.TASK_STORE.put(cacheKey, JSON.stringify(result), { expirationTtl: 600 });
+  return jsonResponse(result);
 }
 
 async function getGoogleAccessToken(env) {

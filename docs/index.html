@@ -671,6 +671,10 @@
         <h2 style="margin-bottom:16px;">依頼状況</h2>
         <div class="req-filters" id="reqFilters">
           <div class="req-filter-group">
+            <label class="req-filter-label">部署</label>
+            <select id="reqFilterDept" class="req-filter-select" onchange="renderMyRequests()"><option value="">すべて</option></select>
+          </div>
+          <div class="req-filter-group">
             <label class="req-filter-label">担当</label>
             <select id="reqFilterAssignee" class="req-filter-select" onchange="renderMyRequests()"><option value="">すべて</option></select>
           </div>
@@ -1543,18 +1547,35 @@ function resetRequestForm() {
 var myRequestsData = [];
 var reqSortKey = "date";
 var reqSortAsc = false;
+var deptMapping = {};
+var deptList = [];
 
 async function loadMyRequests() {
   var area = document.getElementById("myRequestsArea");
   area.innerHTML = '<div class="empty-state">読み込み中...</div>';
   try {
-    var tasks = await apiCall("GET", "/api/my-requests");
-    myRequestsData = Array.isArray(tasks) ? tasks : [];
+    var results = await Promise.all([
+      apiCall("GET", "/api/my-requests"),
+      deptList.length ? Promise.resolve(null) : apiCall("GET", "/api/departments")
+    ]);
+    myRequestsData = Array.isArray(results[0]) ? results[0] : [];
+    if (results[1]) {
+      deptMapping = results[1].mapping || {};
+      deptList = results[1].departments || [];
+    }
     buildReqFilterOptions();
     renderMyRequests();
   } catch (err) {
     area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(err.message) + "</div>";
   }
+}
+
+function getRequesterDept(requester) {
+  if (!requester) return "";
+  for (var name in deptMapping) {
+    if (requester.includes(name) || name.includes(requester)) return deptMapping[name];
+  }
+  return "";
 }
 
 function buildReqFilterOptions() {
@@ -1565,9 +1586,15 @@ function buildReqFilterOptions() {
   });
   var aSelect = document.getElementById("reqFilterAssignee");
   var rSelect = document.getElementById("reqFilterRequester");
-  var aVal = aSelect.value, rVal = rSelect.value;
+  var dSelect = document.getElementById("reqFilterDept");
+  var aVal = aSelect.value, rVal = rSelect.value, dVal = dSelect ? dSelect.value : "";
   aSelect.innerHTML = '<option value="">すべて</option>';
   rSelect.innerHTML = '<option value="">すべて</option>';
+  if (dSelect) {
+    dSelect.innerHTML = '<option value="">すべて</option>';
+    deptList.forEach(function(d) { dSelect.innerHTML += '<option value="' + esc(d) + '">' + esc(d) + '</option>'; });
+    dSelect.value = dVal;
+  }
   Object.keys(assignees).sort().forEach(function(n) { aSelect.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
   Object.keys(requesters).sort().forEach(function(n) { rSelect.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
   aSelect.value = aVal; rSelect.value = rVal;
@@ -1577,6 +1604,8 @@ function resetReqFilters() {
   document.getElementById("reqFilterAssignee").value = "";
   document.getElementById("reqFilterStatus").value = "";
   document.getElementById("reqFilterRequester").value = "";
+  var dSelect = document.getElementById("reqFilterDept");
+  if (dSelect) dSelect.value = "";
   renderMyRequests();
 }
 
@@ -1600,8 +1629,11 @@ function renderMyRequests() {
   var fAssignee = document.getElementById("reqFilterAssignee").value;
   var fStatus = document.getElementById("reqFilterStatus").value;
   var fRequester = document.getElementById("reqFilterRequester").value;
+  var fDeptEl = document.getElementById("reqFilterDept");
+  var fDept = fDeptEl ? fDeptEl.value : "";
 
   var filtered = myRequestsData.filter(function(t) {
+    if (fDept && getRequesterDept(t.requester) !== fDept) return false;
     if (fAssignee && (t.assignee || "") !== fAssignee) return false;
     if (fStatus && (t.status || "未着手") !== fStatus) return false;
     if (fRequester && (t.requester || "") !== fRequester) return false;
