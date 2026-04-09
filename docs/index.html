@@ -451,7 +451,7 @@
 
   /* ===== モバイル対応 Phase1: サイドバー + カード + ヘッダー ===== */
   @media (max-width: 768px) {
-    /* サイドバー: オーバーレイ表示 */
+    /* サイドバー: デフォルト非表示、.mobile-openで表示 */
     .sidebar {
       position: fixed;
       left: 0; top: 0;
@@ -460,12 +460,13 @@
       transform: translateX(-100%);
       transition: transform .25s ease;
       box-shadow: none;
+      height: 100vh;
+      overflow-y: auto;
     }
-    .sidebar:not(.collapsed) {
+    .sidebar.mobile-open {
       transform: translateX(0);
       box-shadow: 4px 0 24px rgba(0,0,0,.4);
     }
-    .sidebar.collapsed { transform: translateX(-100%); width: 280px; padding: 16px 0; border-right: 1px solid var(--border); }
 
     /* サイドバー背景オーバーレイ */
     .sidebar-backdrop {
@@ -1089,12 +1090,12 @@ function toggleSidebar() {
   var btn = document.getElementById("sidebarOpen");
   var mc = document.querySelector(".main-content");
   var bd = document.getElementById("sidebarBackdrop");
-  sb.classList.toggle("collapsed");
-  var isCollapsed = sb.classList.contains("collapsed");
   if (isMobile()) {
-    btn.style.display = "inline-flex";
-    if (bd) { bd.style.display = isCollapsed ? "none" : "block"; bd.classList.toggle("active", !isCollapsed); }
+    var isOpen = sb.classList.toggle("mobile-open");
+    if (bd) { bd.style.display = isOpen ? "block" : "none"; bd.classList.toggle("active", isOpen); }
   } else {
+    sb.classList.toggle("collapsed");
+    var isCollapsed = sb.classList.contains("collapsed");
     btn.style.display = isCollapsed ? "inline-flex" : "none";
     if (mc) mc.classList.toggle("expanded", isCollapsed);
   }
@@ -1102,10 +1103,8 @@ function toggleSidebar() {
 function closeMobileSidebar() {
   var sb = document.getElementById("sidebar");
   var bd = document.getElementById("sidebarBackdrop");
-  if (sb && !sb.classList.contains("collapsed")) {
-    sb.classList.add("collapsed");
-    if (bd) { bd.classList.remove("active"); setTimeout(function() { bd.style.display = "none"; }, 250); }
-  }
+  if (sb) sb.classList.remove("mobile-open");
+  if (bd) { bd.classList.remove("active"); setTimeout(function() { bd.style.display = "none"; }, 250); }
 }
 
 // ============================
@@ -2052,7 +2051,7 @@ function renderManualListTable(tasks, genre) {
   return html;
 }
 
-function setGenre(genre) { selectedGenre = genre; filterByDate = null; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); renderAll(); }
+function setGenre(genre) { selectedGenre = genre; filterByDate = null; document.querySelectorAll(".genre-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.genre === genre); }); if (isMobile()) closeMobileSidebar(); renderAll(); }
 function setDateFilter(date) {
   if (filterByDate === date) { filterByDate = null; } else { filterByDate = date; }
   filterByDueRange = null;
@@ -2125,7 +2124,7 @@ function matchesDueRange(t, range) {
   if (range === "overdue") return diff < 0;
   return false;
 }
-function setPerson(id) { selectedPersonId = id; loadAll(); }
+function setPerson(id) { selectedPersonId = id; if (isMobile()) closeMobileSidebar(); loadAll(); }
 
 // サイドバーのカテゴリリストを動的生成（担当者が持つカテゴリのみ表示）
 function renderGenreList() {
@@ -4028,11 +4027,6 @@ document.addEventListener("DOMContentLoaded", function() {
   initGoogleSignIn();
   renderCategories();
   loadSidebarMemo();
-  // モバイル: サイドバーを初期状態で閉じる
-  if (isMobile()) {
-    var sb = document.getElementById("sidebar");
-    if (sb) sb.classList.add("collapsed");
-  }
 });
 </script>
 </body>
