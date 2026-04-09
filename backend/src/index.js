@@ -1109,7 +1109,7 @@ function base64url(buf) {
 }
 
 const DEPT_SHEET_ID = '1Xk-p_-6Np-e5keqOy5fcgmU-TF28H5dU7UeEYDUX_7k';
-const DEPT_RANGE = 'DB!B7:C';
+const DEPT_RANGE = 'DB!D7:F';
 
 async function handleGetDepartments(request, env) {
   await verifyGoogleToken(request, env);
@@ -1133,9 +1133,9 @@ async function handleGetDepartments(request, env) {
   const mapping = {};
   const seen = {};
   for (const row of rows) {
-    const dept = (row[0] || '').trim();
-    const name = (row[1] || '').trim();
-    if (!dept || !name) continue;
+    const name = (row[0] || '').trim();
+    const dept = (row[2] || '').trim();
+    if (!name || !dept) continue;
     if (!seen[dept]) { departments.push(dept); seen[dept] = true; }
     mapping[name] = dept;
   }
