@@ -490,6 +490,9 @@
     /* ハンバーガーボタン表示 */
     .sidebar-toggle { display: flex !important; }
 
+    /* ヘッダー担当者プルダウン */
+    .header-person-select { display: inline-block !important; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 12px; max-width: 100px; }
+
     /* ヘッダー調整 */
     header { padding: 8px 12px; gap: 6px; }
     .header-left { gap: 6px; }
@@ -629,6 +632,7 @@
     <header>
       <div class="header-left">
         <button class="sidebar-toggle" id="sidebarOpen" onclick="toggleSidebar()">&#9776;</button>
+        <select class="header-person-select" id="headerPersonSelect" onchange="setPerson(this.value===\'all\'?\'all\':Number(this.value))" style="display:none;"></select>
         <div class="stats" id="headerStats" style="display:none;">
           <span class="header-meta" id="lastUpdated"></span>
           <button class="reload-btn" id="reloadBtn" onclick="loadAll()"><span class="reload-icon">&#x21bb;</span> 更新</button>
@@ -3448,13 +3452,15 @@ function renderPersonButtons() {
   var row = document.getElementById("personRow");
   var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
   var activeId = selectedPersonId != null ? selectedPersonId : (myId != null ? myId : (people[0] ? people[0].id : null));
-  var html = '<select class="person-select" onchange="setPerson(this.value===\'all\'?\'all\':Number(this.value))">';
-  html += '<option value="all"' + (activeId === "all" ? ' selected' : '') + '>全員</option>';
-  html += people.map(function(p) {
+  var optsHtml = '<option value="all"' + (activeId === "all" ? ' selected' : '') + '>全員</option>';
+  optsHtml += people.map(function(p) {
     return '<option value="' + p.id + '"' + (activeId !== "all" && p.id === activeId ? ' selected' : '') + '>' + esc(p.name) + '</option>';
   }).join("");
-  html += '</select>';
+  var html = '<select class="person-select" onchange="setPerson(this.value===\'all\'?\'all\':Number(this.value))">' + optsHtml + '</select>';
   row.innerHTML = html;
+  // ヘッダー側も同期
+  var headerSel = document.getElementById("headerPersonSelect");
+  if (headerSel) headerSel.innerHTML = optsHtml;
 }
 
 async function loadAll() {
