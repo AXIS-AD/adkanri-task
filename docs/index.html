@@ -1095,9 +1095,25 @@ function toggleSidebar() {
   var mc = document.querySelector(".main-content");
   var bd = document.getElementById("sidebarBackdrop");
   if (isMobile()) {
-    var isOpen = sb.classList.toggle("mobile-open");
-    if (bd) { bd.style.display = isOpen ? "block" : "none"; bd.classList.toggle("active", isOpen); }
+    var isHidden = sb.style.display === "none";
+    sb.style.display = isHidden ? "flex" : "none";
+    sb.style.position = "fixed";
+    sb.style.zIndex = "400";
+    sb.style.left = "0";
+    sb.style.top = "0";
+    sb.style.width = "280px";
+    sb.style.height = "100vh";
+    sb.style.boxShadow = isHidden ? "4px 0 24px rgba(0,0,0,.4)" : "none";
+    if (bd) { bd.style.display = isHidden ? "block" : "none"; bd.classList.toggle("active", isHidden); }
   } else {
+    sb.style.display = "";
+    sb.style.position = "";
+    sb.style.zIndex = "";
+    sb.style.left = "";
+    sb.style.top = "";
+    sb.style.width = "";
+    sb.style.height = "";
+    sb.style.boxShadow = "";
     sb.classList.toggle("collapsed");
     var isCollapsed = sb.classList.contains("collapsed");
     btn.style.display = isCollapsed ? "inline-flex" : "none";
@@ -1107,7 +1123,7 @@ function toggleSidebar() {
 function closeMobileSidebar() {
   var sb = document.getElementById("sidebar");
   var bd = document.getElementById("sidebarBackdrop");
-  if (sb) sb.classList.remove("mobile-open");
+  if (sb) { sb.style.display = "none"; sb.style.boxShadow = "none"; }
   if (bd) { bd.classList.remove("active"); setTimeout(function() { bd.style.display = "none"; }, 250); }
 }
 
@@ -4103,6 +4119,11 @@ document.addEventListener("DOMContentLoaded", function() {
   initGoogleSignIn();
   renderCategories();
   loadSidebarMemo();
+  // モバイル: サイドバーを直接非表示
+  if (window.innerWidth <= 1024) {
+    var sb = document.getElementById("sidebar");
+    if (sb) sb.style.display = "none";
+  }
 });
 </script>
 </body>
