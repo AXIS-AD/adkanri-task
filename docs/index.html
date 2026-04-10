@@ -3744,9 +3744,9 @@ function buildStandupReport() {
     if (sd && sd !== "なるはや" && sd === td) return true;
     return false;
   });
-  // 着手中タスクも優先に含める
+  // 着手中タスクも優先に含める（期日or予定日があるもののみ）
   myTasks.forEach(function(t) {
-    if (t.localStatus === "in_progress" && todayTasks.indexOf(t) === -1 && overdue.indexOf(t) === -1) {
+    if (t.localStatus === "in_progress" && (t.limit || effectiveScheduledDate(t)) && todayTasks.indexOf(t) === -1 && overdue.indexOf(t) === -1) {
       todayTasks.push(t);
     }
   });
