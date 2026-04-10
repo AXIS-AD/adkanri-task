@@ -3729,9 +3729,13 @@ function buildStandupReport() {
 
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
 
-  // 前日未完了タスク: 期限が今日より前 or 対応予定日が過去
+  // 前日未完了タスク: 期限が3日以上超過 or 対応予定日が過去
+  var tdDate = new Date(td + "T00:00:00+09:00");
   var overdue = myTasks.filter(function(t) {
-    if (t.limit && t.limit < td) return true;
+    if (t.limit) {
+      var diff = Math.floor((tdDate - new Date(t.limit + "T00:00:00+09:00")) / 86400000);
+      if (diff >= 3) return true;
+    }
     var sd = effectiveScheduledDate(t);
     if (sd && sd !== "なるはや" && sd < td) return true;
     return false;
