@@ -494,13 +494,18 @@
     .header-person-select { display: inline-block !important; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 12px; max-width: 100px; }
 
     /* ヘッダー調整 */
-    header { padding: 8px 12px; gap: 6px; }
-    .header-left { gap: 6px; }
-    .header-right { gap: 4px; }
-    .last-update { display: none; }
-    .reload-btn { padding: 6px 10px; font-size: 11px; }
+    header { padding: 8px 10px; gap: 6px; flex-wrap: nowrap; }
+    .header-left { gap: 6px; flex-wrap: nowrap; min-width: 0; flex: 1; }
+    .header-right { gap: 4px; flex-shrink: 0; }
+    .header-meta { display: none !important; }
+    .reload-btn { padding: 6px 10px; font-size: 11px; flex-shrink: 0; }
     .reload-btn span { display: none; }
+    .reload-btn .reload-icon { display: inline; }
+    .report-btn { padding: 6px 10px !important; font-size: 11px !important; white-space: nowrap !important; flex-shrink: 0 !important; writing-mode: horizontal-tb !important; }
     .done-report-btn { padding: 4px 10px; font-size: 11px; }
+    .stats { display: flex !important; align-items: center; gap: 4px; flex-shrink: 0; }
+    .user-avatar { width: 28px !important; height: 28px !important; font-size: 12px !important; }
+    .header-icon-btn { width: 30px !important; height: 30px !important; font-size: 14px !important; }
 
     /* 表示切替・フィルタ */
     .display-toggle { flex-wrap: wrap; gap: 4px; }
