@@ -3774,7 +3774,10 @@ function buildStandupReport() {
     }
   });
 
-  var lines = "▪️前日未完了タスク";
+  var dateStr = td.replace(/-/g, "/");
+  var lines = "[info][title]" + dateStr + " " + pName + " 朝会[/title]";
+
+  lines += "\n▪️前日未完了タスク";
   if (overdue.length > 0) {
     overdue.forEach(function(t) { lines += "\n・" + (t.title || "（タイトルなし）"); });
   } else {
@@ -3791,6 +3794,7 @@ function buildStandupReport() {
     lines += "\n・";
   }
 
+  lines += "\n[/info]";
   return lines;
 }
 
