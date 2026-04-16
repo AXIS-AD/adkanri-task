@@ -523,6 +523,7 @@ async function handleGetDashboardTasks(request, env) {
   roomSet.add(DASHBOARD_ROOM_ID);
   roomSet.add('383531534');
   roomSet.add('396113113');
+  roomSet.add('430726410');
   const rooms = [...roomSet];
 
   const local = await getDashboardLocal(env);
