@@ -617,6 +617,7 @@
       <button class="nav-btn active" data-page="request" onclick="switchPage('request')">✏️ 新規依頼</button>
       <button class="nav-btn" data-page="mystatus" onclick="switchPage('mystatus')">📅 依頼状況</button>
       <button class="nav-btn admin-only" data-page="tasks" onclick="switchPage('tasks')">🌟 タスク管理</button>
+      <button class="nav-btn admin-only" data-page="progress" onclick="switchPage('progress')">🔗 つなぎこみ</button>
       <button class="nav-btn admin-only" data-page="admin" onclick="switchPage('admin')">⚒️ 管理設定</button>
       <button class="nav-btn" data-page="help" onclick="switchPage('help')">❓ 使い方</button>
     </div>
@@ -988,6 +989,32 @@
       </main>
     </div>
 
+    <div class="panel" id="panel-progress">
+      <main>
+        <h2 style="margin-bottom:16px;">つなぎこみ進捗</h2>
+        <div class="req-filters" id="progressFilters">
+          <div class="req-filter-group">
+            <label class="req-filter-label">担当</label>
+            <select id="progressFilterPerson" class="req-filter-select" onchange="renderProgressTable()"><option value="">すべて</option></select>
+          </div>
+          <div class="req-filter-group">
+            <label class="req-filter-label">ステータス</label>
+            <select id="progressFilterStatus" class="req-filter-select" onchange="renderProgressTable()">
+              <option value="">すべて</option>
+              <option value="ステイ">ステイ</option>
+              <option value="完了">完了</option>
+            </select>
+          </div>
+          <div class="req-filter-group">
+            <label class="req-filter-label">媒体</label>
+            <select id="progressFilterMedia" class="req-filter-select" onchange="renderProgressTable()"><option value="">すべて</option></select>
+          </div>
+          <button class="req-filter-reset" onclick="resetProgressFilters()">リセット</button>
+        </div>
+        <div id="progressArea"><div class="empty-state">読み込み中...</div></div>
+      </main>
+    </div>
+
     <div class="panel" id="panel-admin">
       <div class="admin-container">
         <div class="admin-section">
@@ -1321,6 +1348,7 @@ function switchPage(page) {
   }
 
   if (page === "mystatus") loadMyRequests();
+  if (page === "progress") loadProgress();
   if (page === "admin") loadAdminRoles();
 
 }
@@ -1727,6 +1755,97 @@ function openRequestModal(idx) {
 
 // ============================
 // Admin panel
+// ============================
+// ============================
+// つなぎこみ進捗
+// ============================
+var progressData = [];
+var progressLoaded = false;
+
+async function loadProgress() {
+  if (progressLoaded) return;
+  var area = document.getElementById("progressArea");
+  area.innerHTML = '<div class="empty-state">読み込み中...</div>';
+  try {
+    var data = await apiCall("GET", "/api/project-progress");
+    progressData = Array.isArray(data) ? data : [];
+    progressLoaded = true;
+    buildProgressFilters();
+    renderProgressTable();
+  } catch (e) {
+    area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(e.message) + '</div>';
+  }
+}
+
+function buildProgressFilters() {
+  var persons = {}, medias = {}, statuses = {};
+  progressData.forEach(function(r) {
+    if (r.person) persons[r.person] = true;
+    if (r.media) medias[r.media] = true;
+    if (r.status) statuses[r.status] = true;
+  });
+  var pSel = document.getElementById("progressFilterPerson");
+  var mSel = document.getElementById("progressFilterMedia");
+  var sSel = document.getElementById("progressFilterStatus");
+  pSel.innerHTML = '<option value="">すべて</option>';
+  mSel.innerHTML = '<option value="">すべて</option>';
+  var sVal = sSel.value;
+  sSel.innerHTML = '<option value="">すべて</option>';
+  Object.keys(persons).sort().forEach(function(n) { pSel.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  Object.keys(medias).sort().forEach(function(n) { mSel.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  Object.keys(statuses).sort().forEach(function(n) { sSel.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  sSel.value = sVal;
+}
+
+function resetProgressFilters() {
+  document.getElementById("progressFilterPerson").value = "";
+  document.getElementById("progressFilterStatus").value = "";
+  document.getElementById("progressFilterMedia").value = "";
+  renderProgressTable();
+}
+
+function renderProgressTable() {
+  var area = document.getElementById("progressArea");
+  if (progressData.length === 0) { area.innerHTML = '<div class="empty-state">データがありません</div>'; return; }
+  var fPerson = document.getElementById("progressFilterPerson").value;
+  var fStatus = document.getElementById("progressFilterStatus").value;
+  var fMedia = document.getElementById("progressFilterMedia").value;
+
+  var filtered = progressData.filter(function(r) {
+    if (fPerson && r.person !== fPerson) return false;
+    if (fStatus && r.status !== fStatus) return false;
+    if (fMedia && r.media !== fMedia) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) { area.innerHTML = '<div class="empty-state">該当データなし</div>'; return; }
+
+  var html = '<div class="list-table-wrap"><table class="task-list-table" style="font-size:12px;"><thead><tr>';
+  html += '<th>担当</th><th>種別</th><th>オファー名</th><th>ステータス</th><th>案件名</th><th>媒体</th><th>記事個別</th><th>担当運用者</th><th>出稿予定日</th><th>配信開始予定日</th><th>進捗状況</th>';
+  html += '</tr></thead><tbody>';
+  filtered.forEach(function(r) {
+    var stCls = r.status === "完了" ? "color:var(--green);" : r.status === "ステイ" ? "color:var(--yellow);" : "";
+    html += '<tr>';
+    html += '<td>' + esc(r.person || '') + '</td>';
+    html += '<td>' + esc(r.type || '') + '</td>';
+    html += '<td>' + esc(r.offer || '') + '</td>';
+    html += '<td style="' + stCls + 'font-weight:600;">' + esc(r.status || '') + '</td>';
+    html += '<td>' + esc(r.project || '') + '</td>';
+    html += '<td>' + esc(r.media || '') + '</td>';
+    html += '<td>' + esc(r.article || '') + '</td>';
+    html += '<td>' + esc(r.operator || '') + '</td>';
+    html += '<td>' + esc(r.shipDate || '') + '</td>';
+    html += '<td>' + esc(r.startDate || '') + '</td>';
+    html += '<td style="font-size:11px;max-width:200px;white-space:pre-wrap;word-break:break-word;">' + esc(r.progress || '') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  html += '<div style="margin-top:8px;font-size:11px;color:var(--text2);">' + filtered.length + '件表示</div>';
+  area.innerHTML = html;
+}
+
+// ============================
+// Admin
 // ============================
 var adminData = { admins: [], users: [] };
 

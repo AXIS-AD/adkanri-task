@@ -64,6 +64,8 @@ export default {
         response = await handleGetSheetOptions(request, env);
       } else if (path === '/api/departments' && request.method === 'GET') {
         response = await handleGetDepartments(request, env);
+      } else if (path === '/api/project-progress' && request.method === 'GET') {
+        response = await handleGetProjectProgress(request, env);
       }
       // ── 権限管理 ──
       else if (path === '/api/role' && request.method === 'POST') {
@@ -1107,6 +1109,55 @@ function base64url(buf) {
   let str = '';
   for (const b of bytes) str += String.fromCharCode(b);
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+const PROGRESS_SHEET_ID = '1SuehlbrriiXAAiMOSlaJbq5sYeBuS8GnX1QkfNLKFtU';
+const PROGRESS_RANGE = '【新規案件】進捗管理!A5:N';
+
+async function handleGetProjectProgress(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const cacheKey = 'PROGRESS_CACHE';
+  const cached = await env.TASK_STORE.get(cacheKey);
+  if (cached) return jsonResponse(JSON.parse(cached));
+
+  const token = await getGoogleAccessToken(env);
+  const range = encodeURIComponent(PROGRESS_RANGE);
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${PROGRESS_SHEET_ID}/values/${range}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) return jsonResponse({ error: 'Failed to fetch sheet' }, 500);
+  const data = await res.json();
+  const rows = data.values || [];
+
+  if (rows.length < 2) return jsonResponse([]);
+
+  const result = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const person = (r[0] || '').trim();
+    const project = (r[4] || '').trim();
+    if (!person && !project) continue;
+    result.push({
+      person: person,
+      type: (r[1] || '').trim(),
+      offer: (r[2] || '').trim(),
+      status: (r[3] || '').trim(),
+      project: project,
+      distributor: (r[5] || '').trim(),
+      media: (r[6] || '').trim(),
+      article: (r[7] || '').trim(),
+      operator: (r[8] || '').trim(),
+      shipDate: (r[9] || '').trim(),
+      releaseDate: (r[10] || '').trim(),
+      startDate: (r[11] || '').trim(),
+      progress: (r[13] || '').trim(),
+    });
+  }
+
+  await env.TASK_STORE.put(cacheKey, JSON.stringify(result), { expirationTtl: 300 });
+  return jsonResponse(result);
 }
 
 const DEPT_SHEET_ID = '1Xk-p_-6Np-e5keqOy5fcgmU-TF28H5dU7UeEYDUX_7k';
