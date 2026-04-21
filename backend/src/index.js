@@ -584,7 +584,9 @@ async function handleGetDashboardTasks(request, env) {
       if (isDoneOnCw) localStatus = 'done';
       // 完了タスクはdoneDate=今日のみ表示
       if (localStatus === 'done' && doneDate !== todayStr) continue;
-      if (accountId !== null && t.assigneeId !== accountId) continue;
+      const effectiveAssigneeId = meta.assigneeId || t.assigneeId;
+      const effectiveAssigneeName = meta.assigneeName || t.assigneeName;
+      if (accountId !== null && effectiveAssigneeId !== accountId) continue;
       allTasksList.push({
         ...t,
         title,
@@ -598,8 +600,8 @@ async function handleGetDashboardTasks(request, env) {
         scheduledDate: 'scheduledDate' in meta ? (meta.scheduledDate || null) : null,
         scheduledKey: meta.scheduledKey || null,
         firstSeen,
-        assigneeId: t.assigneeId,
-        assigneeName: t.assigneeName,
+        assigneeId: effectiveAssigneeId,
+        assigneeName: effectiveAssigneeName,
       });
     }
   }
@@ -1127,7 +1129,10 @@ async function handleGetProjectProgress(request, env) {
     `https://sheets.googleapis.com/v4/spreadsheets/${PROGRESS_SHEET_ID}/values/${range}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  if (!res.ok) return jsonResponse({ error: 'Failed to fetch sheet' }, 500);
+  if (!res.ok) {
+    const errText = await res.text();
+    return jsonResponse({ error: 'Sheet error: ' + res.status + ' ' + errText.slice(0, 200) }, 500);
+  }
   const data = await res.json();
   const rows = data.values || [];
 
