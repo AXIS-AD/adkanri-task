@@ -635,9 +635,10 @@ async function handleGetDashboardTasks(request, env) {
     });
   }
 
-  // 手動タスクを追加（担当者フィルタなし＝全員に表示）
+  // 手動タスクを追加（担当者フィルタあり）
   const manualTasks = await getManualTasks(env);
   for (const mt of manualTasks) {
+    if (accountId !== null && Number(mt.assigneeId) !== accountId) continue;
     allTasksList.push(mt);
   }
 
