@@ -584,7 +584,7 @@ async function handleGetDashboardTasks(request, env) {
       if (isDoneOnCw) localStatus = 'done';
       // 完了タスクはdoneDate=今日のみ表示
       if (localStatus === 'done' && doneDate !== todayStr) continue;
-      const effectiveAssigneeId = meta.assigneeId || t.assigneeId;
+      const effectiveAssigneeId = Number(meta.assigneeId || t.assigneeId);
       const effectiveAssigneeName = meta.assigneeName || t.assigneeName;
       if (accountId !== null && effectiveAssigneeId !== accountId) continue;
       allTasksList.push({
