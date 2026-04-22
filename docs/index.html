@@ -1378,7 +1378,6 @@ var CATEGORIES = [
   { id: "new_offer", label: "新規オファー追加", icon: "\uD83D\uDCE6" },
   { id: "price_change", label: "単価変更", icon: "\uD83D\uDCB0" },
   { id: "csv_fix", label: "CSV保管修正/後着火修正", icon: "\uD83D\uDCC1" },
-  { id: "cap_notify", label: "キャップ通知依頼", icon: "\uD83D\uDD14" },
   { id: "other", label: "その他/エラー関連", icon: "\u2753" },
   { id: "kashi_kiji", label: "貸記事", icon: "\uD83D\uDCDD" },
 ];
@@ -1420,7 +1419,6 @@ var FIELDS = {
   price_change: [{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"unit_price",label:"単価",type:"text",required:true },{ id:"apply_date",label:"適用日付",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   csv_fix_sub: [{ id:"campaign_before",label:"変更前キャンペーン名",type:"text",required:true },{ id:"campaign_after",label:"変更後キャンペーン名",type:"text",required:true },{ id:"fix_type",label:"修正内容（MCV/CV）",type:"text",required:true },{ id:"date",label:"日付",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   late_fire: [{ id:"campaign",label:"キャンペーン名",type:"text",required:true },{ id:"fix_type",label:"修正内容（MCV/CV）",type:"text",required:true },{ id:"date",label:"日付",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
-  cap_notify: [{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"cap",label:"キャップ",type:"text",required:true },{ id:"notify_count",label:"通知件数",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   shukkou_miss: [{ id:"detail",label:"詳細",type:"textarea",required:true },{ id:"deadline",label:"期日",type:"date",required:false }],
   other_general: [{ id:"detail",label:"詳細",type:"textarea",required:true },{ id:"deadline",label:"期日",type:"date",required:false }],
   kashi_kiji_sub: [{ id:"kashi_type",label:"種別",type:"select",options:["Beyondコラボ","貸記事"],required:true },{ id:"project",label:"案件",required:true,...SHEET_PROJECT },{ id:"cw_link",label:"チャットワークリンク",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
