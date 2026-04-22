@@ -1629,13 +1629,15 @@ function initFilterableDropdown(inputId, dropId, options) {
     });
     if (terms.length === 0) matched = options;
     var shown = matched.slice(0, 30);
+    var html = '<div class="filterable-item" data-value="__manual__" style="color:var(--accent);font-weight:600;">✏️ その他（手動入力）</div>';
     if (shown.length === 0) {
-      drop.innerHTML = '<div class="filterable-empty">該当なし</div>';
+      html += '<div class="filterable-empty">該当なし</div>';
     } else {
-      drop.innerHTML = shown.map(function(o) {
+      html += shown.map(function(o) {
         return '<div class="filterable-item" data-value="' + esc(o) + '">' + esc(o) + '</div>';
       }).join("");
     }
+    drop.innerHTML = html;
     drop.classList.add("open");
   }
 
@@ -1644,6 +1646,14 @@ function initFilterableDropdown(inputId, dropId, options) {
   drop.addEventListener("click", function(e) {
     var item = e.target.closest(".filterable-item");
     if (!item) return;
+    if (item.dataset.value === "__manual__") {
+      inp.value = "";
+      inp._selectedValue = "";
+      inp.placeholder = "手動で入力してください";
+      drop.classList.remove("open");
+      inp.focus();
+      return;
+    }
     inp.value = item.dataset.value;
     inp._selectedValue = item.dataset.value;
     drop.classList.remove("open");
