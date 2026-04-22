@@ -1402,14 +1402,17 @@ var SHEET_PROJECT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!O7
 var SHEET_ASP = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!T7:T150", condRange: "DB!S7:S150", condValue: "\u30CA\u30CF\u30C8", condReplace: "\u30CA\u30CF\u30C8" };
 var SHEET_FB_PAGE = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBページ一覧!F7:F", condRange: "FBページ一覧!D7:D", condValue: "運用中", condFilter: true };
 var SHEET_META_ACCOUNT = { type:"filterable-sheet-select", sheetId: SHEET_ID, sheetRange: "【Meta】広告アカ一覧!G7:G", condRange: "【Meta】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
+var SHEET_TIKTOK_ACCOUNT = { type:"filterable-sheet-select", sheetId: SHEET_ID, sheetRange: "【TikTok】広告アカ一覧!G7:G", condRange: "【TikTok】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
+var SHEET_GOOGLE_ACCOUNT = { type:"filterable-sheet-select", sheetId: SHEET_ID, sheetRange: "【Google】広告アカ一覧!G7:G", condRange: "【Google】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
+var SHEET_ALL_ACCOUNTS = { type:"filterable-sheet-select-multi", sources: [SHEET_META_ACCOUNT, SHEET_TIKTOK_ACCOUNT, SHEET_GOOGLE_ACCOUNT] };
 var SHEET_FB_PIXEL = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBピクセル一覧!G5:G", condRange: "FBピクセル一覧!B5:B", condValue: "運用中", condFilter: true };
 
 var FIELDS = {
   new_account: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"quantity",label:"数量",type:"number",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   fb_page: [{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"page_name",label:"ページ名",required:true,...SHEET_FB_PAGE },{ id:"permission",label:"権限（運用者）",type:"text",required:false },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
-  fb_pixel: [{ id:"account",label:"紐づけ先アカウント",required:true,...SHEET_META_ACCOUNT },{ id:"pixel",label:"紐づけるピクセル",required:true,...SHEET_FB_PIXEL },{ id:"deadline",label:"期日",type:"date",required:false }],
-  fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true,triggers:"target_name" },{ id:"target_name",label:"ページ名 / アカウント名",type:"dynamic-sheet-select",required:true,sourceMap:{"ページ":SHEET_FB_PAGE,"アカウント":SHEET_META_ACCOUNT} },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
-  account_ban: [{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",required:true,...SHEET_META_ACCOUNT },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  fb_pixel: [{ id:"account",label:"紐づけ先アカウント",required:true,...SHEET_ALL_ACCOUNTS },{ id:"pixel",label:"紐づけるピクセル",required:true,...SHEET_FB_PIXEL },{ id:"deadline",label:"期日",type:"date",required:false }],
+  fb_permission: [{ id:"target_type",label:"ページ OR アカウント",type:"select",options:["ページ","アカウント"],required:true,triggers:"target_name" },{ id:"target_name",label:"ページ名 / アカウント名",type:"dynamic-sheet-select",required:true,sourceMap:{"ページ":SHEET_FB_PAGE,"アカウント":SHEET_ALL_ACCOUNTS} },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
+  account_ban: [{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",required:true,...SHEET_ALL_ACCOUNTS },{ id:"noticed_date",label:"気づいた日",type:"date",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   link: [{ id:"asp",label:"ASP",required:true,...SHEET_ASP },{ id:"project",label:"案件名",required:true,...SHEET_PROJECT },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"offer_name",label:"オファー名",type:"text",required:true },{ id:"lp",label:"LP",type:"text",required:false },{ id:"quantity",label:"本数",type:"text",required:true },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   spreadsheet: [{ id:"sheet_name",label:"シート名",type:"text",required:true },{ id:"error_type",label:"エラー内容",type:"select",options:["運用中のキャンペーンが出力されていない","キャンペーンのデータが間違っている","MCV,CVが反映されていない","その他"],required:true },{ id:"media",label:"媒体",required:false,...SHEET_MEDIA },{ id:"account_name",label:"アカウント名",type:"text",required:false },{ id:"cell_url",label:"該当セルURL",type:"text",required:false },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
   new_project: [{ id:"project",label:"案件名",type:"text",required:true },{ id:"asp",label:"ASP",required:true,...SHEET_ASP },{ id:"media",label:"媒体",required:true,...SHEET_MEDIA },{ id:"lp",label:"LP",type:"text",required:false },{ id:"link_count",label:"リンク本数",type:"text",required:false },{ id:"unit_price",label:"単価",type:"text",required:false },{ id:"deadline",label:"期日",type:"date",required:false },{ id:"note",label:"備考",type:"textarea",required:false }],
@@ -1482,9 +1485,13 @@ function renderFormFields(fields) {
     var inputHtml;
     if (f.type === "select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">選択してください</option>' + f.options.map(function(o) { return '<option value="' + o + '"' + (f.defaultValue === o ? ' selected' : '') + '>' + o + '</option>'; }).join("") + '</select>';
-    } else if (f.type === "filterable-sheet-select") {
+    } else if (f.type === "filterable-sheet-select" || f.type === "filterable-sheet-select-multi") {
       inputHtml = '<div class="filterable-wrap" id="fwrap-' + f.id + '"><input type="text" id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" placeholder="読み込み中..." autocomplete="off"><div class="filterable-dropdown" id="fdrop-' + f.id + '"></div></div>';
-      loadFilterableOptions(f, "input-" + f.id, "fdrop-" + f.id);
+      if (f.type === "filterable-sheet-select-multi") {
+        loadFilterableMultiOptions(f.sources, "input-" + f.id, "fdrop-" + f.id);
+      } else {
+        loadFilterableOptions(f, "input-" + f.id, "fdrop-" + f.id);
+      }
     } else if (f.type === "sheet-select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">読み込み中...</option></select>';
       loadSheetOptions(f.sheetId, f.sheetRange, "input-" + f.id, f.condRange, f.condValue, f.condReplace, f.condFilter);
@@ -1515,7 +1522,7 @@ function renderFormFields(fields) {
       sel.dataset.required = String(targetField.required);
       var src = targetField.sourceMap[chosen];
       if (src) {
-        if (src.type === "filterable-sheet-select") {
+        if (src.type === "filterable-sheet-select" || src.type === "filterable-sheet-select-multi") {
           var wrap = document.createElement("div");
           wrap.className = "filterable-wrap";
           wrap.id = "fwrap-" + targetField.id;
@@ -1527,7 +1534,11 @@ function renderFormFields(fields) {
           wrap.appendChild(inp); wrap.appendChild(drop);
           var parent = oldEl.closest(".filterable-wrap") || oldEl;
           parent.replaceWith(wrap);
-          loadFilterableOptions(src, targetId, drop.id);
+          if (src.type === "filterable-sheet-select-multi") {
+            loadFilterableMultiOptions(src.sources, targetId, drop.id);
+          } else {
+            loadFilterableOptions(src, targetId, drop.id);
+          }
           return;
         }
         sel.disabled = false;
@@ -1574,50 +1585,73 @@ function loadFilterableOptions(f, inputId, dropId) {
   if (f.condRange) params += "&condRange=" + encodeURIComponent(f.condRange) + "&condValue=" + encodeURIComponent(f.condValue || "") + "&condReplace=" + encodeURIComponent(f.condReplace || "");
   if (f.condFilter) params += "&condFilter=true";
   apiCall("GET", params).then(function(options) {
-    var inp = document.getElementById(inputId);
-    var drop = document.getElementById(dropId);
-    if (!inp || !drop) return;
-    inp.placeholder = "入力して検索...";
-    inp._allOptions = options;
-    inp._selectedValue = "";
-
-    function renderDropdown(query) {
-      var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-      var matched = options.filter(function(o) {
-        var lower = o.toLowerCase();
-        return terms.every(function(t) { return lower.indexOf(t) >= 0; });
-      });
-      if (terms.length === 0) matched = options;
-      var shown = matched.slice(0, 30);
-      if (shown.length === 0) {
-        drop.innerHTML = '<div class="filterable-empty">該当なし</div>';
-      } else {
-        drop.innerHTML = shown.map(function(o) {
-          return '<div class="filterable-item" data-value="' + esc(o) + '">' + esc(o) + '</div>';
-        }).join("");
-      }
-      drop.classList.add("open");
-    }
-
-    inp.addEventListener("focus", function() { renderDropdown(this.value); });
-    inp.addEventListener("input", function() { inp._selectedValue = ""; renderDropdown(this.value); });
-
-    drop.addEventListener("click", function(e) {
-      var item = e.target.closest(".filterable-item");
-      if (!item) return;
-      inp.value = item.dataset.value;
-      inp._selectedValue = item.dataset.value;
-      drop.classList.remove("open");
-    });
-
-    document.addEventListener("click", function(e) {
-      if (!e.target.closest("#" + CSS.escape(dropId)) && e.target.id !== inputId) {
-        drop.classList.remove("open");
-      }
-    });
+    initFilterableDropdown(inputId, dropId, options);
   }).catch(function() {
     var inp = document.getElementById(inputId);
     if (inp) inp.placeholder = "取得失敗 - 手動入力";
+  });
+}
+
+function loadFilterableMultiOptions(sources, inputId, dropId) {
+  var promises = sources.map(function(src) {
+    var params = "/api/sheet-options?id=" + encodeURIComponent(src.sheetId) + "&range=" + encodeURIComponent(src.sheetRange);
+    if (src.condRange) params += "&condRange=" + encodeURIComponent(src.condRange) + "&condValue=" + encodeURIComponent(src.condValue || "") + "&condReplace=" + encodeURIComponent(src.condReplace || "");
+    if (src.condFilter) params += "&condFilter=true";
+    return apiCall("GET", params).catch(function() { return []; });
+  });
+  Promise.all(promises).then(function(results) {
+    var seen = {};
+    var allOptions = [];
+    results.forEach(function(opts) {
+      (opts || []).forEach(function(o) { if (!seen[o]) { seen[o] = true; allOptions.push(o); } });
+    });
+    allOptions.sort();
+    initFilterableDropdown(inputId, dropId, allOptions);
+  }).catch(function() {
+    var inp = document.getElementById(inputId);
+    if (inp) inp.placeholder = "取得失敗 - 手動入力";
+  });
+}
+
+function initFilterableDropdown(inputId, dropId, options) {
+  var inp = document.getElementById(inputId);
+  var drop = document.getElementById(dropId);
+  if (!inp || !drop) return;
+  inp.placeholder = "入力して検索...";
+  inp._allOptions = options;
+  inp._selectedValue = "";
+
+  function renderDropdown(query) {
+    var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    var matched = options.filter(function(o) {
+      var lower = o.toLowerCase();
+      return terms.every(function(t) { return lower.indexOf(t) >= 0; });
+    });
+    if (terms.length === 0) matched = options;
+    var shown = matched.slice(0, 30);
+    if (shown.length === 0) {
+      drop.innerHTML = '<div class="filterable-empty">該当なし</div>';
+    } else {
+      drop.innerHTML = shown.map(function(o) {
+        return '<div class="filterable-item" data-value="' + esc(o) + '">' + esc(o) + '</div>';
+      }).join("");
+    }
+    drop.classList.add("open");
+  }
+
+  inp.addEventListener("focus", function() { renderDropdown(this.value); });
+  inp.addEventListener("input", function() { inp._selectedValue = ""; renderDropdown(this.value); });
+  drop.addEventListener("click", function(e) {
+    var item = e.target.closest(".filterable-item");
+    if (!item) return;
+    inp.value = item.dataset.value;
+    inp._selectedValue = item.dataset.value;
+    drop.classList.remove("open");
+  });
+  document.addEventListener("click", function(e) {
+    if (!e.target.closest("#" + CSS.escape(dropId)) && e.target.id !== inputId) {
+      drop.classList.remove("open");
+    }
   });
 }
 
