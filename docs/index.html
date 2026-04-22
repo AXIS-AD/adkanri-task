@@ -325,6 +325,14 @@
   .req-field label { display: block; font-size: 11px; font-weight: 500; color: var(--text2); margin-bottom: 4px; }
   .req-field label .required { color: var(--red); margin-left: 2px; }
   .req-field select, .req-field input, .req-field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--surface2); }
+  .filterable-wrap { position: relative; }
+  .filterable-wrap input { width: 100%; box-sizing: border-box; }
+  .filterable-dropdown { position: absolute; left: 0; right: 0; top: 100%; max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--accent); border-radius: 0 0 8px 8px; z-index: 50; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .filterable-dropdown.open { display: block; }
+  .filterable-item { padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .filterable-item:last-child { border-bottom: none; }
+  .filterable-item:hover, .filterable-item.highlighted { background: rgba(59,130,246,.15); color: var(--accent); }
+  .filterable-empty { padding: 8px 12px; font-size: 12px; color: var(--text2); }
   .req-field textarea { resize: vertical; min-height: 72px; }
   .req-field select:focus, .req-field input:focus, .req-field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,.2); }
   .submit-btn { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px; }
@@ -1393,7 +1401,7 @@ var SHEET_MEDIA = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!B7:B
 var SHEET_PROJECT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!O7:O150" };
 var SHEET_ASP = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!T7:T150", condRange: "DB!S7:S150", condValue: "\u30CA\u30CF\u30C8", condReplace: "\u30CA\u30CF\u30C8" };
 var SHEET_FB_PAGE = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBページ一覧!F7:F", condRange: "FBページ一覧!D7:D", condValue: "運用中", condFilter: true };
-var SHEET_META_ACCOUNT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "【Meta】広告アカ一覧!G7:G", condRange: "【Meta】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
+var SHEET_META_ACCOUNT = { type:"filterable-sheet-select", sheetId: SHEET_ID, sheetRange: "【Meta】広告アカ一覧!G7:G", condRange: "【Meta】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
 var SHEET_FB_PIXEL = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBピクセル一覧!G5:G", condRange: "FBピクセル一覧!B5:B", condValue: "運用中", condFilter: true };
 
 var FIELDS = {
@@ -1474,6 +1482,9 @@ function renderFormFields(fields) {
     var inputHtml;
     if (f.type === "select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">選択してください</option>' + f.options.map(function(o) { return '<option value="' + o + '"' + (f.defaultValue === o ? ' selected' : '') + '>' + o + '</option>'; }).join("") + '</select>';
+    } else if (f.type === "filterable-sheet-select") {
+      inputHtml = '<div class="filterable-wrap" id="fwrap-' + f.id + '"><input type="text" id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '" placeholder="読み込み中..." autocomplete="off"><div class="filterable-dropdown" id="fdrop-' + f.id + '"></div></div>';
+      loadFilterableOptions(f, "input-" + f.id, "fdrop-" + f.id);
     } else if (f.type === "sheet-select") {
       inputHtml = '<select id="input-' + f.id + '" data-label="' + f.label + '" data-required="' + f.required + '"><option value="">読み込み中...</option></select>';
       loadSheetOptions(f.sheetId, f.sheetRange, "input-" + f.id, f.condRange, f.condValue, f.condReplace, f.condFilter);
@@ -1504,6 +1515,21 @@ function renderFormFields(fields) {
       sel.dataset.required = String(targetField.required);
       var src = targetField.sourceMap[chosen];
       if (src) {
+        if (src.type === "filterable-sheet-select") {
+          var wrap = document.createElement("div");
+          wrap.className = "filterable-wrap";
+          wrap.id = "fwrap-" + targetField.id;
+          var inp = document.createElement("input");
+          inp.type = "text"; inp.id = targetId; inp.placeholder = "読み込み中..."; inp.autocomplete = "off";
+          inp.dataset.label = targetField.label; inp.dataset.required = String(targetField.required);
+          var drop = document.createElement("div");
+          drop.className = "filterable-dropdown"; drop.id = "fdrop-" + targetField.id;
+          wrap.appendChild(inp); wrap.appendChild(drop);
+          var parent = oldEl.closest(".filterable-wrap") || oldEl;
+          parent.replaceWith(wrap);
+          loadFilterableOptions(src, targetId, drop.id);
+          return;
+        }
         sel.disabled = false;
         sel.innerHTML = '<option value="">読み込み中...</option>';
         oldEl.replaceWith(sel);
@@ -1541,6 +1567,58 @@ function loadSheetOptions(sheetId, range, selectId, condRange, condValue, condRe
       var sel = document.getElementById(selectId);
       if (sel) sel.innerHTML = '<option value="">取得失敗 - 手動入力してください</option>';
     });
+}
+
+function loadFilterableOptions(f, inputId, dropId) {
+  var params = "/api/sheet-options?id=" + encodeURIComponent(f.sheetId) + "&range=" + encodeURIComponent(f.sheetRange);
+  if (f.condRange) params += "&condRange=" + encodeURIComponent(f.condRange) + "&condValue=" + encodeURIComponent(f.condValue || "") + "&condReplace=" + encodeURIComponent(f.condReplace || "");
+  if (f.condFilter) params += "&condFilter=true";
+  apiCall("GET", params).then(function(options) {
+    var inp = document.getElementById(inputId);
+    var drop = document.getElementById(dropId);
+    if (!inp || !drop) return;
+    inp.placeholder = "入力して検索...";
+    inp._allOptions = options;
+    inp._selectedValue = "";
+
+    function renderDropdown(query) {
+      var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+      var matched = options.filter(function(o) {
+        var lower = o.toLowerCase();
+        return terms.every(function(t) { return lower.indexOf(t) >= 0; });
+      });
+      if (terms.length === 0) matched = options;
+      var shown = matched.slice(0, 30);
+      if (shown.length === 0) {
+        drop.innerHTML = '<div class="filterable-empty">該当なし</div>';
+      } else {
+        drop.innerHTML = shown.map(function(o) {
+          return '<div class="filterable-item" data-value="' + esc(o) + '">' + esc(o) + '</div>';
+        }).join("");
+      }
+      drop.classList.add("open");
+    }
+
+    inp.addEventListener("focus", function() { renderDropdown(this.value); });
+    inp.addEventListener("input", function() { inp._selectedValue = ""; renderDropdown(this.value); });
+
+    drop.addEventListener("click", function(e) {
+      var item = e.target.closest(".filterable-item");
+      if (!item) return;
+      inp.value = item.dataset.value;
+      inp._selectedValue = item.dataset.value;
+      drop.classList.remove("open");
+    });
+
+    document.addEventListener("click", function(e) {
+      if (!e.target.closest("#" + CSS.escape(dropId)) && e.target.id !== inputId) {
+        drop.classList.remove("open");
+      }
+    });
+  }).catch(function() {
+    var inp = document.getElementById(inputId);
+    if (inp) inp.placeholder = "取得失敗 - 手動入力";
+  });
 }
 
 function handleRequestSubmit() {
