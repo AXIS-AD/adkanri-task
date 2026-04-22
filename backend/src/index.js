@@ -567,6 +567,12 @@ async function handleGetDashboardTasks(request, env) {
       const category = meta.category || autoCategory(t.body);
       if (!local[t.id]) local[t.id] = {};
       if (!meta.title) { local[t.id].title = title; localChanged = true; }
+      // Chatworkの担当者が変わったらKVも更新（アプリで手動変更した場合はmeta._assigneeOverride=trueで保護）
+      if (!meta._assigneeOverride && Number(meta.assigneeId) !== t.assigneeId) {
+        local[t.id].assigneeId = t.assigneeId;
+        local[t.id].assigneeName = t.assigneeName;
+        localChanged = true;
+      }
       if (!meta.assigneeId) { local[t.id].assigneeId = t.assigneeId; localChanged = true; }
       if (!meta.body && t.body) { local[t.id].body = t.body; localChanged = true; }
       if (!meta.firstSeen) { local[t.id].firstSeen = todayStr; localChanged = true; }

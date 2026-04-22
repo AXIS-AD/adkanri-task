@@ -2567,7 +2567,7 @@ function handleAssigneeChange(id, selectEl) {
   var newName = opt.getAttribute("data-name") || opt.text;
   t.assigneeId = newId;
   t.assigneeName = newName;
-  dashUpdate(id, { assigneeId: newId, assigneeName: newName });
+  dashUpdate(id, { assigneeId: newId, assigneeName: newName, _assigneeOverride: true });
   renderAll();
 }
 var pendingDoneTaskId = null;
