@@ -529,6 +529,7 @@ async function handleGetDashboardTasks(request, env) {
   const rooms = [...roomSet];
 
   const local = await getDashboardLocal(env);
+  const reqMeta = await getTaskMeta(env);
   const allTasksList = [];
 
   const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
@@ -593,6 +594,9 @@ async function handleGetDashboardTasks(request, env) {
       const effectiveAssigneeId = Number(meta.assigneeId || t.assigneeId);
       const effectiveAssigneeName = meta.assigneeName || t.assigneeName;
       if (accountId !== null && effectiveAssigneeId !== accountId) continue;
+      const isFromForm = 'isFromForm' in (local[t.id] || {})
+        ? local[t.id].isFromForm
+        : !!reqMeta[String(t.id)];
       allTasksList.push({
         ...t,
         title,
@@ -608,6 +612,7 @@ async function handleGetDashboardTasks(request, env) {
         firstSeen,
         assigneeId: effectiveAssigneeId,
         assigneeName: effectiveAssigneeName,
+        isFromForm,
       });
     }
   }
@@ -622,6 +627,9 @@ async function handleGetDashboardTasks(request, env) {
     if (meta.localStatus !== 'done') continue;
     const metaAssigneeId = meta.assigneeId || 0;
     if (accountId !== null && metaAssigneeId !== accountId) continue;
+    const isFromFormDone = 'isFromForm' in meta
+      ? meta.isFromForm
+      : !!reqMeta[String(taskId)];
     allTasksList.push({
       id: taskId,
       roomId: meta.roomId || DASHBOARD_ROOM_ID,
@@ -638,6 +646,7 @@ async function handleGetDashboardTasks(request, env) {
       assigneeId: metaAssigneeId,
       assigneeName: meta.assigneeName || '',
       assignedBy: '',
+      isFromForm: isFromFormDone,
     });
   }
 
@@ -645,7 +654,7 @@ async function handleGetDashboardTasks(request, env) {
   const manualTasks = await getManualTasks(env);
   for (const mt of manualTasks) {
     if (accountId !== null && Number(mt.assigneeId) !== accountId) continue;
-    allTasksList.push(mt);
+    allTasksList.push({ ...mt, isFromForm: false });
   }
 
   return jsonResponse(allTasksList);

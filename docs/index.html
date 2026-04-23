@@ -349,6 +349,25 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .hidden { display: none !important; }
 
+  .stats-container { max-width: 800px; margin: 0 auto; padding: 0 16px; }
+  .stats-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .stats-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .stats-overall { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .stats-percent { font-size: 40px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .stats-percent-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .stats-bar-wrap { flex: 1; min-width: 200px; }
+  .stats-bar { height: 20px; background: var(--surface2); border-radius: 10px; overflow: hidden; position: relative; }
+  .stats-bar-fill { height: 100%; background: var(--accent); border-radius: 10px; transition: width .4s ease; }
+  .stats-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-top: 4px; }
+  .stats-breakdown-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .stats-breakdown-table th { text-align: left; padding: 8px 10px; font-weight: 600; color: var(--text2); font-size: 11px; border-bottom: 1px solid var(--border); }
+  .stats-breakdown-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .stats-mini-bar { display: inline-block; height: 8px; background: var(--surface2); border-radius: 4px; width: 80px; overflow: hidden; vertical-align: middle; margin-left: 8px; }
+  .stats-mini-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .form-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 10px; vertical-align: middle; margin-right: 4px; cursor: pointer; user-select: none; transition: all .2s; }
+  .form-badge.from-form { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+  .form-badge.not-form { background: rgba(148,163,184,.1); color: var(--text2); border: 1px solid rgba(148,163,184,.2); }
+  .form-badge:hover { opacity: .7; }
   .admin-container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
   .admin-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
   .admin-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
@@ -626,6 +645,7 @@
       <button class="nav-btn" data-page="mystatus" onclick="switchPage('mystatus')">📅 依頼状況</button>
       <button class="nav-btn admin-only" data-page="tasks" onclick="switchPage('tasks')">🌟 タスク管理</button>
       <button class="nav-btn admin-only" data-page="progress" onclick="switchPage('progress')">🔗 つなぎこみ</button>
+      <button class="nav-btn admin-only" data-page="request-stats" onclick="switchPage('request-stats')">📊 依頼分析</button>
       <button class="nav-btn admin-only" data-page="admin" onclick="switchPage('admin')">⚒️ 管理設定</button>
       <button class="nav-btn" data-page="help" onclick="switchPage('help')">❓ 使い方</button>
     </div>
@@ -1023,6 +1043,24 @@
       </main>
     </div>
 
+    <div class="panel" id="panel-request-stats">
+      <main>
+        <h2 style="margin-bottom:16px;">依頼分析</h2>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">ツールの新規依頼フォーム経由で作成されたタスクの割合を表示します</p>
+        <div class="req-filters" id="statsFilters">
+          <div class="req-filter-group">
+            <label class="req-filter-label">表示</label>
+            <select id="statsBreakdown" class="req-filter-select" onchange="renderRequestStats()">
+              <option value="all">全体</option>
+              <option value="assignee">担当者別</option>
+              <option value="category">カテゴリ別</option>
+            </select>
+          </div>
+        </div>
+        <div id="requestStatsArea"><div class="empty-state">タスクデータを読み込んでください</div></div>
+      </main>
+    </div>
+
     <div class="panel" id="panel-admin">
       <div class="admin-container">
         <div class="admin-section">
@@ -1357,6 +1395,7 @@ function switchPage(page) {
 
   if (page === "mystatus") loadMyRequests();
   if (page === "progress") loadProgress();
+  if (page === "request-stats") loadRequestStats();
   if (page === "admin") loadAdminRoles();
 
 }
@@ -1365,6 +1404,103 @@ function scrollHelp(e, id) {
   e.preventDefault();
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================
+// Request stats (依頼分析)
+// ============================
+var statsAllTasks = [];
+
+async function loadRequestStats() {
+  var area = document.getElementById("requestStatsArea");
+  area.innerHTML = '<div class="empty-state">読み込み中...</div>';
+  try {
+    var params = ["_t=" + Date.now()];
+    var tasks = await apiCall("GET", "/api/dashboard/tasks?" + params.join("&"));
+    if (!Array.isArray(tasks)) { area.innerHTML = '<div class="empty-state">取得失敗</div>'; return; }
+    statsAllTasks = tasks;
+    renderRequestStats();
+  } catch (e) {
+    area.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderRequestStats() {
+  var area = document.getElementById("requestStatsArea");
+  var breakdown = document.getElementById("statsBreakdown").value;
+  var tasks = statsAllTasks;
+  if (!tasks.length) { area.innerHTML = '<div class="empty-state">タスクがありません</div>'; return; }
+
+  var total = tasks.length;
+  var fromForm = tasks.filter(function(t) { return t.isFromForm; }).length;
+  var pct = total > 0 ? Math.round(fromForm / total * 100) : 0;
+
+  var html = '<div class="stats-container">';
+  html += '<div class="stats-card"><h3>フォーム利用率</h3>';
+  html += '<div class="stats-overall">';
+  html += '<div><div class="stats-percent">' + pct + '%</div>';
+  html += '<div class="stats-percent-sub">フォーム経由</div></div>';
+  html += '<div class="stats-bar-wrap">';
+  html += '<div class="stats-bar"><div class="stats-bar-fill" style="width:' + pct + '%"></div></div>';
+  html += '<div class="stats-bar-label"><span>フォーム: ' + fromForm + '件</span><span>その他: ' + (total - fromForm) + '件</span></div>';
+  html += '</div></div></div>';
+
+  if (breakdown === "assignee") {
+    html += buildBreakdownTable(tasks, "assignee");
+  } else if (breakdown === "category") {
+    html += buildBreakdownTable(tasks, "category");
+  }
+
+  html += '</div>';
+  area.innerHTML = html;
+}
+
+function buildBreakdownTable(tasks, key) {
+  var groups = {};
+  tasks.forEach(function(t) {
+    var label;
+    if (key === "assignee") {
+      label = t.assigneeName || "不明";
+    } else {
+      label = CATEGORY_LABELS[normalizeCategory(t.category)] || t.category || "不明";
+    }
+    if (!groups[label]) groups[label] = { total: 0, form: 0 };
+    groups[label].total++;
+    if (t.isFromForm) groups[label].form++;
+  });
+
+  var sorted = Object.keys(groups).sort(function(a, b) {
+    return groups[b].total - groups[a].total;
+  });
+
+  var html = '<div class="stats-card"><h3>' + (key === "assignee" ? "担当者別" : "カテゴリ別") + '</h3>';
+  html += '<table class="stats-breakdown-table"><thead><tr>';
+  html += '<th>' + (key === "assignee" ? "担当者" : "カテゴリ") + '</th>';
+  html += '<th>合計</th><th>フォーム</th><th>その他</th><th>利用率</th>';
+  html += '</tr></thead><tbody>';
+
+  sorted.forEach(function(label) {
+    var g = groups[label];
+    var p = g.total > 0 ? Math.round(g.form / g.total * 100) : 0;
+    html += '<tr>';
+    html += '<td style="font-weight:600;">' + esc(label) + '</td>';
+    html += '<td>' + g.total + '</td>';
+    html += '<td>' + g.form + '</td>';
+    html += '<td>' + (g.total - g.form) + '</td>';
+    html += '<td>' + p + '%<span class="stats-mini-bar"><span class="stats-mini-bar-fill" style="width:' + p + '%"></span></span></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function toggleFormBadge(id) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (!t) return;
+  t.isFromForm = !t.isFromForm;
+  dashUpdate(id, { isFromForm: t.isFromForm });
+  renderAll();
 }
 
 // ============================
@@ -2193,8 +2329,9 @@ function renderListTable(tasks) {
     var pLabel = PRIORITY_LABELS[t.priority] || "中";
     var pClass = t.priority || "medium";
     var pc = 'priority-' + (t.priority || 'medium');
+    var listFormBadge = userRole === "admin" ? '<span class="form-badge ' + (t.isFromForm ? 'from-form' : 'not-form') + '" onclick="event.stopPropagation();toggleFormBadge(\'' + t.id + '\')" title="クリックで変更">' + (t.isFromForm ? 'フォーム' : '直接') + '</span>' : '';
     html += '<tr class="task-list-row ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')" style="cursor:pointer;">';
-    html += '<td class="tl-title">' + (t._isNew ? '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--accent);padding:1px 5px;border-radius:10px;margin-right:4px;vertical-align:middle;">NEW</span>' : '') + esc(t.title) + '</td>';
+    html += '<td class="tl-title">' + listFormBadge + (t._isNew ? '<span style="display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--accent);padding:1px 5px;border-radius:10px;margin-right:4px;vertical-align:middle;">NEW</span>' : '') + esc(t.title) + '</td>';
     html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="date-label" onclick="editDueDate(\'' + t.id + '\',this)">' + (t.limit || "なし") + ' <small>(' + dl + ')</small></span></td>';
     html += '<td class="tl-date" onclick="event.stopPropagation()"><span class="scheduled-label" onclick="editScheduledDate(\'' + t.id + '\',this)">' + scheduleLabel(t.scheduledDate, t.scheduledKey) + '</span></td>';
     html += '<td onclick="event.stopPropagation()">' + buildAssigneeSelect(t.id, t.assigneeId) + '</td>';
@@ -2851,8 +2988,9 @@ function renderCard(t) {
   var pc = 'priority-' + (t.priority || 'medium');
   var deleteBtn = t.isManual ? '<button class="delete-task-btn" onclick="event.stopPropagation();deleteManualTask(\'' + t.id + '\')" title="削除">🗑️</button>' : '';
   var newBadge = t._isNew ? '<span title="新着タスク" style="display:inline-block;font-size:10px;font-weight:700;color:#fff;background:var(--accent);padding:1px 6px;border-radius:10px;margin-right:6px;vertical-align:middle;letter-spacing:0.5px;">NEW</span>' : '';
+  var formBadge = userRole === "admin" ? '<span class="form-badge ' + (t.isFromForm ? 'from-form' : 'not-form') + '" onclick="event.stopPropagation();toggleFormBadge(\'' + t.id + '\')" title="クリックで変更">' + (t.isFromForm ? 'フォーム' : '直接') + '</span>' : '';
   var schedLbl = scheduleLabel(t.scheduledDate, t.scheduledKey);
-  return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + newBadge + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span class="scheduled-label" onclick="event.stopPropagation();editScheduledDate(\'' + t.id + '\',this)" title="クリックで対応予定日変更">' + schedLbl + '</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><div class="done-btn-wrap"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div></div>';
+  return '<div class="card ' + dc + ' ' + pc + '" onclick="openModal(\'' + t.id + '\')"><div class="card-top"><div class="card-title-row"><button class="edit-title-btn" onclick="event.stopPropagation();editTitle(\'' + t.id + '\',this)" title="編集">&#9998;</button><div class="card-title">' + formBadge + newBadge + esc(t.title) + '</div></div>' + deleteBtn + '<div class="card-priority ' + t.priority + '">' + (PRIORITY_LABELS[t.priority]||"中") + '</div></div><div class="card-meta"><span class="date-label" onclick="event.stopPropagation();editDueDate(\'' + t.id + '\',this)" title="クリックで期日変更">' + (t.limit||"期限なし") + ' (' + dl + ')</span><span class="scheduled-label" onclick="event.stopPropagation();editScheduledDate(\'' + t.id + '\',this)" title="クリックで対応予定日変更">' + schedLbl + '</span><span>' + CATEGORY_LABELS[normalizeCategory(t.category)] + '</span>' + (t.assignedBy?'<span>by ' + esc(t.assignedBy) + '</span>':'') + '</div>' + (body ? '<div class="card-body">' + esc(body) + '</div>' : '') + '<div class="card-actions" onclick="event.stopPropagation()"><select onchange="updateTask(\'' + t.id + '\',\'priority\',this.value);this.closest(\'.card\').querySelector(\'.card-priority\').className=\'card-priority \'+this.value;this.closest(\'.card\').querySelector(\'.card-priority\').textContent={high:\'高\',medium:\'中\',low:\'低\'}[this.value]"><option value="high"' + (t.priority==="high"?" selected":"") + '>高</option><option value="medium"' + (t.priority==="medium"?" selected":"") + '>中</option><option value="low"' + (t.priority==="low"?" selected":"") + '>低</option></select><select onchange="handleStatusChange(\'' + t.id + '\',this.value)"><option value="open"' + (t.localStatus==="open"?" selected":"") + '>未着手</option><option value="in_progress"' + (t.localStatus==="in_progress"?" selected":"") + '>着手中</option><option value="waiting"' + (t.localStatus==="waiting"?" selected":"") + '>相手待ち</option><option value="done"' + (t.localStatus==="done"?" selected":"") + '>完了</option></select><select onchange="handleCategoryChange(\'' + t.id + '\',this.value)">' + CATEGORY_ORDER.map(function(k){ return '<option value="' + k + '"' + (normalizeCategory(t.category)===k?" selected":"") + '>' + CATEGORY_LABELS[k] + '</option>'; }).join("") + '</select>' + buildAssigneeSelect(t.id, t.assigneeId) + '<input type="text" placeholder="メモ..." value="' + esc(t.note) + '" onchange="saveNote(\'' + t.id + '\',this.value)"><div class="done-btn-wrap"><button class="done-report-btn" onclick="handleStatusChange(\'' + t.id + '\',\'done\')">✅ 完了</button></div></div></div>';
 }
 
 function editDueDate(id, el) {
