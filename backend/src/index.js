@@ -671,30 +671,59 @@ async function handleGetRequestStats(request, env) {
 
   const local = await getDashboardLocal(env);
   const reqMeta = await getTaskMeta(env);
+  const seenIds = new Set();
   const tasks = [];
 
+  // 1. DASHBOARD_LOCAL の全タスク
   for (const [taskId, meta] of Object.entries(local)) {
     if (taskId.startsWith('_')) continue;
     if (!meta.title && !meta.body) continue;
+    seenIds.add(String(taskId));
 
     const isFromForm = 'isFromForm' in meta
       ? meta.isFromForm
       : !!reqMeta[String(taskId)] || /依頼者：/.test(meta.body || '');
 
-    const assigneeName = meta.assigneeName || '';
-    const category = meta.category || 'other';
-    const firstSeen = meta.firstSeen || '';
-
     tasks.push({
       id: taskId,
       title: meta.title || '(不明)',
-      category,
-      assigneeName,
-      firstSeen,
+      category: meta.category || 'other',
+      assigneeName: meta.assigneeName || '',
+      firstSeen: meta.firstSeen || '',
       isFromForm,
       localStatus: meta.localStatus || 'open',
     });
   }
+
+  // 2. スプシ（タスク収集）からフォーム経由タスクを補完
+  try {
+    const token = await getGoogleAccessToken(env);
+    const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A:F`);
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${TASK_LOG_SHEET_ID}/values/${range}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const rows = data.values || [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row[0]) continue;
+        const taskId = String(row[0]);
+        if (seenIds.has(taskId)) continue;
+        seenIds.add(taskId);
+        tasks.push({
+          id: taskId,
+          title: [row[2], row[3]].filter(Boolean).join(' / ') || '(不明)',
+          category: row[2] ? autoCategory(row[2]) : 'other',
+          assigneeName: row[5] || '',
+          firstSeen: row[1] ? row[1].slice(0, 10) : '',
+          isFromForm: true,
+          localStatus: 'done',
+        });
+      }
+    }
+  } catch (_) {}
 
   return jsonResponse(tasks);
 }
