@@ -696,6 +696,9 @@ async function handleGetRequestStats(request, env) {
   }
 
   // 2. スプシ（タスク収集）からフォーム経由タスクを補完
+  let sheetTotal = 0;
+  let sheetAdded = 0;
+  let sheetSkipped = 0;
   try {
     const token = await getGoogleAccessToken(env);
     const range = encodeURIComponent(`${TASK_LOG_SHEET_NAME}!A:F`);
@@ -706,12 +709,20 @@ async function handleGetRequestStats(request, env) {
     if (res.ok) {
       const data = await res.json();
       const rows = data.values || [];
+      sheetTotal = rows.length - 1;
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row[0]) continue;
         const taskId = String(row[0]);
-        if (seenIds.has(taskId)) continue;
+        if (seenIds.has(taskId)) {
+          // DASHBOARD_LOCALにあるタスクもフォーム経由としてマーク
+          const existing = tasks.find(function(t) { return t.id === taskId; });
+          if (existing && !existing.isFromForm) existing.isFromForm = true;
+          sheetSkipped++;
+          continue;
+        }
         seenIds.add(taskId);
+        sheetAdded++;
         tasks.push({
           id: taskId,
           title: [row[2], row[3]].filter(Boolean).join(' / ') || '(不明)',
@@ -725,7 +736,7 @@ async function handleGetRequestStats(request, env) {
     }
   } catch (_) {}
 
-  return jsonResponse(tasks);
+  return jsonResponse({ tasks, _debug: { dashboardLocal: seenIds.size - sheetAdded, sheetTotal, sheetAdded, sheetSkipped } });
 }
 
 async function handleUpdateDashboardTask(request, env) {

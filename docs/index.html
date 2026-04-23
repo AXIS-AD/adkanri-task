@@ -1435,11 +1435,15 @@ async function loadRequestStats() {
   }
 }
 
+var statsDebugInfo = null;
+
 async function loadRequestStatsHistory() {
   var area = document.getElementById("requestStatsArea");
   area.innerHTML = '<div class="empty-state">過去データ読み込み中...</div>';
   try {
-    var tasks = await apiCall("GET", "/api/dashboard/request-stats?_t=" + Date.now());
+    var result = await apiCall("GET", "/api/dashboard/request-stats?_t=" + Date.now());
+    var tasks = result.tasks || result;
+    statsDebugInfo = result._debug || null;
     if (!Array.isArray(tasks)) { area.innerHTML = '<div class="empty-state">取得失敗</div>'; return; }
     statsHistoryTasks = tasks;
     statsAllTasks = tasks;
@@ -1480,6 +1484,17 @@ function renderRequestStats() {
     html += buildBreakdownTable(tasks, "assignee");
   } else if (breakdown === "category") {
     html += buildBreakdownTable(tasks, "category");
+  }
+
+  if (statsDebugInfo && range === "all-history") {
+    var d = statsDebugInfo;
+    html += '<div class="stats-card" style="font-size:12px;color:var(--text2);">';
+    html += '<h3>データソース内訳</h3>';
+    html += '<div>DASHBOARD_LOCAL: ' + d.dashboardLocal + '件</div>';
+    html += '<div>スプシ（タスク収集）: ' + d.sheetTotal + '行</div>';
+    html += '<div>→ スプシから追加: ' + d.sheetAdded + '件（DASHBOARD_LOCALになかった分）</div>';
+    html += '<div>→ スプシと重複: ' + d.sheetSkipped + '件（DASHBOARD_LOCALと一致）</div>';
+    html += '</div>';
   }
 
   html += '</div>';
