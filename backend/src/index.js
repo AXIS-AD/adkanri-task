@@ -97,6 +97,10 @@ export default {
       } else if (path === '/api/admin/assign-map' && request.method === 'POST') {
         response = await handleSaveAssignMap(request, env);
       }
+      // ── 依頼分析（過去データ） ──
+      else if (path === '/api/dashboard/request-stats' && request.method === 'GET') {
+        response = await handleGetRequestStats(request, env);
+      }
       // ── サイドバーメモ ──
       else if (path === '/api/dashboard/memo' && request.method === 'GET') {
         response = await handleGetMemo(request, env);
@@ -660,6 +664,39 @@ async function handleGetDashboardTasks(request, env) {
   }
 
   return jsonResponse(allTasksList);
+}
+
+async function handleGetRequestStats(request, env) {
+  await verifyGoogleToken(request, env);
+
+  const local = await getDashboardLocal(env);
+  const reqMeta = await getTaskMeta(env);
+  const tasks = [];
+
+  for (const [taskId, meta] of Object.entries(local)) {
+    if (taskId.startsWith('_')) continue;
+    if (!meta.title && !meta.body) continue;
+
+    const isFromForm = 'isFromForm' in meta
+      ? meta.isFromForm
+      : !!reqMeta[String(taskId)] || /依頼者：/.test(meta.body || '');
+
+    const assigneeName = meta.assigneeName || '';
+    const category = meta.category || 'other';
+    const firstSeen = meta.firstSeen || '';
+
+    tasks.push({
+      id: taskId,
+      title: meta.title || '(不明)',
+      category,
+      assigneeName,
+      firstSeen,
+      isFromForm,
+      localStatus: meta.localStatus || 'open',
+    });
+  }
+
+  return jsonResponse(tasks);
 }
 
 async function handleUpdateDashboardTask(request, env) {

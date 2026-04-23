@@ -1049,7 +1049,14 @@
         <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">ツールの新規依頼フォーム経由で作成されたタスクの割合を表示します</p>
         <div class="req-filters" id="statsFilters">
           <div class="req-filter-group">
-            <label class="req-filter-label">表示</label>
+            <label class="req-filter-label">対象</label>
+            <select id="statsRange" class="req-filter-select" onchange="switchStatsRange()">
+              <option value="current">現在のタスク</option>
+              <option value="all-history">過去データ含む</option>
+            </select>
+          </div>
+          <div class="req-filter-group">
+            <label class="req-filter-label">内訳</label>
             <select id="statsBreakdown" class="req-filter-select" onchange="renderRequestStats()">
               <option value="all">全体</option>
               <option value="assignee">担当者別</option>
@@ -1410,8 +1417,11 @@ function scrollHelp(e, id) {
 // Request stats (依頼分析)
 // ============================
 var statsAllTasks = [];
+var statsHistoryTasks = null;
 
 async function loadRequestStats() {
+  var range = document.getElementById("statsRange").value;
+  if (range === "all-history") { await loadRequestStatsHistory(); return; }
   var area = document.getElementById("requestStatsArea");
   area.innerHTML = '<div class="empty-state">読み込み中...</div>';
   try {
@@ -1425,9 +1435,28 @@ async function loadRequestStats() {
   }
 }
 
+async function loadRequestStatsHistory() {
+  var area = document.getElementById("requestStatsArea");
+  area.innerHTML = '<div class="empty-state">過去データ読み込み中...</div>';
+  try {
+    var tasks = await apiCall("GET", "/api/dashboard/request-stats?_t=" + Date.now());
+    if (!Array.isArray(tasks)) { area.innerHTML = '<div class="empty-state">取得失敗</div>'; return; }
+    statsHistoryTasks = tasks;
+    statsAllTasks = tasks;
+    renderRequestStats();
+  } catch (e) {
+    area.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function switchStatsRange() {
+  loadRequestStats();
+}
+
 function renderRequestStats() {
   var area = document.getElementById("requestStatsArea");
   var breakdown = document.getElementById("statsBreakdown").value;
+  var range = document.getElementById("statsRange").value;
   var tasks = statsAllTasks;
   if (!tasks.length) { area.innerHTML = '<div class="empty-state">タスクがありません</div>'; return; }
 
@@ -1435,8 +1464,10 @@ function renderRequestStats() {
   var fromForm = tasks.filter(function(t) { return t.isFromForm; }).length;
   var pct = total > 0 ? Math.round(fromForm / total * 100) : 0;
 
+  var rangeLabel = range === "all-history" ? "（過去データ含む・全 " + total + " 件）" : "（現在のタスク）";
+
   var html = '<div class="stats-container">';
-  html += '<div class="stats-card"><h3>フォーム利用率</h3>';
+  html += '<div class="stats-card"><h3>フォーム利用率 <span style="font-size:12px;font-weight:400;color:var(--text2);">' + rangeLabel + '</span></h3>';
   html += '<div class="stats-overall">';
   html += '<div><div class="stats-percent">' + pct + '%</div>';
   html += '<div class="stats-percent-sub">フォーム経由</div></div>';
