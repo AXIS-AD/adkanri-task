@@ -673,29 +673,9 @@ async function handleGetRequestStats(request, env) {
   const reqMeta = await getTaskMeta(env);
   const seenIds = new Set();
   const tasks = [];
+  const sheetDataById = {};
 
-  // 1. DASHBOARD_LOCAL の全タスク
-  for (const [taskId, meta] of Object.entries(local)) {
-    if (taskId.startsWith('_')) continue;
-    if (!meta.title && !meta.body) continue;
-    seenIds.add(String(taskId));
-
-    const isFromForm = 'isFromForm' in meta
-      ? meta.isFromForm
-      : !!reqMeta[String(taskId)] || /依頼者：/.test(meta.body || '');
-
-    tasks.push({
-      id: taskId,
-      title: meta.title || '(不明)',
-      category: meta.category || 'other',
-      assigneeName: meta.assigneeName || '',
-      firstSeen: meta.firstSeen || '',
-      isFromForm,
-      localStatus: meta.localStatus || 'open',
-    });
-  }
-
-  // 2. スプシ（タスク収集）からフォーム経由タスクを補完
+  // 1. スプシ（タスク収集）を先に読む — フォーム経由タスクの正確なデータ
   let sheetTotal = 0;
   let sheetAdded = 0;
   let sheetSkipped = 0;
@@ -713,28 +693,55 @@ async function handleGetRequestStats(request, env) {
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row[0]) continue;
-        const taskId = String(row[0]);
-        if (seenIds.has(taskId)) {
-          // DASHBOARD_LOCALにあるタスクもフォーム経由としてマーク
-          const existing = tasks.find(function(t) { return t.id === taskId; });
-          if (existing && !existing.isFromForm) existing.isFromForm = true;
-          sheetSkipped++;
-          continue;
-        }
-        seenIds.add(taskId);
-        sheetAdded++;
-        tasks.push({
-          id: taskId,
-          title: [row[2], row[3]].filter(Boolean).join(' / ') || '(不明)',
-          category: row[2] ? autoCategory(row[2]) : 'other',
+        sheetDataById[String(row[0])] = {
+          formCategory: row[2] || '',
+          formSubCategory: row[3] || '',
           assigneeName: row[5] || '',
-          firstSeen: row[1] ? row[1].slice(0, 10) : '',
-          isFromForm: true,
-          localStatus: 'done',
-        });
+          createdAt: row[1] || '',
+        };
       }
     }
   } catch (_) {}
+
+  // 2. DASHBOARD_LOCAL の全タスク
+  for (const [taskId, meta] of Object.entries(local)) {
+    if (taskId.startsWith('_')) continue;
+    if (!meta.title && !meta.body) continue;
+    seenIds.add(String(taskId));
+
+    const sheet = sheetDataById[String(taskId)];
+    const isFromForm = 'isFromForm' in meta
+      ? meta.isFromForm
+      : !!sheet || !!reqMeta[String(taskId)] || /依頼者：/.test(meta.body || '');
+
+    tasks.push({
+      id: taskId,
+      title: meta.title || '(不明)',
+      category: meta.category || 'other',
+      formCategory: sheet ? sheet.formCategory : '',
+      assigneeName: sheet ? sheet.assigneeName : (meta.assigneeName || ''),
+      firstSeen: meta.firstSeen || '',
+      isFromForm,
+      localStatus: meta.localStatus || 'open',
+    });
+  }
+
+  // 3. スプシにあってDASHBOARD_LOCALにないタスクを追加
+  for (const [taskId, sheet] of Object.entries(sheetDataById)) {
+    if (seenIds.has(taskId)) { sheetSkipped++; continue; }
+    seenIds.add(taskId);
+    sheetAdded++;
+    tasks.push({
+      id: taskId,
+      title: [sheet.formCategory, sheet.formSubCategory].filter(Boolean).join(' / ') || '(不明)',
+      category: 'other',
+      formCategory: sheet.formCategory,
+      assigneeName: sheet.assigneeName,
+      firstSeen: sheet.createdAt ? sheet.createdAt.slice(0, 10) : '',
+      isFromForm: true,
+      localStatus: 'done',
+    });
+  }
 
   return jsonResponse({ tasks, _debug: { dashboardLocal: seenIds.size - sheetAdded, sheetTotal, sheetAdded, sheetSkipped } });
 }

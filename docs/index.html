@@ -1508,7 +1508,8 @@ function buildBreakdownTable(tasks, key) {
     if (key === "assignee") {
       label = t.assigneeName || "不明";
     } else {
-      label = CATEGORY_LABELS[normalizeCategory(t.category)] || t.category || "不明";
+      label = t.formCategory || CATEGORY_LABELS[normalizeCategory(t.category)] || t.category || "不明";
+      if (!label || label === "other") label = "その他";
     }
     if (!groups[label]) groups[label] = { total: 0, form: 0 };
     groups[label].total++;
