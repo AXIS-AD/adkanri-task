@@ -594,9 +594,10 @@ async function handleGetDashboardTasks(request, env) {
       const effectiveAssigneeId = Number(meta.assigneeId || t.assigneeId);
       const effectiveAssigneeName = meta.assigneeName || t.assigneeName;
       if (accountId !== null && effectiveAssigneeId !== accountId) continue;
+      const bodyText = (meta.body || t.body || '');
       const isFromForm = 'isFromForm' in (local[t.id] || {})
         ? local[t.id].isFromForm
-        : !!reqMeta[String(t.id)];
+        : !!reqMeta[String(t.id)] || /依頼がきました。対応お願いします/.test(bodyText);
       allTasksList.push({
         ...t,
         title,
@@ -627,9 +628,10 @@ async function handleGetDashboardTasks(request, env) {
     if (meta.localStatus !== 'done') continue;
     const metaAssigneeId = meta.assigneeId || 0;
     if (accountId !== null && metaAssigneeId !== accountId) continue;
+    const doneBodyText = (meta.body || '');
     const isFromFormDone = 'isFromForm' in meta
       ? meta.isFromForm
-      : !!reqMeta[String(taskId)];
+      : !!reqMeta[String(taskId)] || /依頼がきました。対応お願いします/.test(doneBodyText);
     allTasksList.push({
       id: taskId,
       roomId: meta.roomId || DASHBOARD_ROOM_ID,
