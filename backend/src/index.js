@@ -710,9 +710,10 @@ async function handleGetRequestStats(request, env) {
     seenIds.add(String(taskId));
 
     const sheet = sheetDataById[String(taskId)];
-    const isFromForm = 'isFromForm' in meta
-      ? meta.isFromForm
-      : !!sheet || !!reqMeta[String(taskId)] || /依頼者：/.test(meta.body || '');
+    const isFromForm = !!sheet || (
+      'isFromForm' in meta ? meta.isFromForm
+      : !!reqMeta[String(taskId)] || /依頼者：/.test(meta.body || '')
+    );
 
     tasks.push({
       id: taskId,
