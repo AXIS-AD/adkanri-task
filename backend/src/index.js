@@ -597,7 +597,7 @@ async function handleGetDashboardTasks(request, env) {
       const bodyText = (meta.body || t.body || '');
       const isFromForm = 'isFromForm' in (local[t.id] || {})
         ? local[t.id].isFromForm
-        : !!reqMeta[String(t.id)] || /依頼がきました。対応お願いします/.test(bodyText);
+        : !!reqMeta[String(t.id)] || (/\[info\]/.test(bodyText) && /依頼者：/.test(bodyText));
       allTasksList.push({
         ...t,
         title,
@@ -631,7 +631,7 @@ async function handleGetDashboardTasks(request, env) {
     const doneBodyText = (meta.body || '');
     const isFromFormDone = 'isFromForm' in meta
       ? meta.isFromForm
-      : !!reqMeta[String(taskId)] || /依頼がきました。対応お願いします/.test(doneBodyText);
+      : !!reqMeta[String(taskId)] || (/\[info\]/.test(doneBodyText) && /依頼者：/.test(doneBodyText));
     allTasksList.push({
       id: taskId,
       roomId: meta.roomId || DASHBOARD_ROOM_ID,
