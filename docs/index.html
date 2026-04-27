@@ -3592,6 +3592,7 @@ function openLongTermModal(id) {
 function updateLongTermField(id, field, val) {
   var t = allTasks.find(function(x) { return x.id === id; });
   if (t) t[field] = val;
+  dashUpdate(id, { [field]: val });
 }
 
 function showLongTermDeadlinePicker(id, el) {
