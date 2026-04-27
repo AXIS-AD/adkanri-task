@@ -3332,7 +3332,12 @@ function isTeikiDueToday(t) {
   }
   if (freq.startsWith("monthday:")) {
     var dates = freq.split(":")[1].split(",").map(Number);
-    return dates.indexOf(d.getDate()) >= 0;
+    var todayDate = d.getDate();
+    // 指定日が今月すでに過ぎている場合も表示（未完了のため）
+    for (var i = 0; i < dates.length; i++) {
+      if (dates[i] <= todayDate) return true;
+    }
+    return false;
   }
   if (freq === "weekly") return true;
   if (freq === "biweekly") return true;
