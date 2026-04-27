@@ -1580,7 +1580,7 @@ var SUB_CATEGORIES = {
 
 var SHEET_ID = "1Xk-p_-6Np-e5keqOy5fcgmU-TF28H5dU7UeEYDUX_7k";
 var SHEET_MEDIA = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!B7:B15" };
-var SHEET_PROJECT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!O7:O150" };
+var SHEET_PROJECT = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!O7:O150", filterByField: "asp", filterCondRange: "DB!T7:T150" };
 var SHEET_ASP = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "DB!T7:T150", condRange: "DB!S7:S150", condValue: "\u30CA\u30CF\u30C8", condReplace: "\u30CA\u30CF\u30C8" };
 var SHEET_FB_PAGE = { type:"sheet-select", sheetId: SHEET_ID, sheetRange: "FBページ一覧!F7:F", condRange: "FBページ一覧!D7:D", condValue: "運用中", condFilter: true };
 var SHEET_META_ACCOUNT = { type:"filterable-sheet-select", sheetId: SHEET_ID, sheetRange: "【Meta】広告アカ一覧!G7:G", condRange: "【Meta】広告アカ一覧!D7:D", condValue: "運用可能", condFilter: true };
@@ -1731,6 +1731,22 @@ function renderFormFields(fields) {
         sel.innerHTML = '<option value="">先に選択してください</option>';
         oldEl.replaceWith(sel);
       }
+    });
+  });
+
+  // filterByField: ASP選択で案件名を絞り込む連動
+  fields.forEach(function(f) {
+    if (!f.filterByField) return;
+    var parentEl = document.getElementById("input-" + f.filterByField);
+    if (!parentEl) return;
+    var targetId = "input-" + f.id;
+    parentEl.addEventListener("change", function() {
+      var selectedVal = this.value;
+      if (!selectedVal || selectedVal === "__manual__") return;
+      var sel = document.getElementById(targetId);
+      if (!sel || sel.tagName !== "SELECT") return;
+      sel.innerHTML = '<option value="">読み込み中...</option>';
+      loadSheetOptions(f.sheetId, f.sheetRange, targetId, f.filterCondRange, selectedVal, null, true);
     });
   });
 }
