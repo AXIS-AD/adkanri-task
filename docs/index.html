@@ -4084,6 +4084,7 @@ function priorityFilter(tasks, priSetting) {
 }
 
 function collectReportTasks() {
+  checkAllTeikiRecurrence();
   var rf = getReportFilters();
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var td = today();
