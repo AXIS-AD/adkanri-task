@@ -4532,6 +4532,7 @@ function getReportDraftKey() {
 function saveReportDraft() {
   var text = document.getElementById("reportPreview").value;
   try { localStorage.setItem(getReportDraftKey(), text); } catch(_) {}
+  _reportDraftLoaded = true;
   alert("一時保存しました");
 }
 function loadReportDraft() {
