@@ -4009,6 +4009,7 @@ function buildReport() {
   if (draft) {
     ta.value = draft;
     _reportDraftLoaded = true;
+    if (reportTabType === "morning") buildReportHInputs();
     return;
   }
   _reportDraftLoaded = false;
