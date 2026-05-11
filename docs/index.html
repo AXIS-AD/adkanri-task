@@ -4008,8 +4008,10 @@ function buildReport() {
   var draft = loadReportDraft();
   if (draft) {
     ta.value = draft;
-      return;
+    _reportDraftLoaded = true;
+    return;
   }
+  _reportDraftLoaded = false;
   if (reportTabType === "morning") {
     ta.value = buildMorningReport();
   } else if (reportTabType === "standup") {
@@ -4129,6 +4131,7 @@ function collectReportTasks() {
 }
 
 var _reportCatH = {};
+var _reportDraftLoaded = false;
 
 function buildReportHInputs() {
   var el = document.getElementById("reportHInputs");
@@ -4184,7 +4187,7 @@ function updateReportCatH(input) {
   var totalEl = document.getElementById("reportCatHTotal");
   if (totalEl) totalEl.textContent = "合計: " + total + "H";
   var ta = document.getElementById("reportPreview");
-  if (ta) ta.value = buildMorningReport(true);
+  if (ta && !_reportDraftLoaded) ta.value = buildMorningReport(true);
 }
 
 function buildStandupReport() {
@@ -4535,6 +4538,7 @@ function loadReportDraft() {
 }
 function clearReportDraft() {
   try { localStorage.removeItem(getReportDraftKey()); } catch(_) {}
+  _reportDraftLoaded = false;
 }
 
 async function sendReport() {
