@@ -1155,7 +1155,7 @@
     <div class="report-footer">
       <span class="report-info">送信先: アラートルーム</span>
       <button onclick="saveReportDraft()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;">一時保存</button>
-      <button onclick="clearReportDraft();buildReport();" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;">再生成</button>
+      <button onclick="clearReportDraft();buildReport(true);" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;">再生成</button>
       <button class="report-send-btn" id="reportSendBtn" onclick="sendReport()">送信</button>
     </div>
   </div>
@@ -4004,14 +4004,16 @@ function getMyTasks() {
   });
 }
 
-function buildReport() {
+function buildReport(force) {
   var ta = document.getElementById("reportPreview");
-  var draft = loadReportDraft();
-  if (draft) {
-    ta.value = draft;
-    _reportDraftLoaded = true;
-    if (reportTabType === "morning") buildReportHInputs();
-    return;
+  if (!force) {
+    var draft = loadReportDraft();
+    if (draft) {
+      ta.value = draft;
+      _reportDraftLoaded = true;
+      if (reportTabType === "morning") buildReportHInputs();
+      return;
+    }
   }
   _reportDraftLoaded = false;
   if (reportTabType === "morning") {
