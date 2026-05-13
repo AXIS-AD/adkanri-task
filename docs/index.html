@@ -4055,7 +4055,7 @@ function getMyTeikiTasks() {
 
 function getMyLongTermTasks() {
   var pid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
-  var lt = allTasks.filter(function(t) { return t.isManual && normalizeCategory(t.category) === "long_term"; });
+  var lt = allTasks.filter(function(t) { return normalizeCategory(t.category) === "long_term"; });
   if (!pid) return lt;
   return lt.filter(function(t) {
     if (!t.assigneeId) return true;
