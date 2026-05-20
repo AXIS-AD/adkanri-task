@@ -4094,11 +4094,13 @@ function collectReportTasks() {
   var rf = getReportFilters();
   var myTasks = getMyTasks().filter(function(t) { return t.localStatus !== "done"; });
   var td = today();
+  var tdDate = new Date(td); tdDate.setDate(tdDate.getDate() + 2);
+  var td2 = tdDate.toISOString().slice(0, 10);
 
   var todayOrOverdue = [];
   if (rf.dueToday) {
     todayOrOverdue = myTasks.filter(function(t) {
-      return t.limit && t.limit <= td;
+      return t.limit && t.limit <= td2;
     });
   }
   if (rf.scheduled) {
@@ -4125,7 +4127,7 @@ function collectReportTasks() {
       var todos = t.todos || [];
       todos.forEach(function(item, idx) {
         if (item.status === "done") return;
-        if (!item.date || item.date > td) return;
+        if (!item.date || item.date > td2) return;
         ltTodos.push({ parentTitle: t.title, text: item.text, status: item.status || "open", taskId: t.id, todoIdx: idx, estimatedH: item.estimatedH || null });
       });
     });
