@@ -4037,9 +4037,11 @@ function getMorningTaskIds() {
     if (t.status === "done") return false;
     return isTeikiDueToday(t);
   });
+  var waitingTasks = myTasks.filter(function(t) { return t.localStatus === "waiting"; });
   var ids = {};
   todayOrOverdue.forEach(function(t) { ids[t.id] = true; });
   teikiToday.forEach(function(t) { ids[t.id] = true; });
+  waitingTasks.forEach(function(t) { ids[t.id] = true; });
   return ids;
 }
 
