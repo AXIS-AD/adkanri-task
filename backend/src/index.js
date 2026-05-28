@@ -1584,7 +1584,7 @@ async function sendChatworkTask(formData, reqId, env) {
         const msgs = await msgsRes.json();
         if (Array.isArray(msgs) && msgs.length > 0) {
           const taskMsg = msgs[msgs.length - 1];
-          quoteBlock = '[qt][qtmeta aid=' + taskMsg.account.account_id + ' time=' + taskMsg.send_time + ']' + taskMsg.body + '[/qt]';
+          quoteBlock = '[qt][qtmeta aid=' + taskMsg.account.account_id + ' time=' + taskMsg.send_time + ']' + taskMsg.body.replace(/\[.*?\]/g, '').trim().slice(0, 500) + '[/qt]';
         }
       }
       const toMentions = NOTIFY_MEMBERS.map((m) => '[To:' + m.id + ']' + m.name + '\u3055\u3093').join('\n');
