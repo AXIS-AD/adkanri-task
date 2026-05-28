@@ -1530,10 +1530,10 @@ async function sendChatworkTask(formData, reqId, env) {
     }
   }
 
-  const infoBlock = '\n\n\u3010' + subLabel + '\u3011\n[info]\n\u4F9D\u983C\u8005\uFF1A' + formData.name
+  const infoBlock = '\n\n\u3010' + subLabel + '\u3011\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u4F9D\u983C\u8005\uFF1A' + formData.name
     + (formData.subCategory ? '\n\u5C0F\u5206\u985E\uFF1A' + formData.subCategory : '')
     + (fieldLines.length ? '\n' + fieldLines.join('\n') : '')
-    + '\n[/info]';
+    + '\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501';
 
   // ダッシュボード用ルーム (333632829) — メインのタスク
   let dashBody = '\u4F9D\u983C\u304C\u304D\u307E\u3057\u305F\u3002\u5BFE\u5FDC\u304A\u9858\u3044\u3057\u307E\u3059\uFF01';

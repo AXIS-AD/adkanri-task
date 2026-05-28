@@ -108,7 +108,7 @@ function sendChatworkTask(formData, reqId) {
   if (!businessHours) taskBody += '\n⚠️ 営業時間外のため全員にタスク化しています';
 
   const subLabel = formData.subCategory || formData.category;
-  taskBody += '\n\n【' + subLabel + '】\n[info]\n依頼者：' + formData.name + '\n大分類：' + formData.category;
+  taskBody += '\n\n【' + subLabel + '】\n━━━━━━━━━━━━━━━\n依頼者：' + formData.name + '\n大分類：' + formData.category;
   if (formData.subCategory) taskBody += '\n小分類：' + formData.subCategory;
   if (formData.fields) {
     formData.fields.forEach(function(f) {
@@ -117,7 +117,7 @@ function sendChatworkTask(formData, reqId) {
       }
     });
   }
-  taskBody += '\n[/info]';
+  taskBody += '\n━━━━━━━━━━━━━━━';
 
   const dueDateUnix = Math.floor(new Date().getTime() / 1000) + 86400;
   const url = 'https://api.chatwork.com/v2/rooms/' + cfg.roomId + '/tasks';
