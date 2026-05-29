@@ -4195,7 +4195,10 @@ function updateReportCatH(input) {
   var totalEl = document.getElementById("reportCatHTotal");
   if (totalEl) totalEl.textContent = "合計: " + total + "H";
   var ta = document.getElementById("reportPreview");
-  if (ta && !_reportDraftLoaded) ta.value = buildMorningReport(true);
+  if (ta && reportTabType === "morning") {
+    ta.value = buildMorningReport(true);
+    _reportDraftLoaded = false;
+  }
 }
 
 function buildStandupReport() {
