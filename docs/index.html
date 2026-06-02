@@ -183,10 +183,10 @@
   .pc-badge.st-stay { background: rgba(234,179,8,.2); color: var(--yellow); }
   .pc-badge.st-active { background: rgba(59,130,246,.2); color: var(--accent); }
   .progress-card-body { padding: 14px 16px; }
-  .pc-info { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 12px; }
-  .pc-info-item { display: flex; gap: 6px; font-size: 12px; padding: 2px 0; }
-  .pc-info-label { color: var(--text2); min-width: 65px; flex-shrink: 0; }
-  .pc-info-value { color: var(--text); font-weight: 500; }
+  .pc-info { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; margin-bottom: 8px; }
+  .pc-info-item { display: flex; gap: 6px; font-size: 12px; padding: 4px 6px; border-radius: 4px; background: var(--surface2); }
+  .pc-info-label { color: var(--text2); min-width: 70px; flex-shrink: 0; font-size: 11px; }
+  .pc-info-value { color: var(--text); font-weight: 500; word-break: break-all; }
   .pc-media-section { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
   .pc-media-row { margin-bottom: 8px; }
   .pc-media-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
@@ -2145,10 +2145,26 @@ function resetProgressFilters() {
   renderProgressTable();
 }
 
+function parseTaskBody(body) {
+  var fields = {};
+  if (!body) return fields;
+  var clean = body.replace(/\[.*?\]/g, "").replace(/\u2501+/g, "\n");
+  var lines = clean.split("\n");
+  lines.forEach(function(line) {
+    var m = line.match(/^(.+?)[：:]\s*(.+)$/);
+    if (m) {
+      var key = m[1].trim();
+      var val = m[2].trim();
+      if (val && key !== "\u4F9D\u983C\u8005" && key.length < 15) fields[key] = val;
+    }
+  });
+  return fields;
+}
+
 function renderProgressTable() {
   var area = document.getElementById("progressArea");
   var tasks = getTsunagiTasks();
-  if (tasks.length === 0) { area.innerHTML = '<div class="empty-state">つなぎこみタスクがありません</div>'; return; }
+  if (tasks.length === 0) { area.innerHTML = '<div class="empty-state">\u3064\u306A\u304E\u3053\u307F\u30BF\u30B9\u30AF\u304C\u3042\u308A\u307E\u305B\u3093</div>'; return; }
 
   var fPerson = document.getElementById("progressFilterPerson").value;
   var fStatus = document.getElementById("progressFilterStatus").value;
@@ -2162,7 +2178,7 @@ function renderProgressTable() {
     return true;
   });
 
-  if (filtered.length === 0) { area.innerHTML = '<div class="empty-state">該当データなし</div>'; return; }
+  if (filtered.length === 0) { area.innerHTML = '<div class="empty-state">\u8A72\u5F53\u30C7\u30FC\u30BF\u306A\u3057</div>'; return; }
 
   function stIcon(st) {
     if (st === "done") return "\u2705";
@@ -2183,7 +2199,6 @@ function renderProgressTable() {
     return "";
   }
 
-  // 完了を後ろに、それ以外は期日順
   filtered.sort(function(a, b) {
     var sa = a.localStatus || "open";
     var sb = b.localStatus || "open";
@@ -2196,29 +2211,47 @@ function renderProgressTable() {
   filtered.forEach(function(t) {
     var st = t.localStatus || t.status || "open";
     var badgeClass = stBadgeClass(st);
+    var bodyFields = parseTaskBody(t.body);
 
     html += '<div class="progress-card">';
-    // ヘッダ
     html += '<div class="progress-card-header">';
     html += '<div class="progress-card-title">' + esc(t.title || "(\u30BF\u30A4\u30C8\u30EB\u306A\u3057)") + '</div>';
     html += '<span class="pc-badge ' + badgeClass + '">' + stIcon(st) + ' ' + stLabel(st) + '</span>';
     html += '</div>';
 
     html += '<div class="progress-card-body">';
-    // 基本情報
     html += '<div class="pc-info">';
     if (t.assigneeName) html += '<div class="pc-info-item"><span class="pc-info-label">\u62C5\u5F53</span><span class="pc-info-value">' + esc(t.assigneeName) + '</span></div>';
     if (t.limit) html += '<div class="pc-info-item"><span class="pc-info-label">\u671F\u65E5</span><span class="pc-info-value">' + esc(t.limit) + '</span></div>';
+
+    // タスク本文から抽出したフィールドを表示
+    var displayKeys = ["\u6848\u4EF6\u540D", "\u5A92\u4F53", "\u5546\u6D41", "ASP", "\u904B\u7528\u62C5\u5F53\u8005", "\u8A18\u4E8B\u7A2E\u5225", "LP", "\u30EA\u30F3\u30AF\u672C\u6570", "\u5358\u4FA1", "\u5C0F\u5206\u985E", "\u8A73\u7D30", "\u30AA\u30D5\u30A1\u30FC\u540D", "\u30A2\u30AB\u30A6\u30F3\u30C8\u540D", "\u30DA\u30FC\u30B8\u540D", "\u30D4\u30AF\u30BB\u30EB"];
+    displayKeys.forEach(function(key) {
+      if (bodyFields[key]) {
+        html += '<div class="pc-info-item"><span class="pc-info-label">' + esc(key) + '</span><span class="pc-info-value">' + esc(bodyFields[key]) + '</span></div>';
+      }
+    });
+    // displayKeysに含まれない未知のフィールドも表示
+    Object.keys(bodyFields).forEach(function(key) {
+      if (displayKeys.indexOf(key) < 0 && key !== "\u5927\u5206\u985E" && key !== "\u5099\u8003") {
+        html += '<div class="pc-info-item"><span class="pc-info-label">' + esc(key) + '</span><span class="pc-info-value">' + esc(bodyFields[key]) + '</span></div>';
+      }
+    });
+
     if (t.priority && t.priority !== "medium") html += '<div class="pc-info-item"><span class="pc-info-label">\u512A\u5148\u5EA6</span><span class="pc-info-value">' + esc(t.priority === "high" ? "\u9AD8" : "\u4F4E") + '</span></div>';
     html += '</div>';
 
+    // 備考（本文から）
+    if (bodyFields["\u5099\u8003"]) {
+      html += '<div class="pc-note">' + esc(bodyFields["\u5099\u8003"]) + '</div>';
+    }
     // メモ
     if (t.note) {
       html += '<div class="pc-note">' + esc(t.note) + '</div>';
     }
 
-    html += '</div>'; // card-body
-    html += '</div>'; // card
+    html += '</div>';
+    html += '</div>';
   });
   html += '</div>';
 
