@@ -175,7 +175,8 @@
   .req-filter-reset:hover { background: var(--border); color: var(--text); }
 
   .progress-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
-  .progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: border-color .2s; }
+  .progress-card:hover { border-color: var(--accent); }
   .progress-card-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); }
   .progress-card-title { font-weight: 700; font-size: 14px; color: var(--text); flex: 1; }
   .pc-badge { font-size: 11px; padding: 3px 10px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
@@ -2213,7 +2214,7 @@ function renderProgressTable() {
     var badgeClass = stBadgeClass(st);
     var bodyFields = parseTaskBody(t.body);
 
-    html += '<div class="progress-card">';
+    html += '<div class="progress-card" onclick="openModal(\'' + t.id + '\')">';
     html += '<div class="progress-card-header">';
     html += '<div class="progress-card-title">' + esc(t.title || "(\u30BF\u30A4\u30C8\u30EB\u306A\u3057)") + '</div>';
     html += '<span class="pc-badge ' + badgeClass + '">' + stIcon(st) + ' ' + stLabel(st) + '</span>';
