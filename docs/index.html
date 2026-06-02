@@ -202,6 +202,22 @@
   .pc-task-item.task-done { color: var(--text2); text-decoration: line-through; }
   .pc-note { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; font-size: 11px; color: var(--text2); white-space: pre-wrap; word-break: break-word; }
 
+  .pc-popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .pc-popup { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto; }
+  .pc-popup-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 24px 12px; gap: 12px; }
+  .pc-popup-title { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.4; }
+  .pc-popup-close { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 0 4px; }
+  .pc-popup-close:hover { color: var(--text); }
+  .pc-popup-status { padding: 0 24px 16px; font-size: 14px; font-weight: 600; }
+  .pc-popup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 24px 16px; }
+  .pc-popup-field { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .pc-popup-field-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .pc-popup-field-value { font-size: 14px; font-weight: 600; color: var(--text); word-break: break-word; }
+  .pc-popup-notes { margin: 0 24px 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .pc-popup-notes-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+  .pc-popup-notes-body { font-size: 13px; color: var(--text); white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+  .pc-popup-actions { padding: 0 24px 20px; display: flex; justify-content: flex-end; gap: 8px; }
+
   .req-table th.req-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
   .req-table th.req-sortable:hover { color: var(--accent); }
   .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; margin-bottom: 10px; }
@@ -2212,45 +2228,18 @@ function renderProgressTable() {
   filtered.forEach(function(t) {
     var st = t.localStatus || t.status || "open";
     var badgeClass = stBadgeClass(st);
-    var bodyFields = parseTaskBody(t.body);
 
-    html += '<div class="progress-card" onclick="openModal(\'' + t.id + '\')">';
+    html += '<div class="progress-card" onclick="openProgressPopup(\'' + t.id + '\')">';
     html += '<div class="progress-card-header">';
     html += '<div class="progress-card-title">' + esc(t.title || "(\u30BF\u30A4\u30C8\u30EB\u306A\u3057)") + '</div>';
     html += '<span class="pc-badge ' + badgeClass + '">' + stIcon(st) + ' ' + stLabel(st) + '</span>';
     html += '</div>';
-
     html += '<div class="progress-card-body">';
-    html += '<div class="pc-info">';
-    if (t.assigneeName) html += '<div class="pc-info-item"><span class="pc-info-label">\u62C5\u5F53</span><span class="pc-info-value">' + esc(t.assigneeName) + '</span></div>';
-    if (t.limit) html += '<div class="pc-info-item"><span class="pc-info-label">\u671F\u65E5</span><span class="pc-info-value">' + esc(t.limit) + '</span></div>';
-
-    // タスク本文から抽出したフィールドを表示
-    var displayKeys = ["\u6848\u4EF6\u540D", "\u5A92\u4F53", "\u5546\u6D41", "ASP", "\u904B\u7528\u62C5\u5F53\u8005", "\u8A18\u4E8B\u7A2E\u5225", "LP", "\u30EA\u30F3\u30AF\u672C\u6570", "\u5358\u4FA1", "\u5C0F\u5206\u985E", "\u8A73\u7D30", "\u30AA\u30D5\u30A1\u30FC\u540D", "\u30A2\u30AB\u30A6\u30F3\u30C8\u540D", "\u30DA\u30FC\u30B8\u540D", "\u30D4\u30AF\u30BB\u30EB"];
-    displayKeys.forEach(function(key) {
-      if (bodyFields[key]) {
-        html += '<div class="pc-info-item"><span class="pc-info-label">' + esc(key) + '</span><span class="pc-info-value">' + esc(bodyFields[key]) + '</span></div>';
-      }
-    });
-    // displayKeysに含まれない未知のフィールドも表示
-    Object.keys(bodyFields).forEach(function(key) {
-      if (displayKeys.indexOf(key) < 0 && key !== "\u5927\u5206\u985E" && key !== "\u5099\u8003") {
-        html += '<div class="pc-info-item"><span class="pc-info-label">' + esc(key) + '</span><span class="pc-info-value">' + esc(bodyFields[key]) + '</span></div>';
-      }
-    });
-
-    if (t.priority && t.priority !== "medium") html += '<div class="pc-info-item"><span class="pc-info-label">\u512A\u5148\u5EA6</span><span class="pc-info-value">' + esc(t.priority === "high" ? "\u9AD8" : "\u4F4E") + '</span></div>';
+    html += '<div style="display:flex;gap:12px;font-size:12px;color:var(--text2);">';
+    if (t.assigneeName) html += '<span>\u62C5\u5F53: ' + esc(t.assigneeName) + '</span>';
+    if (t.limit) html += '<span>\u671F\u65E5: ' + esc(t.limit) + '</span>';
     html += '</div>';
-
-    // 備考（本文から）
-    if (bodyFields["\u5099\u8003"]) {
-      html += '<div class="pc-note">' + esc(bodyFields["\u5099\u8003"]) + '</div>';
-    }
-    // メモ
-    if (t.note) {
-      html += '<div class="pc-note">' + esc(t.note) + '</div>';
-    }
-
+    if (t.note) html += '<div style="font-size:11px;color:var(--text2);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(t.note) + '</div>';
     html += '</div>';
     html += '</div>';
   });
@@ -2259,6 +2248,75 @@ function renderProgressTable() {
   var doneCount = filtered.filter(function(t) { return (t.localStatus || "open") === "done"; }).length;
   html += '<div style="margin-top:12px;font-size:11px;color:var(--text2);">' + filtered.length + '\u4EF6\u8868\u793A\uFF08\u5B8C\u4E86: ' + doneCount + '\u4EF6\uFF09</div>';
   area.innerHTML = html;
+}
+
+function openProgressPopup(id) {
+  var t = allTasks.find(function(x) { return x.id === id; });
+  if (!t) return;
+  var st = t.localStatus || t.status || "open";
+  var stMap = { done: "\u2705 \u5B8C\u4E86", in_progress: "\uD83D\uDD3C \u7740\u624B\u4E2D", waiting: "\u23F3 \u76F8\u624B\u5F85\u3061" };
+  var stText = stMap[st] || "\u2B1C \u672A\u7740\u624B";
+  var bodyFields = parseTaskBody(t.body);
+
+  var html = '<div class="pc-popup-overlay" onclick="closeProgressPopup()">';
+  html += '<div class="pc-popup" onclick="event.stopPropagation()">';
+  html += '<div class="pc-popup-header">';
+  html += '<div class="pc-popup-title">' + esc(t.title || "") + '</div>';
+  html += '<button class="pc-popup-close" onclick="closeProgressPopup()">\u2715</button>';
+  html += '</div>';
+  html += '<div class="pc-popup-status">' + stText + '</div>';
+
+  // フィールドグリッド
+  html += '<div class="pc-popup-grid">';
+  var fields = [];
+  if (t.assigneeName) fields.push(["\u62C5\u5F53", t.assigneeName]);
+  if (t.limit) fields.push(["\u671F\u65E5", t.limit]);
+  var allKeys = ["\u6848\u4EF6\u540D", "\u5A92\u4F53", "\u5546\u6D41", "ASP", "\u904B\u7528\u62C5\u5F53\u8005", "\u8A18\u4E8B\u7A2E\u5225", "LP", "\u30EA\u30F3\u30AF\u672C\u6570", "\u5358\u4FA1", "\u30AA\u30D5\u30A1\u30FC\u540D", "\u30A2\u30AB\u30A6\u30F3\u30C8\u540D", "\u30DA\u30FC\u30B8\u540D", "\u30D4\u30AF\u30BB\u30EB", "\u5C0F\u5206\u985E", "\u8A73\u7D30"];
+  allKeys.forEach(function(k) { if (bodyFields[k]) fields.push([k, bodyFields[k]]); });
+  Object.keys(bodyFields).forEach(function(k) { if (allKeys.indexOf(k) < 0 && k !== "\u5927\u5206\u985E" && k !== "\u5099\u8003") fields.push([k, bodyFields[k]]); });
+
+  fields.forEach(function(f) {
+    var val = f[1];
+    var isUrl = val.match(/^https?:\/\//);
+    html += '<div class="pc-popup-field">';
+    html += '<div class="pc-popup-field-label">' + esc(f[0]) + '</div>';
+    if (isUrl) {
+      html += '<div class="pc-popup-field-value"><a href="' + esc(val) + '" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all;">' + esc(val) + '</a></div>';
+    } else {
+      html += '<div class="pc-popup-field-value">' + esc(val) + '</div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // メモ・備考
+  var notes = [];
+  if (bodyFields["\u5099\u8003"]) notes.push(bodyFields["\u5099\u8003"]);
+  if (t.note) notes.push(t.note);
+  if (notes.length > 0) {
+    html += '<div class="pc-popup-notes">';
+    html += '<div class="pc-popup-notes-label">\u6848\u4EF6\u8A73\u7D30:</div>';
+    html += '<div class="pc-popup-notes-body">' + esc(notes.join("\n\n")) + '</div>';
+    html += '</div>';
+  }
+
+  html += '<div class="pc-popup-actions">';
+  html += '<button onclick="closeProgressPopup();openModal(\'' + t.id + '\')" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;">\u7DE8\u96C6</button>';
+  html += '</div>';
+  html += '</div></div>';
+
+  var container = document.getElementById("progressPopupContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "progressPopupContainer";
+    document.body.appendChild(container);
+  }
+  container.innerHTML = html;
+}
+
+function closeProgressPopup() {
+  var c = document.getElementById("progressPopupContainer");
+  if (c) c.innerHTML = "";
 }
 
 // ============================
