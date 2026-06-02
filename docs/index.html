@@ -173,6 +173,34 @@
   .req-filter-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,.2); }
   .req-filter-reset { font-size: 12px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text2); cursor: pointer; }
   .req-filter-reset:hover { background: var(--border); color: var(--text); }
+
+  .progress-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+  .progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .progress-card-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .progress-card-title { font-weight: 700; font-size: 14px; color: var(--text); flex: 1; }
+  .pc-badge { font-size: 11px; padding: 3px 10px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
+  .pc-badge.st-done { background: rgba(34,197,94,.2); color: var(--green); }
+  .pc-badge.st-stay { background: rgba(234,179,8,.2); color: var(--yellow); }
+  .pc-badge.st-active { background: rgba(59,130,246,.2); color: var(--accent); }
+  .progress-card-body { padding: 14px 16px; }
+  .pc-info { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 12px; }
+  .pc-info-item { display: flex; gap: 6px; font-size: 12px; padding: 2px 0; }
+  .pc-info-label { color: var(--text2); min-width: 65px; flex-shrink: 0; }
+  .pc-info-value { color: var(--text); font-weight: 500; }
+  .pc-media-section { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+  .pc-media-row { margin-bottom: 8px; }
+  .pc-media-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .pc-setup-items { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pc-setup-item { font-size: 11px; display: flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); }
+  .pc-setup-item.done { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.3); }
+  .pc-setup-item.in_progress { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.3); }
+  .pc-setup-item.waiting { background: rgba(234,179,8,.15); border-color: rgba(234,179,8,.3); }
+  .pc-tasks { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+  .pc-tasks-title { font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+  .pc-task-item { font-size: 12px; display: flex; gap: 5px; align-items: center; padding: 3px 0; color: var(--text); }
+  .pc-task-item.task-done { color: var(--text2); text-decoration: line-through; }
+  .pc-note { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; font-size: 11px; color: var(--text2); white-space: pre-wrap; word-break: break-word; }
+
   .req-table th.req-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
   .req-table th.req-sortable:hover { color: var(--accent); }
   .card-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; margin-bottom: 10px; }
@@ -1029,14 +1057,13 @@
             <label class="req-filter-label">ステータス</label>
             <select id="progressFilterStatus" class="req-filter-select" onchange="renderProgressTable()">
               <option value="">すべて</option>
-              <option value="ステイ">ステイ</option>
-              <option value="完了">完了</option>
+              <option value="open">未着手</option>
+              <option value="in_progress">着手中</option>
+              <option value="waiting">相手待ち</option>
+              <option value="done">完了</option>
             </select>
           </div>
-          <div class="req-filter-group">
-            <label class="req-filter-label">媒体</label>
-            <select id="progressFilterMedia" class="req-filter-select" onchange="renderProgressTable()"><option value="">すべて</option></select>
-          </div>
+          <select id="progressFilterMedia" style="display:none;"><option value="">すべて</option></select>
           <button class="req-filter-reset" onclick="resetProgressFilters()">リセット</button>
         </div>
         <div id="progressArea"><div class="empty-state">読み込み中...</div></div>
@@ -2078,42 +2105,37 @@ function openRequestModal(idx) {
 // ============================
 // つなぎこみ進捗
 // ============================
-var progressData = [];
 var progressLoaded = false;
 
-async function loadProgress() {
-  if (progressLoaded) return;
-  var area = document.getElementById("progressArea");
-  area.innerHTML = '<div class="empty-state">読み込み中...</div>';
-  try {
-    var data = await apiCall("GET", "/api/project-progress");
-    progressData = Array.isArray(data) ? data : [];
-    progressLoaded = true;
-    buildProgressFilters();
-    renderProgressTable();
-  } catch (e) {
-    area.innerHTML = '<div class="empty-state">読み込みに失敗しました: ' + esc(e.message) + '</div>';
-  }
+function loadProgress() {
+  if (!tasksLoaded) { document.getElementById("progressArea").innerHTML = '<div class="empty-state">タスクを先に読み込んでください</div>'; return; }
+  progressLoaded = true;
+  buildProgressFilters();
+  renderProgressTable();
 }
 
 function buildProgressFilters() {
-  var persons = {}, medias = {}, statuses = {};
-  progressData.forEach(function(r) {
-    if (r.person) persons[r.person] = true;
-    if (r.media) medias[r.media] = true;
-    if (r.status) statuses[r.status] = true;
+  var tasks = getTsunagiTasks();
+  var persons = {}, statuses = {};
+  tasks.forEach(function(t) {
+    var p = t.assigneeName || "";
+    if (p) persons[p] = true;
+    var st = t.localStatus || t.status || "open";
+    statuses[st] = true;
   });
   var pSel = document.getElementById("progressFilterPerson");
-  var mSel = document.getElementById("progressFilterMedia");
   var sSel = document.getElementById("progressFilterStatus");
   pSel.innerHTML = '<option value="">すべて</option>';
-  mSel.innerHTML = '<option value="">すべて</option>';
-  var sVal = sSel.value;
-  sSel.innerHTML = '<option value="">すべて</option>';
   Object.keys(persons).sort().forEach(function(n) { pSel.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
-  Object.keys(medias).sort().forEach(function(n) { mSel.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
-  Object.keys(statuses).sort().forEach(function(n) { sSel.innerHTML += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  var sVal = sSel.value;
+  sSel.innerHTML = '<option value="">すべて</option><option value="open">未着手</option><option value="in_progress">着手中</option><option value="waiting">相手待ち</option><option value="done">完了</option>';
   sSel.value = sVal;
+}
+
+function getTsunagiTasks() {
+  return allTasks.filter(function(t) {
+    return normalizeCategory(t.category) === "tsunagikomi" && !t.isManual;
+  });
 }
 
 function resetProgressFilters() {
@@ -2125,41 +2147,83 @@ function resetProgressFilters() {
 
 function renderProgressTable() {
   var area = document.getElementById("progressArea");
-  if (progressData.length === 0) { area.innerHTML = '<div class="empty-state">データがありません</div>'; return; }
+  var tasks = getTsunagiTasks();
+  if (tasks.length === 0) { area.innerHTML = '<div class="empty-state">つなぎこみタスクがありません</div>'; return; }
+
   var fPerson = document.getElementById("progressFilterPerson").value;
   var fStatus = document.getElementById("progressFilterStatus").value;
-  var fMedia = document.getElementById("progressFilterMedia").value;
 
-  var filtered = progressData.filter(function(r) {
-    if (fPerson && r.person !== fPerson) return false;
-    if (fStatus && r.status !== fStatus) return false;
-    if (fMedia && r.media !== fMedia) return false;
+  var filtered = tasks.filter(function(t) {
+    if (fPerson && t.assigneeName !== fPerson) return false;
+    if (fStatus) {
+      var st = t.localStatus || t.status || "open";
+      if (st !== fStatus) return false;
+    }
     return true;
   });
 
   if (filtered.length === 0) { area.innerHTML = '<div class="empty-state">該当データなし</div>'; return; }
 
-  var html = '<div class="list-table-wrap"><table class="task-list-table" style="font-size:12px;"><thead><tr>';
-  html += '<th>担当</th><th>種別</th><th>オファー名</th><th>ステータス</th><th>案件名</th><th>媒体</th><th>記事個別</th><th>担当運用者</th><th>出稿予定日</th><th>配信開始予定日</th><th>進捗状況</th>';
-  html += '</tr></thead><tbody>';
-  filtered.forEach(function(r) {
-    var stCls = r.status === "完了" ? "color:var(--green);" : r.status === "ステイ" ? "color:var(--yellow);" : "";
-    html += '<tr>';
-    html += '<td>' + esc(r.person || '') + '</td>';
-    html += '<td>' + esc(r.type || '') + '</td>';
-    html += '<td>' + esc(r.offer || '') + '</td>';
-    html += '<td style="' + stCls + 'font-weight:600;">' + esc(r.status || '') + '</td>';
-    html += '<td>' + esc(r.project || '') + '</td>';
-    html += '<td>' + esc(r.media || '') + '</td>';
-    html += '<td>' + esc(r.article || '') + '</td>';
-    html += '<td>' + esc(r.operator || '') + '</td>';
-    html += '<td>' + esc(r.shipDate || '') + '</td>';
-    html += '<td>' + esc(r.startDate || '') + '</td>';
-    html += '<td style="font-size:11px;max-width:200px;white-space:pre-wrap;word-break:break-word;">' + esc(r.progress || '') + '</td>';
-    html += '</tr>';
+  function stIcon(st) {
+    if (st === "done") return "\u2705";
+    if (st === "in_progress") return "\uD83D\uDD3C";
+    if (st === "waiting") return "\u23F3";
+    return "\u2B1C";
+  }
+  function stLabel(st) {
+    if (st === "done") return "\u5B8C\u4E86";
+    if (st === "in_progress") return "\u7740\u624B\u4E2D";
+    if (st === "waiting") return "\u76F8\u624B\u5F85\u3061";
+    return "\u672A\u7740\u624B";
+  }
+  function stBadgeClass(st) {
+    if (st === "done") return "st-done";
+    if (st === "in_progress") return "st-active";
+    if (st === "waiting") return "st-stay";
+    return "";
+  }
+
+  // 完了を後ろに、それ以外は期日順
+  filtered.sort(function(a, b) {
+    var sa = a.localStatus || "open";
+    var sb = b.localStatus || "open";
+    if (sa === "done" && sb !== "done") return 1;
+    if (sa !== "done" && sb === "done") return -1;
+    return (a.limit || "9999") < (b.limit || "9999") ? -1 : 1;
   });
-  html += '</tbody></table></div>';
-  html += '<div style="margin-top:8px;font-size:11px;color:var(--text2);">' + filtered.length + '件表示</div>';
+
+  var html = '<div class="progress-cards">';
+  filtered.forEach(function(t) {
+    var st = t.localStatus || t.status || "open";
+    var badgeClass = stBadgeClass(st);
+
+    html += '<div class="progress-card">';
+    // ヘッダ
+    html += '<div class="progress-card-header">';
+    html += '<div class="progress-card-title">' + esc(t.title || "(\u30BF\u30A4\u30C8\u30EB\u306A\u3057)") + '</div>';
+    html += '<span class="pc-badge ' + badgeClass + '">' + stIcon(st) + ' ' + stLabel(st) + '</span>';
+    html += '</div>';
+
+    html += '<div class="progress-card-body">';
+    // 基本情報
+    html += '<div class="pc-info">';
+    if (t.assigneeName) html += '<div class="pc-info-item"><span class="pc-info-label">\u62C5\u5F53</span><span class="pc-info-value">' + esc(t.assigneeName) + '</span></div>';
+    if (t.limit) html += '<div class="pc-info-item"><span class="pc-info-label">\u671F\u65E5</span><span class="pc-info-value">' + esc(t.limit) + '</span></div>';
+    if (t.priority && t.priority !== "medium") html += '<div class="pc-info-item"><span class="pc-info-label">\u512A\u5148\u5EA6</span><span class="pc-info-value">' + esc(t.priority === "high" ? "\u9AD8" : "\u4F4E") + '</span></div>';
+    html += '</div>';
+
+    // メモ
+    if (t.note) {
+      html += '<div class="pc-note">' + esc(t.note) + '</div>';
+    }
+
+    html += '</div>'; // card-body
+    html += '</div>'; // card
+  });
+  html += '</div>';
+
+  var doneCount = filtered.filter(function(t) { return (t.localStatus || "open") === "done"; }).length;
+  html += '<div style="margin-top:12px;font-size:11px;color:var(--text2);">' + filtered.length + '\u4EF6\u8868\u793A\uFF08\u5B8C\u4E86: ' + doneCount + '\u4EF6\uFF09</div>';
   area.innerHTML = html;
 }
 
