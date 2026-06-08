@@ -110,11 +110,9 @@ app.get("/api/people", (_req, res) => {
   } else {
     const ids = [...new Set(AD_MEMBER_IDS.filter(Boolean))];
     const idTsutsui = ids.find((id) => id !== MY_ID) || ids[0] || MY_ID;
-    const idIshida = ids.find((id) => id !== MY_ID && id !== idTsutsui) || ids[1] || ids[0];
     people = [
       { name: "筒井", id: idTsutsui },
       { name: "友利", id: MY_ID },
-      { name: "石田", id: idIshida },
     ].filter((p) => p.id);
   }
   res.json({ people, myId: MY_ID });

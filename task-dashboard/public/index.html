@@ -949,7 +949,6 @@ async function loadAll() {
 const PERSON_COLORS = {
   "筒井": "#b8e986",
   "友利": "#ffb3d9",
-  "石田": "#87ceeb",
 };
 
 function renderPersonButtons() {
@@ -957,7 +956,6 @@ function renderPersonButtons() {
   const people = peopleData.length > 0 ? peopleData : [
     { name: "筒井", id: 0 },
     { name: "友利", id: 0 },
-    { name: "石田", id: 0 },
   ];
   const activeId = selectedPersonId ?? myId ?? people[0]?.id;
   const buttons = people.map((p) => {
