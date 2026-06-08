@@ -2988,7 +2988,7 @@ function editTitle(id, btn) {
 
 var currentModalId = null;
 function buildModalAssigneeSelect(currentAssigneeId) {
-  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 9797164 }, { name: "\u53CB\u5229", id: 10034061 }, { name: "\u77F3\u7530", id: 10696465 }, { name: "\u897F\u6751", id: 5420288 }];
+  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 9797164 }, { name: "\u53CB\u5229", id: 10034061 }, { name: "\u897F\u6751", id: 5420288 }];
   return people.map(function(p) {
     return '<option value="' + p.id + '" data-name="' + esc(p.name) + '"' + (String(p.id) === String(currentAssigneeId) ? ' selected' : '') + '>' + esc(p.name) + '</option>';
   }).join("");
@@ -3196,7 +3196,7 @@ function closeModal() { document.getElementById("taskModal").classList.add("hidd
 document.addEventListener("keydown", function(e) { if (e.key === "Escape" && currentModalId) closeModal(); });
 
 function buildAssigneeSelect(taskId, currentAssigneeId) {
-  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 9797164 }, { name: "\u53CB\u5229", id: 10034061 }, { name: "\u77F3\u7530", id: 10696465 }, { name: "\u897F\u6751", id: 5420288 }];
+  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 9797164 }, { name: "\u53CB\u5229", id: 10034061 }, { name: "\u897F\u6751", id: 5420288 }];
   return '<select onchange="handleAssigneeChange(\'' + taskId + '\',this)">' + people.map(function(p) {
     return '<option value="' + p.id + '" data-name="' + esc(p.name) + '"' + (String(p.id) === String(currentAssigneeId) ? ' selected' : '') + '>' + esc(p.name) + '</option>';
   }).join("") + '</select>';
@@ -3366,7 +3366,7 @@ function addManualTask(category, initialStatus) {
   document.getElementById("modalMeta").innerHTML = '';
   document.getElementById("modalActions").innerHTML = '';
 
-  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
+  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u897F\u6751", id: 0 }];
   var defaultPid = selectedPersonId && selectedPersonId !== "all" ? selectedPersonId : myId;
   var bodyHtml = '';
   bodyHtml += '<div class="modal-form-group"><label>タスク名</label><input type="text" id="addTaskTitle" placeholder="タスク名を入力"></div>';
@@ -3927,7 +3927,7 @@ function renderAll() {
   var html = filterBanner;
 
   if (!isManualGenre && selectedGenre === "all") {
-    var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
+    var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u897F\u6751", id: 0 }];
     var manualExclude = ["teiki", "long_term"];
     var chatworkTasks = allTasks.filter(function(t) {
       if (manualExclude.indexOf(normalizeCategory(t.category)) !== -1) return false;
@@ -4059,10 +4059,10 @@ function renderAll() {
   document.getElementById("app").innerHTML = html;
 }
 
-var PERSON_COLORS = { "\u7B52\u4E95": "#b8e986", "\u53CB\u5229": "#ffb3d9", "\u77F3\u7530": "#87ceeb", "\u897F\u6751": "#f0c674" };
+var PERSON_COLORS = { "\u7B52\u4E95": "#b8e986", "\u53CB\u5229": "#ffb3d9", "\u897F\u6751": "#f0c674" };
 function renderPersonButtons() {
   var row = document.getElementById("personRow");
-  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u77F3\u7530", id: 0 }, { name: "\u897F\u6751", id: 0 }];
+  var people = peopleData.length > 0 ? peopleData : [{ name: "\u7B52\u4E95", id: 0 }, { name: "\u53CB\u5229", id: 0 }, { name: "\u897F\u6751", id: 0 }];
   var activeId = selectedPersonId != null ? selectedPersonId : (myId != null ? myId : (people[0] ? people[0].id : null));
   var optsHtml = '<option value="all"' + (activeId === "all" ? ' selected' : '') + '>全員</option>';
   optsHtml += people.map(function(p) {
