@@ -4345,15 +4345,40 @@ function updateReportCatH(input) {
   _reportCatH[cat] = val;
   // 合計を再計算
   var total = 0;
+  var taskTotal = 0;
   document.querySelectorAll("[data-rh-cat]").forEach(function(el) {
-    total += el.value ? parseFloat(el.value) : 0;
+    var v = el.value ? parseFloat(el.value) : 0;
+    total += v;
+    if (el.getAttribute("data-rh-cat") !== "_buffer") taskTotal += v;
   });
   var totalEl = document.getElementById("reportCatHTotal");
   if (totalEl) totalEl.textContent = "合計: " + total + "H";
+  // H変更時は報告テキスト内の数値部分だけ差し替える（手動編集を保持）
   var ta = document.getElementById("reportPreview");
   if (ta && reportTabType === "morning") {
-    ta.value = buildMorningReport(true);
-    _reportDraftLoaded = false;
+    var text = ta.value;
+    var bufferH = _reportCatH["_buffer"] != null ? parseFloat(_reportCatH["_buffer"]) : 1;
+    // タスク合計行を差し替え
+    text = text.replace(/タスク合計: [\d.]+H/, "タスク合計: " + taskTotal + "H");
+    // 差し込みバッファ行を差し替え
+    text = text.replace(/差し込みバッファ: [\d.]+H/, "差し込みバッファ: " + bufferH + "H");
+    // 合計行を差し替え（タスク合計+バッファ）
+    text = text.replace(/合計: [\d.]+H/, "合計: " + (taskTotal + bufferH) + "H");
+    // 各カテゴリの【カテゴリ名】NHを差し替え
+    CATEGORY_ORDER.forEach(function(k) {
+      var label = CATEGORY_LABELS[k];
+      if (!label) return;
+      var catH = _reportCatH[k] ? parseFloat(_reportCatH[k]) : 0;
+      var re = new RegExp("【" + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "】[\\d.]*H?");
+      text = text.replace(re, "【" + label + "】" + (catH > 0 ? catH + "H" : ""));
+    });
+    // 定期タスク
+    var teikiH = _reportCatH["teiki"] ? parseFloat(_reportCatH["teiki"]) : 0;
+    text = text.replace(/【定期タスク】[\d.]*H?/, "【定期タスク】" + (teikiH > 0 ? teikiH + "H" : ""));
+    // 長期タスク
+    var ltH = _reportCatH["long_term"] ? parseFloat(_reportCatH["long_term"]) : 0;
+    text = text.replace(/【長期タスク】[\d.]*H?/, "【長期タスク】" + (ltH > 0 ? ltH + "H" : ""));
+    ta.value = text;
   }
 }
 
