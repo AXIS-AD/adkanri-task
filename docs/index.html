@@ -2246,6 +2246,24 @@ function renderProgressTable() {
     return (a.limit || "9999") < (b.limit || "9999") ? -1 : 1;
   });
 
+  // プルダウン用の選択肢を全タスクから収集
+  var _tsunagiOpts = { flow: {}, media: {}, anken: {} };
+  tasks.forEach(function(t) {
+    var f = parseTaskBody(t.body);
+    var tf = t.tsunagiFields || {};
+    var v1 = tf.flow != null ? tf.flow : (f["\u5546\u6D41"] || f["ASP"] || "");
+    var v2 = tf.media != null ? tf.media : (f["\u5A92\u4F53"] || "");
+    var v3 = tf.anken != null ? tf.anken : (f["\u6848\u4EF6\u540D"] || f["\u30A2\u30AB\u30A6\u30F3\u30C8\u540D"] || "");
+    if (v1) _tsunagiOpts.flow[v1] = true;
+    if (v2) _tsunagiOpts.media[v2] = true;
+    if (v3) _tsunagiOpts.anken[v3] = true;
+  });
+  window._tsunagiSelectOpts = {
+    flow: Object.keys(_tsunagiOpts.flow).sort(),
+    media: Object.keys(_tsunagiOpts.media).sort(),
+    anken: Object.keys(_tsunagiOpts.anken).sort()
+  };
+
   var html = '<div class="tsunagi-table-wrap"><table class="tsunagi-table">';
   html += '<thead><tr>';
   html += '<th>担当者</th><th>種別</th><th>オファー名</th><th>ステータス</th><th>案件名</th><th>商流</th><th>媒体</th><th>記事種別</th><th>担当運用者</th><th>出稿予定日</th><th>記事リリース予定日</th><th>配信開始予定日</th><th>進捗状況</th>';
@@ -2276,15 +2294,18 @@ function renderProgressTable() {
     function edCell(key, val, cls) {
       return '<td class="td-editable ' + (cls || '') + '" onclick="event.stopPropagation();tsunagiEdit(this,\'' + tid + '\',\'' + key + '\')" title="' + esc(val) + '">' + esc(val) + '</td>';
     }
+    function selCell(key, val, optsKey, cls) {
+      return '<td class="td-editable ' + (cls || '') + '" onclick="event.stopPropagation();tsunagiEditSelect(this,\'' + tid + '\',\'' + key + '\',\'' + optsKey + '\')" title="' + esc(val) + '">' + esc(val) + '</td>';
+    }
 
     html += '<tr class="' + (isDone ? 'tr-done' : '') + '">';
     html += edCell("assignee", vals.assignee);
     html += edCell("shubetsu", vals.shubetsu);
     html += edCell("offer", vals.offer, "td-title");
     html += '<td class="td-editable td-status" onclick="event.stopPropagation();tsunagiEditStatus(this,\'' + tid + '\')"><span class="pc-badge ' + badgeClass + '">' + stLabel(st) + '</span></td>';
-    html += edCell("anken", vals.anken, "td-title");
-    html += edCell("flow", vals.flow);
-    html += edCell("media", vals.media);
+    html += selCell("anken", vals.anken, "anken", "td-title");
+    html += selCell("flow", vals.flow, "flow");
+    html += selCell("media", vals.media, "media");
     html += edCell("articleType", vals.articleType);
     html += edCell("operator", vals.operator);
     html += edCell("shipDate", vals.shipDate);
@@ -2324,6 +2345,65 @@ function tsunagiEdit(td, taskId, fieldKey) {
         if (!t.tsunagiFields) t.tsunagiFields = {};
         t.tsunagiFields[fieldKey] = newVal;
         dashUpdate(taskId, { tsunagiFields: t.tsunagiFields });
+      }
+    }
+  }
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+    if (e.key === "Escape") { input.value = curVal; input.blur(); }
+  });
+}
+
+function tsunagiEditSelect(td, taskId, fieldKey, optsKey) {
+  if (td.classList.contains("td-editing")) return;
+  var curVal = td.textContent.trim();
+  var options = (window._tsunagiSelectOpts && window._tsunagiSelectOpts[optsKey]) || [];
+  td.classList.add("td-editing");
+
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "position:relative;";
+  var input = document.createElement("input");
+  input.type = "text";
+  input.value = curVal;
+  input.setAttribute("list", "tsunagi-dl-" + optsKey);
+  wrap.appendChild(input);
+
+  // datalistが無ければ作る
+  if (!document.getElementById("tsunagi-dl-" + optsKey)) {
+    var dl = document.createElement("datalist");
+    dl.id = "tsunagi-dl-" + optsKey;
+    options.forEach(function(v) {
+      var o = document.createElement("option");
+      o.value = v;
+      dl.appendChild(o);
+    });
+    document.body.appendChild(dl);
+  }
+
+  td.textContent = "";
+  td.appendChild(wrap);
+  input.focus();
+  input.select();
+
+  function save() {
+    var newVal = input.value.trim();
+    td.classList.remove("td-editing");
+    td.textContent = newVal;
+    td.title = newVal;
+    if (newVal !== curVal) {
+      var t = allTasks.find(function(x) { return x.id === taskId; });
+      if (t) {
+        if (!t.tsunagiFields) t.tsunagiFields = {};
+        t.tsunagiFields[fieldKey] = newVal;
+        dashUpdate(taskId, { tsunagiFields: t.tsunagiFields });
+        // 選択肢に無ければ追加
+        if (newVal && window._tsunagiSelectOpts[optsKey].indexOf(newVal) === -1) {
+          window._tsunagiSelectOpts[optsKey].push(newVal);
+          window._tsunagiSelectOpts[optsKey].sort();
+          var dl = document.getElementById("tsunagi-dl-" + optsKey);
+          if (dl) { var o = document.createElement("option"); o.value = newVal; dl.appendChild(o); }
+        }
       }
     }
   }
