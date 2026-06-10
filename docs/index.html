@@ -191,7 +191,7 @@
 
   /* つなぎこみテーブル */
   .tsunagi-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
-  .tsunagi-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  .tsunagi-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1400px; }
   .tsunagi-table thead { background: var(--surface2); position: sticky; top: 0; z-index: 1; }
   .tsunagi-table th { padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; color: var(--text2); border-bottom: 2px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
   .tsunagi-table th:hover { color: var(--accent); }
@@ -2243,29 +2243,39 @@ function renderProgressTable() {
 
   var html = '<div class="tsunagi-table-wrap"><table class="tsunagi-table">';
   html += '<thead><tr>';
-  html += '<th>担当者</th><th>オファー名</th><th>ステータス</th><th>媒体</th><th>商流</th><th>記事種別</th><th>出稿予定日</th><th>進捗状況</th>';
+  html += '<th>担当者</th><th>種別</th><th>オファー名</th><th>ステータス</th><th>案件名</th><th>商流</th><th>媒体</th><th>記事種別</th><th>担当運用者</th><th>出稿予定日</th><th>記事リリース予定日</th><th>配信開始予定日</th><th>進捗状況</th>';
   html += '</tr></thead><tbody>';
 
   filtered.forEach(function(t) {
     var st = t.localStatus || t.status || "open";
     var badgeClass = stBadgeClass(st);
     var fields = parseTaskBody(t.body);
-    var offer = fields["\u30AA\u30D5\u30A1\u30FC\u540D"] || fields["\u6848\u4EF6\u540D"] || "";
-    var media = fields["\u5A92\u4F53"] || "";
+    var shubetsu = fields["\u7A2E\u5225"] || fields["\u5C0F\u5206\u985E"] || fields["\u5927\u5206\u985E"] || "";
+    var offer = fields["\u30AA\u30D5\u30A1\u30FC\u540D"] || "";
+    var anken = fields["\u6848\u4EF6\u540D"] || fields["\u30A2\u30AB\u30A6\u30F3\u30C8\u540D"] || "";
     var flow = fields["\u5546\u6D41"] || fields["ASP"] || "";
+    var media = fields["\u5A92\u4F53"] || "";
     var articleType = fields["\u8A18\u4E8B\u7A2E\u5225"] || "";
-    var releaseDate = fields["\u51FA\u7A3F\u4E88\u5B9A\u65E5"] || fields["\u914D\u4FE1\u958B\u59CB\u4E88\u5B9A\u65E5"] || fields["\u8A18\u4E8B\u30EA\u30EA\u30FC\u30B9\u4E88\u5B9A\u65E5"] || t.limit || "";
+    var operator = fields["\u62C5\u5F53\u904B\u7528\u8005"] || fields["\u904B\u7528\u62C5\u5F53\u8005"] || fields["\u904B\u7528\u8005"] || "";
+    var shipDate = fields["\u51FA\u7A3F\u4E88\u5B9A\u65E5"] || "";
+    var articleRelease = fields["\u8A18\u4E8B\u30EA\u30EA\u30FC\u30B9\u4E88\u5B9A\u65E5"] || fields["\u8A18\u4E8B\u516C\u958B\u4E88\u5B9A\u65E5"] || "";
+    var deliveryStart = fields["\u914D\u4FE1\u958B\u59CB\u4E88\u5B9A\u65E5"] || fields["\u914D\u4FE1\u958B\u59CB\u65E5"] || t.limit || "";
     var progress = t.note || fields["\u9032\u6357\u72B6\u6CC1"] || fields["\u8A73\u7D30"] || "";
     var isDone = st === "done";
 
     html += '<tr class="' + (isDone ? 'tr-done' : '') + '" onclick="openProgressPopup(\'' + t.id + '\')">';
     html += '<td>' + esc(t.assigneeName || "") + '</td>';
-    html += '<td class="td-title" title="' + esc(t.title || "") + '">' + esc(t.title || "（タイトルなし）") + '</td>';
+    html += '<td>' + esc(shubetsu) + '</td>';
+    html += '<td class="td-title" title="' + esc(offer || t.title || "") + '">' + esc(offer || t.title || "（タイトルなし）") + '</td>';
     html += '<td class="td-status"><span class="pc-badge ' + badgeClass + '">' + stLabel(st) + '</span></td>';
-    html += '<td>' + esc(media) + '</td>';
+    html += '<td class="td-title" title="' + esc(anken) + '">' + esc(anken) + '</td>';
     html += '<td>' + esc(flow) + '</td>';
+    html += '<td>' + esc(media) + '</td>';
     html += '<td>' + esc(articleType) + '</td>';
-    html += '<td>' + esc(releaseDate) + '</td>';
+    html += '<td>' + esc(operator) + '</td>';
+    html += '<td>' + esc(shipDate) + '</td>';
+    html += '<td>' + esc(articleRelease) + '</td>';
+    html += '<td>' + esc(deliveryStart) + '</td>';
     html += '<td class="td-progress" title="' + esc(progress) + '">' + esc(progress) + '</td>';
     html += '</tr>';
   });
