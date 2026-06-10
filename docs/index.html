@@ -2263,6 +2263,36 @@ function renderProgressTable() {
     media: Object.keys(_tsunagiOpts.media).sort(),
     anken: Object.keys(_tsunagiOpts.anken).sort()
   };
+  // スプシDBから商流・媒体・案件名の全選択肢を取得してマージ
+  if (!window._tsunagiSheetLoaded) {
+    window._tsunagiSheetLoaded = true;
+    var sid = typeof SHEET_ID !== "undefined" ? SHEET_ID : "";
+    if (sid) {
+      var ranges = [
+        { key: "flow", range: "DB!T7:T150" },
+        { key: "media", range: "DB!B7:B15" },
+        { key: "anken", range: "DB!O7:O150" }
+      ];
+      ranges.forEach(function(r) {
+        apiCall("GET", "/api/sheet-options?id=" + encodeURIComponent(sid) + "&range=" + encodeURIComponent(r.range))
+          .then(function(opts) {
+            if (!Array.isArray(opts)) return;
+            var cur = window._tsunagiSelectOpts[r.key] || [];
+            var set = {};
+            cur.forEach(function(v) { set[v] = true; });
+            opts.forEach(function(v) { if (v && !set[v]) { cur.push(v); set[v] = true; } });
+            cur.sort();
+            window._tsunagiSelectOpts[r.key] = cur;
+            // datalistも更新
+            var dl = document.getElementById("tsunagi-dl-" + r.key);
+            if (dl) {
+              dl.innerHTML = "";
+              cur.forEach(function(v) { var o = document.createElement("option"); o.value = v; dl.appendChild(o); });
+            }
+          }).catch(function() {});
+      });
+    }
+  }
 
   var html = '<div class="tsunagi-table-wrap"><table class="tsunagi-table">';
   html += '<thead><tr>';
